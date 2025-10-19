@@ -115,7 +115,7 @@ const createAppTheme = (mode: 'light' | 'dark') => {
 };
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'locations' | 'tags' | 'files'>('files');
+  const [sidebarView, setSidebarView] = useState<'locations' | 'tags' | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -137,20 +137,18 @@ const App: React.FC = () => {
   };
 
   const menuItems = [
-    { id: 'files', label: '文件浏览器', icon: <FolderIcon />, view: 'files' as const },
     { id: 'locations', label: '位置管理', icon: <HomeIcon />, view: 'locations' as const },
     { id: 'tags', label: '标签管理', icon: <LabelIcon />, view: 'tags' as const },
   ];
 
-  const renderMainContent = () => {
-    switch (currentView) {
+  const renderSidebarContent = () => {
+    switch (sidebarView) {
       case 'locations':
         return <LocationManager />;
       case 'tags':
         return <TagManager />;
-      case 'files':
       default:
-        return <FileExplorer />;
+        return null;
     }
   };
 
@@ -243,8 +241,8 @@ const App: React.FC = () => {
                 <ListItem
                   key={item.id}
                   button
-                  selected={currentView === item.view}
-                  onClick={() => setCurrentView(item.view)}
+                  selected={sidebarView === item.view}
+                  onClick={() => setSidebarView(sidebarView === item.view ? null : item.view)}
                 >
                   <ListItemIcon sx={{ color: 'inherit' }}>
                     {item.icon}
@@ -252,7 +250,7 @@ const App: React.FC = () => {
                   <ListItemText 
                     primary={item.label}
                     primaryTypographyProps={{
-                      fontWeight: currentView === item.view ? 600 : 400,
+                      fontWeight: sidebarView === item.view ? 600 : 400,
                     }}
                   />
                 </ListItem>
@@ -261,25 +259,9 @@ const App: React.FC = () => {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Quick Stats */}
-            <Box sx={{ p: 2 }}>
-              <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                快速统计
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Chip
-                  size="small"
-                  label="文件: 0"
-                  variant="outlined"
-                  icon={<FolderIcon />}
-                />
-                <Chip
-                  size="small"
-                  label="标签: 0"
-                  variant="outlined"
-                  icon={<LabelIcon />}
-                />
-              </Box>
+            {/* Sidebar Content */}
+            <Box sx={{ p: 1 }}>
+              {renderSidebarContent()}
             </Box>
           </Box>
         </Drawer>
@@ -307,7 +289,7 @@ const App: React.FC = () => {
                 backgroundColor: theme.palette.background.paper,
               }}
             >
-              {renderMainContent()}
+              <FileExplorer />
             </Paper>
           </Box>
         </Box>
