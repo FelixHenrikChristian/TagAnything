@@ -54,10 +54,28 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     if (savedLocations) {
       const parsedLocations = JSON.parse(savedLocations);
       setLocations(parsedLocations);
-      if (parsedLocations.length > 0) {
+      
+      // 检查是否有选中的位置
+      const selectedLocation = localStorage.getItem('tagAnything_selectedLocation');
+      if (selectedLocation) {
+        const parsedSelectedLocation = JSON.parse(selectedLocation);
+        handleLocationSelect(parsedSelectedLocation);
+      } else if (parsedLocations.length > 0) {
         handleLocationSelect(parsedLocations[0]);
       }
     }
+
+    // 监听位置选择事件
+    const handleLocationSelectedEvent = (event: CustomEvent) => {
+      const selectedLocation = event.detail;
+      handleLocationSelect(selectedLocation);
+    };
+
+    window.addEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
+
+    return () => {
+      window.removeEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
+    };
   }, []);
 
   const handleLocationSelect = async (location: Location) => {

@@ -39,12 +39,21 @@ const LocationManager: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [locationName, setLocationName] = useState('');
+  const [selectedFolderPath, setSelectedFolderPath] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
   // 加载保存的数据
   useEffect(() => {
     const savedLocations = localStorage.getItem('tagAnything_locations');
     if (savedLocations) {
       setLocations(JSON.parse(savedLocations));
+    }
+    
+    // 加载选中的位置
+    const savedSelectedLocation = localStorage.getItem('tagAnything_selectedLocation');
+    if (savedSelectedLocation) {
+      const parsedLocation = JSON.parse(savedSelectedLocation);
+      setSelectedLocationId(parsedLocation.id);
     }
   }, []);
 
@@ -53,22 +62,31 @@ const LocationManager: React.FC = () => {
     localStorage.setItem('tagAnything_locations', JSON.stringify(locations));
   }, [locations]);
 
-  const handleAddLocation = async () => {
+  const handleSelectFolder = async () => {
     try {
       const folderPath = await window.electron.selectFolder();
+      
       if (folderPath) {
         const defaultName = folderPath.split(/[/\\]/).pop() || 'Unknown';
-        const newLocation: Location = {
-          id: Date.now().toString(),
-          name: locationName || defaultName,
-          path: folderPath,
-        };
-        setLocations(prev => [...prev, newLocation]);
-        setOpenDialog(false);
-        setLocationName('');
+        setLocationName(defaultName);
+        setSelectedFolderPath(folderPath);
       }
     } catch (error) {
       console.error('Error selecting folder:', error);
+    }
+  };
+
+  const handleAddLocation = () => {
+    if (selectedFolderPath && locationName.trim()) {
+      const newLocation: Location = {
+        id: Date.now().toString(),
+        name: locationName.trim(),
+        path: selectedFolderPath,
+      };
+      setLocations(prev => [...prev, newLocation]);
+      setOpenDialog(false);
+      setLocationName('');
+      setSelectedFolderPath('');
     }
   };
 
@@ -97,6 +115,19 @@ const LocationManager: React.FC = () => {
     setLocations(prev => prev.filter(loc => loc.id !== locationId));
   };
 
+  const handleSelectLocation = (location: Location) => {
+    // 设置选中的位置到localStorage，供FileExplorer使用
+    localStorage.setItem('tagAnything_selectedLocation', JSON.stringify(location));
+    
+    // 更新本地选中状态
+    setSelectedLocationId(location.id);
+    
+    // 触发自定义事件通知FileExplorer更新
+    window.dispatchEvent(new CustomEvent('locationSelected', { 
+      detail: location 
+    }));
+  };
+
   const handleOpenDialog = () => {
     setEditingLocation(null);
     setLocationName('');
@@ -107,6 +138,7 @@ const LocationManager: React.FC = () => {
     setOpenDialog(false);
     setEditingLocation(null);
     setLocationName('');
+    setSelectedFolderPath('');
   };
 
   const getLocationIcon = (path: string) => {
@@ -170,18 +202,38 @@ const LocationManager: React.FC = () => {
             </Button>
           </Box>
         ) : (
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 2 }}>
-            {locations.map((location) => (
-              <Card
-                key={location.id}
-                sx={{
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: 4,
-                  },
-                }}
-              >
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: {
+              xs: '1fr', // 小屏幕单列
+              sm: 'repeat(auto-fit, minmax(160px, 1fr))', // 中等屏幕自适应
+              md: 'repeat(auto-fit, minmax(200px, 1fr))', // 大屏幕自适应
+            },
+            gap: 2,
+            width: '100%',
+            maxWidth: '100%'
+          }}>
+            {locations.map((location) => {
+              const isSelected = selectedLocationId === location.id;
+              return (
+                <Card
+                  key={location.id}
+                  sx={{
+                    transition: 'all 0.2s',
+                    width: '100%',
+                    minWidth: 0,
+                    cursor: 'pointer',
+                    border: isSelected ? 2 : 1,
+                    borderColor: isSelected ? 'primary.main' : 'divider',
+                    bgcolor: isSelected ? 'primary.50' : 'background.paper',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: 4,
+                      bgcolor: isSelected ? 'primary.100' : 'action.hover',
+                    },
+                  }}
+                  onClick={() => handleSelectLocation(location)}
+                >
                 <CardContent sx={{ pb: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                     <Avatar
@@ -190,11 +242,12 @@ const LocationManager: React.FC = () => {
                         mr: 2,
                         width: 48,
                         height: 48,
+                        flexShrink: 0, // 防止头像被压缩
                       }}
                     >
                       {getLocationIcon(location.path)}
                     </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                       <Typography
                         variant="h6"
                         sx={{
@@ -222,21 +275,6 @@ const LocationManager: React.FC = () => {
                       </Tooltip>
                     </Box>
                   </Box>
-
-                  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                    <Chip
-                      size="small"
-                      icon={<FolderIcon />}
-                      label="文件夹"
-                      variant="outlined"
-                    />
-                    <Chip
-                      size="small"
-                      label="活跃"
-                      color="success"
-                      variant="outlined"
-                    />
-                  </Box>
                 </CardContent>
 
                 <Divider />
@@ -246,7 +284,10 @@ const LocationManager: React.FC = () => {
                     <Tooltip title="编辑位置">
                       <IconButton
                         size="small"
-                        onClick={() => handleEditLocation(location)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditLocation(location);
+                        }}
                       >
                         <EditIcon />
                       </IconButton>
@@ -255,7 +296,10 @@ const LocationManager: React.FC = () => {
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => handleDeleteLocation(location.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteLocation(location.id);
+                        }}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -265,13 +309,17 @@ const LocationManager: React.FC = () => {
                   <Button
                     size="small"
                     startIcon={<FolderOpenIcon />}
-                    onClick={() => window.electron.openFile(location.path)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.electron.openFile(location.path);
+                    }}
                   >
                     打开
                   </Button>
                 </CardActions>
               </Card>
-            ))}
+              );
+            })}
           </Box>
         )}
       </Box>
@@ -301,10 +349,17 @@ const LocationManager: React.FC = () => {
             placeholder="输入位置的自定义名称"
             sx={{ mt: 2 }}
           />
+          {!editingLocation && selectedFolderPath && (
+            <Typography variant="body2" color="primary" sx={{ mt: 1, fontSize: '0.875rem' }}>
+              已选择: {selectedFolderPath}
+            </Typography>
+          )}
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             {editingLocation
               ? '修改位置的显示名称'
-              : '选择文件夹后，您可以自定义位置的显示名称'
+              : selectedFolderPath 
+                ? '您可以自定义位置的显示名称，然后点击"添加"按钮'
+                : '请先点击"选择文件夹"按钮选择要管理的文件夹'
             }
           </Typography>
         </DialogContent>
@@ -312,12 +367,23 @@ const LocationManager: React.FC = () => {
           <Button onClick={handleCloseDialog}>
             取消
           </Button>
+          {!editingLocation && (
+            <Button
+              onClick={handleSelectFolder}
+              variant="outlined"
+              startIcon={<FolderIcon />}
+              sx={{ borderRadius: 2 }}
+            >
+              选择文件夹
+            </Button>
+          )}
           <Button
             onClick={editingLocation ? handleSaveEdit : handleAddLocation}
             variant="contained"
+            disabled={!editingLocation && (!selectedFolderPath || !locationName.trim())}
             sx={{ borderRadius: 2 }}
           >
-            {editingLocation ? '保存' : '选择文件夹'}
+            {editingLocation ? '保存' : '添加'}
           </Button>
         </DialogActions>
       </Dialog>
