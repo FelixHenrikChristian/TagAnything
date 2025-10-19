@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="script-src 'self' 'unsafe-inline';"
+    />
+    <title>TagAnything</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = './dist/style.css';
+      // HACK: Writing the script path should be done with webpack
+      document.getElementsByTagName('head')[0].appendChild(link);
+    </script>
+  </body>
+</html>
