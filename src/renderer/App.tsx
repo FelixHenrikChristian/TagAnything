@@ -110,6 +110,67 @@ const createAppTheme = (mode: 'light' | 'dark') => {
           },
         },
       },
+      MuiCssBaseline: {
+        styleOverrides: {
+          '*': {
+            // 自定义滚动条样式
+            '&::-webkit-scrollbar': {
+              width: '8px',
+              height: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: isLight ? '#f1f1f1' : '#2a2a2a',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: isLight ? '#c1c1c1' : '#555',
+              borderRadius: '4px',
+              '&:hover': {
+                backgroundColor: isLight ? '#a8a8a8' : '#777',
+              },
+              '&:active': {
+                backgroundColor: isLight ? '#999' : '#888',
+              },
+            },
+            '&::-webkit-scrollbar-corner': {
+              backgroundColor: isLight ? '#f1f1f1' : '#2a2a2a',
+            },
+          },
+          // 为特定容器添加更精细的滚动条样式
+          '.MuiBox-root': {
+            '&::-webkit-scrollbar': {
+              width: '6px',
+              height: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)',
+              borderRadius: '3px',
+              '&:hover': {
+                backgroundColor: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)',
+              },
+            },
+          },
+          // 为Drawer添加特殊的滚动条样式
+          '.MuiDrawer-paper': {
+            '&::-webkit-scrollbar': {
+              width: '4px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: isLight ? 'rgba(29, 209, 159, 0.3)' : 'rgba(59, 200, 255, 0.3)',
+              borderRadius: '2px',
+              '&:hover': {
+                backgroundColor: isLight ? 'rgba(29, 209, 159, 0.5)' : 'rgba(59, 200, 255, 0.5)',
+              },
+            },
+          },
+        },
+      },
     },
   });
 };
