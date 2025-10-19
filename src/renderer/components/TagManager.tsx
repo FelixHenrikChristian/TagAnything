@@ -213,16 +213,28 @@ const TagManager: React.FC = () => {
 
   const handleSaveTagEdit = () => {
     if (editingTag && tagName.trim()) {
-      setTagGroups(prev =>
-        prev.map(group => ({
+      setTagGroups(prev => {
+        // 首先从所有标签组中移除该标签
+        const groupsWithoutTag = prev.map(group => ({
           ...group,
-          tags: group.tags.map(tag =>
-            tag.id === editingTag.id
-              ? { ...tag, name: tagName.trim(), color: tagColor, groupId: selectedGroupId }
-              : tag
-          )
-        }))
-      );
+          tags: group.tags.filter(tag => tag.id !== editingTag.id)
+        }));
+        
+        // 然后将更新后的标签添加到新的标签组中
+        return groupsWithoutTag.map(group =>
+          group.id === selectedGroupId
+            ? {
+                ...group,
+                tags: [...group.tags, {
+                  ...editingTag,
+                  name: tagName.trim(),
+                  color: tagColor,
+                  groupId: selectedGroupId
+                }]
+              }
+            : group
+        );
+      });
       setEditingTag(null);
       setOpenTagDialog(false);
       resetTagForm();
@@ -420,19 +432,30 @@ const TagManager: React.FC = () => {
             )}
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {filteredGroups.map((group) => (
-              <Accordion key={group.id} defaultExpanded>
+              <Accordion key={group.id} defaultExpanded sx={{ 
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                border: '1px solid',
+                borderColor: 'divider',
+                '&:not(:last-child)': { marginBottom: 0 },
+                '&.Mui-expanded': { margin: 0 }
+              }}>
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
                   sx={{
+                    minHeight: 40,
+                    '&.Mui-expanded': { minHeight: 40 },
                     '& .MuiAccordionSummary-content': {
                       alignItems: 'center',
+                      margin: '8px 0',
+                      '&.Mui-expanded': { margin: '8px 0' }
                     },
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, fontSize: '1.1rem' }}>
                       {group.name}
                     </Typography>
                     <IconButton
@@ -446,57 +469,40 @@ const TagManager: React.FC = () => {
                     </IconButton>
                   </Box>
                 </AccordionSummary>
-                <AccordionDetails>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                     {group.tags.length === 0 ? (
-                      <Box sx={{ textAlign: 'center', py: 4 }}>
-                        <LocalOfferIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                        <Typography variant="body2" color="text.secondary">
+                      <Box sx={{ textAlign: 'center', py: 2 }}>
+                        <LocalOfferIcon sx={{ fontSize: 32, color: 'text.secondary', mb: 0.5 }} />
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                           该标签组还没有标签
                         </Typography>
                       </Box>
                     ) : (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {group.tags.map((tag) => (
-                          <Box key={tag.id} sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                            <Chip
-                              label={tag.name}
-                              onClick={() => handleEditTag(tag)}
-                              sx={{
+                          <Chip
+                            key={tag.id}
+                            label={tag.name}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenTagMenu(e, tag);
+                            }}
+                            size="small"
+                            sx={{
+                              bgcolor: tag.color,
+                              color: 'white',
+                              fontWeight: 500,
+                              borderRadius: 0.8,
+                              height: 24,
+                              fontSize: '0.8rem',
+                              cursor: 'pointer',
+                              '&:hover': {
                                 bgcolor: tag.color,
-                                color: 'white',
-                                fontWeight: 500,
-                                borderRadius: 2,
-                                pr: 0.5,
-                                '&:hover': {
-                                  bgcolor: tag.color,
-                                  opacity: 0.8,
-                                },
-                              }}
-                            />
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenTagMenu(e, tag);
-                              }}
-                              sx={{
-                                position: 'absolute',
-                                right: 4,
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                width: 16,
-                                height: 16,
-                                color: 'rgba(255, 255, 255, 0.7)',
-                                '&:hover': {
-                                  color: 'white',
-                                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                                },
-                              }}
-                            >
-                              <MoreVertIcon sx={{ fontSize: 12 }} />
-                            </IconButton>
-                          </Box>
+                                opacity: 0.8,
+                              },
+                            }}
+                          />
                         ))}
                       </Box>
                     )}
@@ -714,6 +720,23 @@ const TagManager: React.FC = () => {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleCloseMenu}
+        sx={{
+          '& .MuiPaper-root': {
+            minWidth: 140,
+            maxWidth: 180,
+          },
+          '& .MuiMenuItem-root': {
+            fontSize: '0.85rem',
+            minHeight: 36,
+            paddingY: 0.5,
+          },
+          '& .MuiListItemIcon-root': {
+            minWidth: 32,
+          },
+          '& .MuiSvgIcon-root': {
+            fontSize: '1rem',
+          },
+        }}
       >
         {menuType === 'group' && selectedGroup && (
           [
