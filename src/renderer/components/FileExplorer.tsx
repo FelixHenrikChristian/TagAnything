@@ -18,6 +18,10 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  List,
+  ListItem,
+  ListItemAvatar,
+  Slider,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -31,6 +35,8 @@ import {
   Delete as DeleteIcon,
   FileCopy as CopyIcon,
   Label as LabelIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
 } from '@mui/icons-material';
 import { Location, FileItem } from '../types';
 
@@ -42,6 +48,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
   const [currentPath, setCurrentPath] = useState<string>('');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+  const [gridSize, setGridSize] = useState<number>(3); // 1=大, 2=中, 3=小, 4=超小
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -216,57 +223,146 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const renderGridView = () => (
-    <Grid container spacing={2}>
-      {files.map((file) => (
-        <Grid item xs={12} sm={6} md={4} lg={3} key={file.path}>
-          <Card
-            sx={{
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: 4,
-              },
-            }}
-            onClick={() => {
-              if (file.isDirectory) {
-                handleNavigate(file.path);
-              } else {
-                handleFileOpen(file);
-              }
-            }}
-            onContextMenu={(e) => handleContextMenu(e, file)}
-          >
-            <CardContent sx={{ textAlign: 'center', p: 2 }}>
-              <Box sx={{ mb: 1 }}>
-                {getFileIcon(file)}
-              </Box>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 500,
-                  mb: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {file.name}
-              </Typography>
-              {!file.isDirectory && (
-                <Typography variant="caption" color="text.secondary">
-                  {formatFileSize(file.size || 0)}
+  const getGridItemSize = () => {
+    switch (gridSize) {
+      case 1: return { xs: 12, sm: 6, md: 3, lg: 2 }; // 超大
+      case 2: return { xs: 12, sm: 6, md: 4, lg: 3 }; // 大
+      case 3: return { xs: 12, sm: 6, md: 4, lg: 4 }; // 中 (默认)
+      case 4: return { xs: 6, sm: 4, md: 3, lg: 3 }; // 小
+      case 5: return { xs: 6, sm: 3, md: 2, lg: 2 }; // 超小
+      default: return { xs: 12, sm: 6, md: 4, lg: 4 };
+    }
+  };
+
+  const getIconSize = () => {
+    switch (gridSize) {
+      case 1: return 80; // 超大
+      case 2: return 64; // 大
+      case 3: return 48; // 中 (默认)
+      case 4: return 36; // 小
+      case 5: return 28; // 超小
+      default: return 48;
+    }
+  };
+
+  const renderGridView = () => {
+    const gridItemSize = getGridItemSize();
+    const iconSize = getIconSize();
+    
+    return (
+      <Grid container spacing={2}>
+        {files.map((file) => (
+          <Grid item {...gridItemSize} key={file.path}>
+            <Card
+              sx={{
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4,
+                },
+              }}
+              onClick={() => {
+                if (file.isDirectory) {
+                  handleNavigate(file.path);
+                } else {
+                  handleFileOpen(file);
+                }
+              }}
+              onContextMenu={(e) => handleContextMenu(e, file)}
+            >
+              <CardContent sx={{ textAlign: 'center', p: 2 }}>
+                <Box sx={{ mb: 1 }}>
+                  {file.isDirectory ? (
+                    <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
+                  ) : (
+                    <FileIcon sx={{ fontSize: iconSize, color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
+                  )}
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    mb: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {file.name}
                 </Typography>
+                {!file.isDirectory && (
+                  <Typography variant="caption" color="text.secondary">
+                    {formatFileSize(file.size || 0)}
+                  </Typography>
+                )}
+                <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Chip size="small" label="标签1" variant="outlined" />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    );
+  };
+
+  const renderListView = () => (
+    <List>
+      {files.map((file) => (
+        <ListItem
+          key={file.path}
+          button
+          onClick={() => {
+            if (file.isDirectory) {
+              handleNavigate(file.path);
+            } else {
+              handleFileOpen(file);
+            }
+          }}
+          onContextMenu={(e) => handleContextMenu(e, file)}
+          sx={{
+            borderRadius: 1,
+            mb: 0.5,
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+          }}
+        >
+          <ListItemAvatar>
+            <Avatar sx={{ bgcolor: 'transparent' }}>
+              {file.isDirectory ? (
+                <FolderIcon sx={{ color: '#ffa726' }} />
+              ) : (
+                <FileIcon sx={{ color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
               )}
-              <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+            </Avatar>
+          </ListItemAvatar>
+          <ListItemText
+            primary={file.name}
+            secondary={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {!file.isDirectory && (
+                  <Typography variant="caption" color="text.secondary">
+                    {formatFileSize(file.size || 0)}
+                  </Typography>
+                )}
                 <Chip size="small" label="标签1" variant="outlined" />
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+            }
+          />
+          <IconButton
+            edge="end"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleContextMenu(e, file);
+            }}
+          >
+            <MoreIcon />
+          </IconButton>
+        </ListItem>
       ))}
-    </Grid>
+    </List>
   );
 
   if (!currentLocation) {
@@ -300,19 +396,52 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
           </Typography>
         </Box>
 
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={(_, newMode) => newMode && setViewMode(newMode)}
-          size="small"
-        >
-          <ToggleButton value="grid">
-            <GridViewIcon />
-          </ToggleButton>
-          <ToggleButton value="list">
-            <ListViewIcon />
-          </ToggleButton>
-        </ToggleButtonGroup>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Grid Size Slider (only show in grid view) */}
+          {viewMode === 'grid' && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
+              <IconButton
+                size="small"
+                onClick={() => setGridSize(Math.min(5, gridSize + 1))}
+                disabled={gridSize >= 5}
+                sx={{ p: 0.5 }}
+              >
+                <ZoomOutIcon fontSize="small" />
+              </IconButton>
+              <Slider
+                value={6 - gridSize} // 反转值：1变成5，5变成1
+                onChange={(_, newValue) => setGridSize(6 - (newValue as number))} // 反转回来
+                min={1}
+                max={5}
+                step={1}
+                size="small"
+                sx={{ width: 80 }}
+              />
+              <IconButton
+                size="small"
+                onClick={() => setGridSize(Math.max(1, gridSize - 1))}
+                disabled={gridSize <= 1}
+                sx={{ p: 0.5 }}
+              >
+                <ZoomInIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, newMode) => newMode && setViewMode(newMode)}
+            size="small"
+          >
+            <ToggleButton value="grid">
+              <GridViewIcon />
+            </ToggleButton>
+            <ToggleButton value="list">
+              <ListViewIcon />
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
       </Box>
 
       {/* Breadcrumbs */}
@@ -334,7 +463,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
         />
       </Box>
 
-      {/* File Grid */}
+      {/* File Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {files.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -343,7 +472,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
             </Typography>
           </Box>
         ) : (
-          renderGridView()
+          viewMode === 'grid' ? renderGridView() : renderListView()
         )}
       </Box>
 
