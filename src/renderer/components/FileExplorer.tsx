@@ -37,12 +37,23 @@ import {
   Label as LabelIcon,
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { Location, FileItem } from '../types';
+import { Location, FileItem, Tag, TagGroup } from '../types';
+import { 
+  parseTagsFromFilename, 
+  createTagsFromNames, 
+  createTemporaryTags,
+  getDisplayName, 
+  getFileTypeColor, 
+  formatFileSize 
+} from '../utils/fileTagParser';
 
-interface FileExplorerProps {}
+interface FileExplorerProps {
+  tagDisplayStyle?: 'original' | 'library';
+}
 
-const FileExplorer: React.FC<FileExplorerProps> = () => {
+const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
@@ -54,6 +65,10 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     mouseY: number;
     file: FileItem | null;
   } | null>(null);
+  
+  // 标签相关状态
+  const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
+  const [fileTags, setFileTags] = useState<Map<string, Tag[]>>(new Map());
 
   // 加载保存的数据
   useEffect(() => {
@@ -61,6 +76,12 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     if (savedLocations) {
       const parsedLocations = JSON.parse(savedLocations);
       setLocations(parsedLocations);
+
+      // 先尝试加载标签组，避免后续解析时为空
+      const savedTagGroups = localStorage.getItem('tagAnything_tagGroups');
+      if (savedTagGroups) {
+        setTagGroups(JSON.parse(savedTagGroups));
+      }
       
       // 检查是否有选中的位置
       const selectedLocation = localStorage.getItem('tagAnything_selectedLocation');
@@ -72,7 +93,23 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
       }
     }
 
-    // 监听位置选择事件
+    // 如果没有标签组，创建默认标签组
+    if (tagGroups.length === 0) {
+      const savedTagGroups = localStorage.getItem('tagAnything_tagGroups');
+      if (savedTagGroups) {
+        setTagGroups(JSON.parse(savedTagGroups));
+      } else {
+        const defaultGroup: TagGroup = {
+          id: 'default',
+          name: '默认标签组',
+          defaultColor: '#2196f3',
+          description: '系统默认标签组',
+          tags: []
+        };
+        setTagGroups([defaultGroup]);
+      }
+    }
+
     const handleLocationSelectedEvent = (event: CustomEvent) => {
       const selectedLocation = event.detail;
       handleLocationSelect(selectedLocation);
@@ -85,10 +122,29 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     };
   }, []);
 
+  // 读取最新标签库（优先localStorage）
+  const getEffectiveTagGroups = (): TagGroup[] => {
+    const savedTagGroups = localStorage.getItem('tagAnything_tagGroups');
+    if (savedTagGroups) {
+      try {
+        return JSON.parse(savedTagGroups);
+      } catch {
+        return tagGroups;
+      }
+    }
+    return tagGroups;
+  };
+
   const handleLocationSelect = async (location: Location) => {
+    // 确保使用最新标签库
+    const effectiveGroups = getEffectiveTagGroups();
+    setTagGroups(effectiveGroups);
+
     setCurrentLocation(location);
     setCurrentPath(location.path);
-    await loadFiles(location.path);
+    await loadFiles(location.path, effectiveGroups);
+    // 递归扫描所有文件以解析标签
+    await scanAllFilesForTags(location.path, effectiveGroups);
   };
 
   const handleNavigate = async (path: string) => {
@@ -96,13 +152,132 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     await loadFiles(path);
   };
 
-  const loadFiles = async (path: string) => {
+  const loadFiles = async (path: string, groups?: TagGroup[]) => {
     try {
       const fileList = await window.electron.getFiles(path);
       setFiles(fileList);
+      // 解析文件标签并更新标签系统（使用传入的标签库或当前状态）
+      parseFileTagsAndUpdateSystem(fileList, groups);
     } catch (error) {
       console.error('Error loading files:', error);
       setFiles([]);
+    }
+  };
+
+  // 递归扫描所有文件以解析标签
+  const scanAllFilesForTags = async (rootPath: string, groups?: TagGroup[]) => {
+    try {
+      console.log('开始递归扫描文件标签...');
+      const allFiles = await window.electron.getAllFiles(rootPath);
+      console.log(`扫描到 ${allFiles.length} 个文件和文件夹`);
+
+      const filesOnly = allFiles.filter(file => !file.isDirectory);
+      console.log(`其中 ${filesOnly.length} 个文件`);
+
+      const newFileTags = new Map<string, Tag[]>();
+
+      filesOnly.forEach(file => {
+        const tagNames = parseTagsFromFilename(file.name);
+        if (tagNames.length > 0) {
+          const usedGroups = groups ?? tagGroups;
+          const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, usedGroups);
+          const temporaryTags = createTemporaryTags(unmatchedTags);
+          const allTags = [...matchedTags, ...temporaryTags];
+          if (allTags.length > 0) {
+            newFileTags.set(file.path, allTags);
+          }
+        }
+      });
+
+      const updatedFileTags = new Map(fileTags);
+      newFileTags.forEach((tags, path) => {
+        updatedFileTags.set(path, tags);
+      });
+      setFileTags(updatedFileTags);
+
+      console.log('文件标签扫描完成');
+    } catch (error) {
+      console.error('递归扫描文件标签时出错:', error);
+    }
+  };
+
+  // 解析文件标签，只匹配现有标签库，不修改标签库
+  const parseFileTagsAndUpdateSystem = (fileList: FileItem[], groups?: TagGroup[]) => {
+    const newFileTags = new Map<string, Tag[]>();
+
+    fileList.forEach(file => {
+      if (!file.isDirectory) {
+        const tagNames = parseTagsFromFilename(file.name);
+        if (tagNames.length > 0) {
+          const usedGroups = groups ?? tagGroups;
+          const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, usedGroups);
+          const temporaryTags = createTemporaryTags(unmatchedTags);
+          const allTags = [...matchedTags, ...temporaryTags];
+          if (allTags.length > 0) {
+            newFileTags.set(file.path, allTags);
+          }
+        }
+      }
+    });
+
+    setFileTags(newFileTags);
+  };
+
+  // 刷新当前目录的文件和标签
+  const handleRefresh = async () => {
+    if (currentLocation) {
+      const effectiveGroups = getEffectiveTagGroups();
+      setTagGroups(effectiveGroups);
+
+      // 重新加载当前路径的文件，而不是重置到根位置
+      await loadFiles(currentPath, effectiveGroups);
+      // 重新扫描当前位置的所有文件以解析标签
+      await scanAllFilesForTags(currentLocation.path, effectiveGroups);
+    }
+  };
+
+  // 重复的旧版 loadFiles 已移除，保留支持 groups 的实现
+
+  // 递归扫描所有文件以解析标签
+  // 重复的旧版 scanAllFilesForTags 已移除，保留支持 groups 的实现
+
+  // 解析文件标签，只匹配现有标签库，不修改标签库
+  // 重复的旧版 parseFileTagsAndUpdateSystem 已移除，保留支持 groups 的实现
+
+  // 获取文件的标签
+  const getFileTags = (file: FileItem): Tag[] => {
+    return fileTags.get(file.path) || [];
+  };
+
+  // 获取标签样式
+  const getTagStyle = (tag: Tag) => {
+    if (tag.groupId === 'temporary') {
+      // 临时标签始终使用虚线边框样式
+      return {
+        variant: 'filled' as const,
+        backgroundColor: tag.color + '40',
+        borderColor: tag.color,
+        color: '#fff',
+        border: '1px dashed ' + tag.color,
+      };
+    }
+
+    if (tagDisplayStyle === 'library') {
+      // 标签库样式：使用标签的背景色和文字色
+      return {
+        variant: 'filled' as const,
+        backgroundColor: tag.color,
+        color: tag.textcolor || '#fff',
+        borderColor: tag.color,
+      };
+    } else {
+      // 原始样式：浅色背景，彩色边框和文字
+      return {
+        variant: 'outlined' as const,
+        backgroundColor: tag.color + '20',
+        borderColor: tag.color,
+        color: tag.color,
+      };
     }
   };
 
@@ -138,6 +313,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     setContextMenu(null);
   };
 
+  // 移除重复的getFileTypeColor函数，使用导入的版本
   const getFileIcon = (file: FileItem) => {
     if (file.isDirectory) {
       return <FolderIcon sx={{ fontSize: 48, color: '#ffa726' }} />;
@@ -147,25 +323,6 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     const iconColor = getFileTypeColor(ext);
     
     return <FileIcon sx={{ fontSize: 48, color: iconColor }} />;
-  };
-
-  const getFileTypeColor = (extension?: string) => {
-    const colorMap: { [key: string]: string } = {
-      'pdf': '#f44336',
-      'doc': '#2196f3',
-      'docx': '#2196f3',
-      'txt': '#757575',
-      'jpg': '#4caf50',
-      'jpeg': '#4caf50',
-      'png': '#4caf50',
-      'gif': '#4caf50',
-      'mp4': '#9c27b0',
-      'avi': '#9c27b0',
-      'mp3': '#ff9800',
-      'wav': '#ff9800',
-    };
-    
-    return colorMap[extension || ''] || '#607d8b';
   };
   const renderBreadcrumbs = () => {
     if (!currentLocation || !currentPath) return null;
@@ -215,14 +372,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     );
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
+  // 移除重复的formatFileSize函数，使用导入的版本
   const getGridItemSize = () => {
     switch (gridSize) {
       case 1: return { xs: 12, sm: 6, md: 3, lg: 2 }; // 超大
@@ -289,7 +439,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {file.name}
+                  {getDisplayName(file.name)}
                 </Typography>
                 {!file.isDirectory && (
                   <Typography variant="caption" color="text.secondary">
@@ -297,8 +447,29 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                   </Typography>
                 )}
                 <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-                  <Chip size="small" label="标签1" variant="outlined" />
-                </Box>
+                   {getFileTags(file).map((tag, index) => {
+                     const tagStyle = getTagStyle(tag);
+                     return (
+                       <Chip
+                         key={index}
+                         size="small"
+                         label={tag.name}
+                         variant={tagStyle.variant}
+                         sx={{
+                           backgroundColor: tagStyle.backgroundColor,
+                           borderColor: tagStyle.borderColor,
+                           color: tagStyle.color,
+                           fontSize: '0.65rem',
+                           height: '18px',
+                           border: tagStyle.border,
+                           '& .MuiChip-label': {
+                             px: 0.5
+                           }
+                         }}
+                       />
+                     );
+                   })}
+                 </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -339,15 +510,38 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
             </Avatar>
           </ListItemAvatar>
           <ListItemText
-            primary={file.name}
+            primary={getDisplayName(file.name)}
             secondary={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 {!file.isDirectory && (
                   <Typography variant="caption" color="text.secondary">
                     {formatFileSize(file.size || 0)}
                   </Typography>
                 )}
-                <Chip size="small" label="标签1" variant="outlined" />
+                <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                  {getFileTags(file).map((tag, index) => {
+                    const tagStyle = getTagStyle(tag);
+                    return (
+                      <Chip
+                        key={index}
+                        size="small"
+                        label={tag.name}
+                        variant={tagStyle.variant}
+                        sx={{
+                          backgroundColor: tagStyle.backgroundColor,
+                          borderColor: tagStyle.borderColor,
+                          color: tagStyle.color,
+                          fontSize: '0.7rem',
+                          height: '20px',
+                          border: tagStyle.border,
+                          '& .MuiChip-label': {
+                            px: 0.5
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
               </Box>
             }
           />
@@ -397,6 +591,15 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Refresh Button */}
+          <IconButton 
+            onClick={handleRefresh}
+            title="刷新文件和标签"
+            size="small"
+          >
+            <RefreshIcon />
+          </IconButton>
+
           {/* Grid Size Slider (only show in grid view) */}
           {viewMode === 'grid' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>

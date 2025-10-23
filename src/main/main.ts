@@ -138,6 +138,52 @@ ipcMain.handle('get-files', async (event, folderPath: string) => {
   }
 });
 
+// 递归获取所有文件（包括子目录中的文件）
+ipcMain.handle('get-all-files', async (event, folderPath: string) => {
+  const fs = require('fs');
+  const path = require('path');
+  
+  const getAllFiles = (dirPath: string): any[] => {
+    const files: any[] = [];
+    
+    try {
+      const items = fs.readdirSync(dirPath);
+      
+      for (const item of items) {
+        const fullPath = path.join(dirPath, item);
+        const stats = fs.statSync(fullPath);
+        
+        const fileItem = {
+          name: item,
+          path: fullPath,
+          isDirectory: stats.isDirectory(),
+          size: stats.size,
+          modified: stats.mtime,
+        };
+        
+        files.push(fileItem);
+        
+        // 如果是目录，递归获取子目录中的文件
+        if (stats.isDirectory()) {
+          const subFiles = getAllFiles(fullPath);
+          files.push(...subFiles);
+        }
+      }
+    } catch (error) {
+      console.error(`Error reading directory ${dirPath}:`, error);
+    }
+    
+    return files;
+  };
+  
+  try {
+    return getAllFiles(folderPath);
+  } catch (error) {
+    console.error('Error getting all files:', error);
+    return [];
+  }
+});
+
 ipcMain.handle('open-file', async (event, filePath: string) => {
   shell.openPath(filePath);
 });

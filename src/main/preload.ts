@@ -24,6 +24,7 @@ const electronHandler = {
   },
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   getFiles: (folderPath: string) => ipcRenderer.invoke('get-files', folderPath),
+  getAllFiles: (folderPath: string) => ipcRenderer.invoke('get-all-files', folderPath),
   openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
 };
 

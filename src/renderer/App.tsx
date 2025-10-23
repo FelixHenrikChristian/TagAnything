@@ -31,6 +31,7 @@ import {
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
   Home as HomeIcon,
+  Style as StyleIcon,
 } from '@mui/icons-material';
 import LocationManager from './components/LocationManager';
 import TagManager from './components/TagManager';
@@ -180,12 +181,28 @@ const App: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [tagDisplayStyle, setTagDisplayStyle] = useState<'original' | 'library'>('original');
   
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   
   useEffect(() => {
     setDarkMode(prefersDarkMode);
   }, [prefersDarkMode]);
+
+  // Load tag display style from localStorage
+  useEffect(() => {
+    const savedStyle = localStorage.getItem('tagDisplayStyle') as 'original' | 'library' | null;
+    if (savedStyle) {
+      setTagDisplayStyle(savedStyle);
+    }
+  }, []);
+
+  // Save tag display style to localStorage
+  const handleTagDisplayStyleToggle = () => {
+    const newStyle = tagDisplayStyle === 'original' ? 'library' : 'original';
+    setTagDisplayStyle(newStyle);
+    localStorage.setItem('tagDisplayStyle', newStyle);
+  };
 
   const theme = createAppTheme(darkMode ? 'dark' : 'light');
 
@@ -275,6 +292,14 @@ const App: React.FC = () => {
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
 
+            <IconButton 
+              color="inherit" 
+              onClick={handleTagDisplayStyleToggle}
+              title={`标签样式: ${tagDisplayStyle === 'original' ? '原始' : '标签库'}`}
+            >
+              <StyleIcon />
+            </IconButton>
+
             <IconButton color="inherit">
               <SettingsIcon />
             </IconButton>
@@ -350,7 +375,7 @@ const App: React.FC = () => {
                 backgroundColor: theme.palette.background.paper,
               }}
             >
-              <FileExplorer />
+              <FileExplorer tagDisplayStyle={tagDisplayStyle} />
             </Paper>
           </Box>
         </Box>

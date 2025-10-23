@@ -34,6 +34,7 @@ declare global {
     electron: {
       selectFolder: () => Promise<string>;
       getFiles: (folderPath: string) => Promise<FileItem[]>;
+      getAllFiles: (folderPath: string) => Promise<FileItem[]>;
       openFile: (filePath: string) => Promise<void>;
     };
   }
