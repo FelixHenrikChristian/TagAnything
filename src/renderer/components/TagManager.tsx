@@ -25,6 +25,8 @@ import {
   Tabs,
   Tab,
   Paper,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -36,6 +38,9 @@ import {
   ExpandMore as ExpandMoreIcon,
   Folder as FolderIcon,
   FolderOpen as FolderOpenIcon,
+  FileUpload as ImportIcon,
+  FileDownload as ExportIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { Tag, TagGroup } from '../types';
 
@@ -89,7 +94,11 @@ const TagManager: React.FC = () => {
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [tagName, setTagName] = useState('');
   const [tagColor, setTagColor] = useState('#2196f3');
+  const [tagTextColor, setTagTextColor] = useState('#ffffff'); // 新增文字颜色状态
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [openImportDialog, setOpenImportDialog] = useState(false); // 导入对话框状态
+  const [importSuccess, setImportSuccess] = useState(false); // 导入成功状态
+  const [importMessage, setImportMessage] = useState(''); // 导入成功消息
   
   // 菜单状态
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -184,9 +193,10 @@ const TagManager: React.FC = () => {
   const handleAddTag = () => {
     if (tagName.trim() && selectedGroupId) {
       const newTag: Tag = {
-        id: Date.now().toString(),
+        id: `tag_${Date.now()}`,
         name: tagName.trim(),
         color: tagColor,
+        textcolor: tagTextColor, // 添加文字颜色
         groupId: selectedGroupId,
       };
       
@@ -207,6 +217,7 @@ const TagManager: React.FC = () => {
     setEditingTag(tag);
     setTagName(tag.name);
     setTagColor(tag.color);
+    setTagTextColor(tag.textcolor || '#ffffff'); // 设置文字颜色，默认白色
     setSelectedGroupId(tag.groupId || '');
     setOpenTagDialog(true);
   };
@@ -229,6 +240,7 @@ const TagManager: React.FC = () => {
                   ...editingTag,
                   name: tagName.trim(),
                   color: tagColor,
+                  textcolor: tagTextColor, // 更新文字颜色
                   groupId: selectedGroupId
                 }]
               }
@@ -254,6 +266,7 @@ const TagManager: React.FC = () => {
   const resetTagForm = () => {
     setTagName('');
     setTagColor('#2196f3');
+    setTagTextColor('#ffffff'); // 重置文字颜色
     setSelectedGroupId('');
   };
 
@@ -282,10 +295,12 @@ const TagManager: React.FC = () => {
 
   // 导入导出功能
   const handleExportTagLibrary = () => {
-    const dataStr = JSON.stringify(tagGroups, null, 2);
+    const { convertToTagSpaces } = require('../utils/tagSpacesConverter');
+    const tagSpacesData = convertToTagSpaces(tagGroups);
+    const dataStr = JSON.stringify(tagSpacesData, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = `标签库_${new Date().toISOString().split('T')[0]}.json`;
+    const exportFileDefaultName = `TagAnything_标签库_${new Date().toISOString().split('T')[0]}.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -296,31 +311,41 @@ const TagManager: React.FC = () => {
   };
 
   const handleImportTagLibrary = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const importedData = JSON.parse(e.target?.result as string);
-            if (Array.isArray(importedData)) {
-              setTagGroups(importedData);
-              alert('标签库导入成功！');
-            } else {
-              alert('文件格式不正确，请选择有效的标签库文件。');
-            }
-          } catch (error) {
-            alert('文件解析失败，请检查文件格式。');
-          }
-        };
-        reader.readAsText(file);
+    setOpenImportDialog(true);
+    handleCloseMainMenu();
+  };
+
+  const handleImportFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target?.result as string);
+        const { validateTagSpacesFormat, convertFromTagSpaces } = require('../utils/tagSpacesConverter');
+        
+        // 检查是否为TagSpaces格式
+        if (validateTagSpacesFormat(importedData)) {
+          const convertedGroups = convertFromTagSpaces(importedData);
+          setTagGroups(convertedGroups); // 直接覆盖，而非合并
+          const message = `成功导入TagSpaces标签库！导入了 ${convertedGroups.length} 个标签组，共 ${convertedGroups.reduce((sum: number, g: TagGroup) => sum + g.tags.length, 0)} 个标签。`;
+          setImportMessage(message);
+          setImportSuccess(true);
+        } 
+        // 检查是否为原有格式
+        else if (Array.isArray(importedData)) {
+          setTagGroups(importedData);
+          setImportMessage('标签库导入成功！');
+          setImportSuccess(true);
+        } 
+        else {
+          alert('文件格式不正确。\n支持的格式：\n1. TagSpaces导出格式\n2. TagAnything原生格式');
+        }
+      } catch (error) {
+        console.error('导入失败:', error);
+        alert('文件解析失败，请检查文件格式。');
       }
     };
-    input.click();
-    handleCloseMainMenu();
+    reader.readAsText(file);
+    setOpenImportDialog(false);
   };
 
   // 对话框处理函数
@@ -491,7 +516,7 @@ const TagManager: React.FC = () => {
                             size="small"
                             sx={{
                               bgcolor: tag.color,
-                              color: 'white',
+                              color: tag.textcolor || 'white', // 使用标签的文字颜色
                               fontWeight: 500,
                               borderRadius: 0.8,
                               height: 24,
@@ -688,13 +713,37 @@ const TagManager: React.FC = () => {
             ))}
           </Box>
 
+          <Typography variant="subtitle2" gutterBottom>
+            选择文字颜色
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            {['#ffffff', '#000000', '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3'].map((color) => (
+              <Box
+                key={color}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  bgcolor: color,
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  border: tagTextColor === color ? '3px solid #ff9800' : '2px solid #ccc',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                  },
+                }}
+                onClick={() => setTagTextColor(color)}
+              />
+            ))}
+          </Box>
+
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
             <Typography variant="body2">预览:</Typography>
             <Chip
               label={tagName || '标签名称'}
               sx={{
                 bgcolor: tagColor,
-                color: 'white',
+                color: tagTextColor, // 使用选择的文字颜色
                 fontWeight: 600,
               }}
             />
@@ -804,17 +853,127 @@ const TagManager: React.FC = () => {
         </MenuItem>
         <MenuItem onClick={handleImportTagLibrary}>
           <ListItemIcon>
-            <AddIcon />
+            <ImportIcon />
           </ListItemIcon>
           <ListItemText>导入标签库</ListItemText>
         </MenuItem>
         <MenuItem onClick={handleExportTagLibrary}>
           <ListItemIcon>
-            <LocalOfferIcon />
+            <ExportIcon />
           </ListItemIcon>
           <ListItemText>导出标签库</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* Import Dialog */}
+      <Dialog
+        open={openImportDialog}
+        onClose={() => setOpenImportDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: 3,
+            padding: 1,
+          },
+        }}
+      >
+        <DialogTitle sx={{ 
+          textAlign: 'center', 
+          fontWeight: 600,
+          pb: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1
+        }}>
+          <ImportIcon color="primary" />
+          导入标签库
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box
+            sx={{
+              border: '2px dashed',
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              p: 4,
+              textAlign: 'center',
+              backgroundColor: 'action.hover',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                backgroundColor: 'action.selected',
+                borderColor: 'primary.dark',
+              },
+            }}
+            onClick={() => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) {
+                  handleImportFile(file);
+                }
+              };
+              input.click();
+            }}
+          >
+            <ImportIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              选择标签库文件
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              支持 TagSpaces 导出格式和 TagAnything 原生格式
+            </Typography>
+            <Button
+              variant="contained"
+              sx={{ borderRadius: 2 }}
+            >
+              浏览文件
+            </Button>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
+            仅支持 .json 格式文件
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            onClick={() => setOpenImportDialog(false)}
+            sx={{ borderRadius: 2 }}
+          >
+            取消
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Success Snackbar */}
+      <Snackbar
+        open={importSuccess}
+        autoHideDuration={4000}
+        onClose={() => setImportSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ 
+          mt: 8, // 添加顶部边距，避免被标题栏遮挡
+        }}
+      >
+        <Alert
+          onClose={() => setImportSuccess(false)}
+          severity="success"
+          variant="filled"
+          icon={<CheckCircleIcon />}
+          sx={{
+            borderRadius: 2,
+            minWidth: 300,
+            '& .MuiAlert-message': {
+              fontSize: '0.95rem',
+              fontWeight: 500,
+            },
+          }}
+        >
+          {importMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

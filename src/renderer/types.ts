@@ -8,6 +8,7 @@ export interface Tag {
   id: string;
   name: string;
   color: string;
+  textcolor?: string; // 标签文字颜色
   groupId?: string; // 标签所属的组ID
 }
 
