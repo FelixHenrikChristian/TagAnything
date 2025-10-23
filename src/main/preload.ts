@@ -26,8 +26,15 @@ const electronHandler = {
   getFiles: (folderPath: string) => ipcRenderer.invoke('get-files', folderPath),
   getAllFiles: (folderPath: string) => ipcRenderer.invoke('get-all-files', folderPath),
   openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
+  generateVideoThumbnail: (videoPath: string) => ipcRenderer.invoke('generate-video-thumbnail', videoPath),
+  isVideoFile: (filePath: string) => ipcRenderer.invoke('is-video-file', filePath),
 };
 
-contextBridge.exposeInMainWorld('electron', electronHandler);
+const electronHandlerWithThumbnail = {
+  ...electronHandler,
+  saveThumbnail: (thumbnailPath: string, imageData: string) => ipcRenderer.invoke('save-thumbnail', thumbnailPath, imageData),
+};
+
+contextBridge.exposeInMainWorld('electron', electronHandlerWithThumbnail);
 
 export type ElectronHandler = typeof electronHandler;

@@ -69,6 +69,32 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   // 标签相关状态
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [fileTags, setFileTags] = useState<Map<string, Tag[]>>(new Map());
+  
+  // 视频缩略图缓存
+  const [videoThumbnails, setVideoThumbnails] = useState<Map<string, string>>(new Map());
+  
+  // 从 localStorage 加载缓存的缩略图
+  useEffect(() => {
+    const savedThumbnails = localStorage.getItem('tagAnything_videoThumbnails');
+    if (savedThumbnails) {
+      try {
+        const thumbnailsArray = JSON.parse(savedThumbnails);
+        setVideoThumbnails(new Map(thumbnailsArray));
+      } catch (error) {
+        console.error('Error loading cached thumbnails:', error);
+      }
+    }
+  }, []);
+  
+  // 保存缩略图缓存到 localStorage
+  const saveThumbnailsToCache = (thumbnails: Map<string, string>) => {
+    try {
+      const thumbnailsArray = Array.from(thumbnails.entries());
+      localStorage.setItem('tagAnything_videoThumbnails', JSON.stringify(thumbnailsArray));
+    } catch (error) {
+      console.error('Error saving thumbnails to cache:', error);
+    }
+  };
 
   // 加载保存的数据
   useEffect(() => {
@@ -158,10 +184,132 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       setFiles(fileList);
       // 解析文件标签并更新标签系统（使用传入的标签库或当前状态）
       parseFileTagsAndUpdateSystem(fileList, groups);
+      
+      // 为视频文件生成缩略图
+      await generateVideoThumbnails(fileList);
     } catch (error) {
       console.error('Error loading files:', error);
       setFiles([]);
     }
+  };
+
+  // 生成视频缩略图 - 使用FFmpeg主进程
+  const generateVideoThumbnails = async (fileList: FileItem[]) => {
+    const videoFiles = fileList.filter(file => !file.isDirectory);
+    const newThumbnails = new Map(videoThumbnails);
+    let hasNewThumbnails = false;
+
+    for (const file of videoFiles) {
+      // 检查是否已有缓存的缩略图
+      if (newThumbnails.has(file.path)) continue;
+
+      try {
+        // 检查是否为视频文件
+        const isVideo = await window.electron.isVideoFile(file.path);
+        if (!isVideo) continue;
+
+        // 使用主进程FFmpeg生成缩略图
+        const thumbnailPath = await window.electron.generateVideoThumbnail(file.path);
+        if (thumbnailPath) {
+          newThumbnails.set(file.path, thumbnailPath);
+          hasNewThumbnails = true;
+        }
+      } catch (error) {
+        console.error(`Error generating thumbnail for ${file.path}:`, error);
+      }
+    }
+
+    if (hasNewThumbnails) {
+      setVideoThumbnails(newThumbnails);
+      saveThumbnailsToCache(newThumbnails);
+    }
+  };
+
+  // 使用Canvas生成视频缩略图
+  const generateCanvasThumbnail = async (videoPath: string, thumbnailPath: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      try {
+        const video = document.createElement('video');
+        video.crossOrigin = 'anonymous';
+        video.muted = true;
+        video.preload = 'metadata';
+        
+        // 设置超时机制
+        const timeout = setTimeout(() => {
+          console.warn('Video thumbnail generation timeout for:', videoPath);
+          resolve(null);
+        }, 10000); // 10秒超时
+        
+        video.onloadedmetadata = () => {
+          try {
+            // 设置到视频10%的位置，但不超过30秒
+            const seekTime = Math.min(video.duration * 0.1, 30);
+            video.currentTime = seekTime;
+          } catch (error) {
+            console.error('Error setting video time:', error);
+            clearTimeout(timeout);
+            resolve(null);
+          }
+        };
+        
+        video.onseeked = async () => {
+          try {
+            clearTimeout(timeout);
+            
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+              resolve(null);
+              return;
+            }
+            
+            // 设置缩略图尺寸，保持宽高比
+            const aspectRatio = video.videoWidth / video.videoHeight;
+            canvas.width = 200;
+            canvas.height = Math.round(200 / aspectRatio);
+            
+            // 绘制视频帧到canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // 转换为base64并保存
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            try {
+              await window.electron.saveThumbnail(thumbnailPath, imageData);
+              resolve(thumbnailPath);
+            } catch (saveError) {
+              console.error('Error saving thumbnail:', saveError);
+              resolve(null);
+            }
+          } catch (error) {
+            console.error('Canvas thumbnail generation error:', error);
+            clearTimeout(timeout);
+            resolve(null);
+          }
+        };
+        
+        video.onerror = (error) => {
+          console.error('Video loading error for:', videoPath, error);
+          clearTimeout(timeout);
+          resolve(null);
+        };
+        
+        video.onabort = () => {
+          console.warn('Video loading aborted for:', videoPath);
+          clearTimeout(timeout);
+          resolve(null);
+        };
+        
+        // 加载视频 - 使用file://协议
+        const fileUrl = videoPath.startsWith('file://') ? videoPath : `file:///${videoPath.replace(/\\/g, '/')}`;
+        video.src = fileUrl;
+        video.load();
+      } catch (error) {
+        console.error('Error in generateCanvasThumbnail:', error);
+        resolve(null);
+      }
+    });
   };
 
   // 递归扫描所有文件以解析标签
@@ -426,7 +574,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                   {file.isDirectory ? (
                     <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
                   ) : (
-                    <FileIcon sx={{ fontSize: iconSize, color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
+                    // 检查是否有视频缩略图
+                    videoThumbnails.has(file.path) ? (
+                      <Box
+                        component="img"
+                        src={`file://${videoThumbnails.get(file.path)}`}
+                        alt={file.name}
+                        sx={{
+                          width: iconSize,
+                          height: iconSize,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider'
+                        }}
+                      />
+                    ) : (
+                      <FileIcon sx={{ fontSize: iconSize, color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
+                    )
                   )}
                 </Box>
                 <Typography
@@ -505,7 +670,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
               {file.isDirectory ? (
                 <FolderIcon sx={{ color: '#ffa726' }} />
               ) : (
-                <FileIcon sx={{ color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
+                // 检查是否有视频缩略图
+                videoThumbnails.has(file.path) ? (
+                  <Box
+                    component="img"
+                    src={`file://${videoThumbnails.get(file.path)}`}
+                    alt={file.name}
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }}
+                  />
+                ) : (
+                  <FileIcon sx={{ color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
+                )
               )}
             </Avatar>
           </ListItemAvatar>

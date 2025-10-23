@@ -1,6 +1,10 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
-import path from 'path';
+import * as path from 'path';
+import * as fs from 'fs';
 import { resolveHtmlPath } from './util';
+import fluentFfmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -187,3 +191,64 @@ ipcMain.handle('get-all-files', async (event, folderPath: string) => {
 ipcMain.handle('open-file', async (event, filePath: string) => {
   shell.openPath(filePath);
 });
+
+// 生成视频缩略图 - 使用FFmpeg
+ipcMain.handle('generate-video-thumbnail', async (event, videoPath: string) => {
+  try {
+    const thumbnailsDir = path.join(app.getPath('userData'), 'thumbnails');
+    if (!fs.existsSync(thumbnailsDir)) {
+      fs.mkdirSync(thumbnailsDir, { recursive: true });
+    }
+
+    const videoName = path.basename(videoPath, path.extname(videoPath));
+    const thumbnailPath = path.join(thumbnailsDir, `${videoName}.jpg`);
+
+    if (fs.existsSync(thumbnailPath)) {
+      return thumbnailPath;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      fluentFfmpeg(videoPath)
+        .on('error', (err: any) => {
+          console.error('FFmpeg thumbnail error:', err);
+          reject(err);
+        })
+        .on('end', () => resolve())
+        .screenshots({
+          count: 1,
+          folder: thumbnailsDir,
+          filename: `${videoName}.jpg`,
+          timestamps: ['10%'],
+          size: '200x?'
+        });
+    });
+
+    return thumbnailPath;
+  } catch (error) {
+    console.error('Error generating thumbnail:', error);
+    throw error;
+  }
+});
+
+// 保存缩略图文件
+ipcMain.handle('save-thumbnail', async (event, thumbnailPath: string, imageData: string) => {
+  try {
+    // 将base64数据转换为buffer并保存
+    const base64Data = imageData.replace(/^data:image\/jpeg;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(thumbnailPath, buffer);
+    return thumbnailPath;
+  } catch (error) {
+    console.error('Error saving thumbnail:', error);
+    throw error;
+  }
+});
+
+// 检查是否为视频文件
+ipcMain.handle('is-video-file', async (event, filePath: string) => {
+  const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v'];
+  const ext = path.extname(filePath).toLowerCase();
+  return videoExtensions.includes(ext);
+});
+fluentFfmpeg.setFfmpegPath(ffmpegInstaller.path);
+fluentFfmpeg.setFfprobePath(ffprobeInstaller.path);
