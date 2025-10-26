@@ -391,6 +391,19 @@ ipcMain.handle('perform-file-operation', async (event, request: {
   }
 });
 
+// 添加文件重命名处理器
+ipcMain.handle('rename-file', async (event, oldPath: string, newPath: string) => {
+  try {
+    await fsPromises.rename(oldPath, newPath);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '文件重命名失败'
+    };
+  }
+});
+
 // 递归复制文件或目录的辅助函数
 async function copyFileOrDirectory(src: string, dest: string): Promise<void> {
   const stats = await fsPromises.stat(src);

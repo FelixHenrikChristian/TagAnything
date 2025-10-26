@@ -60,6 +60,7 @@ declare global {
       isVideoFile: (filePath: string) => Promise<boolean>;
       resetWindowSize: () => Promise<{ width: number; height: number } | null>;
       performFileOperation: (request: FileOperationRequest) => Promise<FileOperationResult>;
+      renameFile: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

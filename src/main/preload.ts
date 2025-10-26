@@ -30,6 +30,7 @@ const electronHandler = {
   isVideoFile: (filePath: string) => ipcRenderer.invoke('is-video-file', filePath),
   resetWindowSize: () => ipcRenderer.invoke('reset-window-size'),
   performFileOperation: (request: any) => ipcRenderer.invoke('perform-file-operation', request),
+  renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('rename-file', oldPath, newPath),
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

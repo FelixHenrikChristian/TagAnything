@@ -168,6 +168,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     mouseX: number;
     mouseY: number;
     tag: Tag | null;
+    file: FileItem | null;
   } | null>(null);
   
   // 排序相关状态
@@ -204,6 +205,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     severity: 'info'
   });
   
+  // 拖拽状态管理
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    draggedTag: Tag | null;
+    targetFile: FileItem | null;
+    insertPosition: number;
+    previewPosition: { x: number; y: number } | null;
+  }>({
+    isDragging: false,
+    draggedTag: null,
+    targetFile: null,
+    insertPosition: -1,
+    previewPosition: null,
+  });
+
   // 标签相关状态
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [fileTags, setFileTags] = useState<Map<string, Tag[]>>(new Map());
@@ -323,6 +339,39 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   }, []);
 
   // 读取最新标签库（优先localStorage）
+
+  // 监听全局拖拽事件
+  useEffect(() => {
+    const handleGlobalDragStart = (event: CustomEvent) => {
+      const { tag } = event.detail;
+      if (tag) {
+        setDragState(prev => ({
+          ...prev,
+          isDragging: true,
+          draggedTag: tag,
+        }));
+      }
+    };
+
+    const handleGlobalDragEnd = () => {
+      setDragState(prev => ({
+        ...prev,
+        isDragging: false,
+        draggedTag: null,
+        targetFile: null,
+        insertPosition: -1,
+        previewPosition: null,
+      }));
+    };
+
+    window.addEventListener('tagDragStart', handleGlobalDragStart as EventListener);
+    window.addEventListener('tagDragEnd', handleGlobalDragEnd as EventListener);
+
+    return () => {
+      window.removeEventListener('tagDragStart', handleGlobalDragStart as EventListener);
+      window.removeEventListener('tagDragEnd', handleGlobalDragEnd as EventListener);
+    };
+  }, []);
 
   // 同步当前路径到localStorage，供其他组件使用
   useEffect(() => {
@@ -783,13 +832,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   };
 
   // 标签菜单处理函数
-  const handleTagContextMenu = (event: React.MouseEvent, tag: Tag) => {
+  const handleTagContextMenu = (event: React.MouseEvent, tag: Tag, file: FileItem) => {
     event.preventDefault();
     event.stopPropagation(); // 阻止事件冒泡到文件卡片
     setTagContextMenu({
       mouseX: event.clientX - 2,
       mouseY: event.clientY - 4,
       tag,
+      file,
     });
   };
 
@@ -813,6 +863,218 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     setIsFiltering(true);
     performTagFilter(filterInfo);
     handleCloseTagContextMenu();
+  };
+
+  // 从文件中删除标签
+  const handleRemoveTagFromFile = async (tag: Tag, file: FileItem) => {
+    try {
+      console.log('🗑️ 从文件中删除标签:', { file: file.name, tag: tag.name });
+      
+      // 获取当前文件的所有标签
+      const currentTags = getFileTags(file);
+      
+      // 过滤掉要删除的标签
+      const remainingTags = currentTags.filter(t => t.id !== tag.id);
+      
+      // 生成新的文件名
+      const displayName = getDisplayName(file.name);
+      
+      let newFileName: string;
+      if (remainingTags.length > 0) {
+        const tagNames = remainingTags.map(t => t.name);
+        newFileName = `[${tagNames.join(' ')}]${displayName}`;
+      } else {
+        // 如果没有剩余标签，直接使用显示名称
+        newFileName = displayName;
+      }
+      
+      // 如果文件名没有变化，不需要重命名
+      if (newFileName === file.name) {
+        console.log('文件名没有变化，无需重命名');
+        handleCloseTagContextMenu();
+        return;
+      }
+      
+      const oldPath = file.path;
+      const newPath = oldPath.replace(file.name, newFileName);
+      
+      console.log('重命名文件:', { oldPath, newPath });
+      
+      // 调用重命名API
+      const result = await window.electron.renameFile(oldPath, newPath);
+      
+      if (result.success) {
+        console.log('✅ 标签删除成功');
+        
+        // 显示成功通知
+        setNotification({
+          open: true,
+          message: `已从文件 "${displayName}" 中删除标签 "${tag.name}"`,
+          severity: 'success'
+        });
+        
+        // 刷新文件列表
+        await loadFiles(currentPath);
+      } else {
+        console.error('❌ 标签删除失败:', result.error);
+        
+        // 显示错误通知
+        setNotification({
+          open: true,
+          message: `删除标签失败: ${result.error}`,
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('删除标签时发生错误:', error);
+      
+      // 显示错误通知
+      setNotification({
+        open: true,
+        message: `删除标签时发生错误: ${error instanceof Error ? error.message : '未知错误'}`,
+        severity: 'error'
+      });
+    } finally {
+      handleCloseTagContextMenu();
+    }
+  };
+
+  // 处理标签拖拽到文件
+  const handleTagDrop = async (file: FileItem, draggedTag: Tag, event: React.DragEvent) => {
+    try {
+      console.log('🏷️ 标签拖拽到文件:', { file: file.name, tag: draggedTag.name });
+      
+      // 获取当前文件的标签
+      const currentTags = getFileTags(file);
+      
+      // 检查标签是否已存在
+      const tagExists = currentTags.some(tag => tag.id === draggedTag.id);
+      if (tagExists) {
+        setNotification({
+          open: true,
+          message: `文件 "${file.name}" 已经包含标签 "${draggedTag.name}"`,
+          severity: 'info'
+        });
+        return;
+      }
+      
+      // 添加标签到末尾
+      const newTags = [...currentTags, draggedTag];
+      await updateFileWithTags(file, newTags);
+      
+      setNotification({
+        open: true,
+        message: `成功为文件 "${file.name}" 添加标签 "${draggedTag.name}"`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('处理标签拖拽失败:', error);
+      setNotification({
+        open: true,
+        message: `添加标签失败: ${error}`,
+        severity: 'error'
+      });
+    }
+  };
+
+  // 处理标签拖拽到特定位置
+  const handleTagDropWithPosition = async (file: FileItem, draggedTag: Tag, insertPosition: number) => {
+    try {
+      console.log('🏷️ 标签拖拽到特定位置:', { 
+        file: file.name, 
+        tag: draggedTag.name, 
+        position: insertPosition 
+      });
+      
+      // 获取当前文件的标签
+      const currentTags = getFileTags(file);
+      
+      // 检查标签是否已存在
+      const tagExists = currentTags.some(tag => tag.id === draggedTag.id);
+      if (tagExists) {
+        setNotification({
+          open: true,
+          message: `文件 "${file.name}" 已经包含标签 "${draggedTag.name}"`,
+          severity: 'info'
+        });
+        return;
+      }
+      
+      // 根据插入位置创建新的标签数组
+      let newTags: Tag[];
+      if (insertPosition === -1 || insertPosition >= currentTags.length) {
+        // 插入到末尾
+        newTags = [...currentTags, draggedTag];
+      } else {
+        // 插入到指定位置
+        newTags = [
+          ...currentTags.slice(0, insertPosition),
+          draggedTag,
+          ...currentTags.slice(insertPosition)
+        ];
+      }
+      
+      await updateFileWithTags(file, newTags);
+      
+      setNotification({
+        open: true,
+        message: `成功为文件 "${file.name}" 添加标签 "${draggedTag.name}"`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('处理标签拖拽到特定位置失败:', error);
+      setNotification({
+        open: true,
+        message: `添加标签失败: ${error}`,
+        severity: 'error'
+      });
+    }
+  };
+
+  // 更新文件标签（重命名文件）
+  const updateFileWithTags = async (file: FileItem, newTags: Tag[]) => {
+    try {
+      // 获取文件的显示名称（不包含标签）
+      const displayName = getDisplayName(file.name);
+      
+      // 构建新的文件名
+      const tagNames = newTags.map(tag => tag.name);
+      const newFileName = tagNames.length > 0 
+        ? `[${tagNames.join(' ')}] ${displayName}`
+        : displayName;
+      
+      // 构建新的文件路径
+      const directory = file.path.substring(0, file.path.lastIndexOf('\\'));
+      const newFilePath = `${directory}\\${newFileName}`;
+      
+      // 如果文件名没有变化，直接返回
+      if (file.path === newFilePath) {
+        return;
+      }
+      
+      // 重命名文件
+      const result = await window.electron.renameFile(file.path, newFilePath);
+      
+      if (!result.success) {
+        throw new Error(result.error || '文件重命名失败');
+      }
+      
+      // 更新本地状态
+      const updatedFileTags = new Map(fileTags);
+      updatedFileTags.delete(file.path); // 删除旧路径的标签
+      updatedFileTags.set(newFilePath, newTags); // 添加新路径的标签
+      setFileTags(updatedFileTags);
+      
+      // 重新加载当前目录
+      if (currentPath) {
+        await loadFiles(currentPath);
+      }
+      
+      console.log('✅ 文件标签更新成功:', { oldPath: file.path, newPath: newFilePath, tags: tagNames });
+    } catch (error) {
+      console.error('❌ 更新文件标签失败:', error);
+      throw error;
+    }
   };
 
   // 拖拽事件处理函数
@@ -1232,9 +1494,35 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             }}
             onContextMenu={(e) => handleContextMenu(e, file)}
             onDragStart={(e) => e.preventDefault()} // 阻止任何拖拽开始事件
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              // 检查是否是标签拖拽
+              const dragData = e.dataTransfer.types.includes('application/json');
+              if (dragData) {
+                e.dataTransfer.dropEffect = 'copy';
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              try {
+                const data = e.dataTransfer.getData('application/json');
+                if (data) {
+                  const draggedData = JSON.parse(data);
+                  if (draggedData.type === 'tag' && draggedData.tag) {
+                    handleTagDrop(file, draggedData.tag, e);
+                  }
+                }
+              } catch (error) {
+                console.error('处理拖拽数据失败:', error);
+              }
+            }}
           >
             {/* 标签覆盖层 - 位于顶部 */}
-            {getFileTags(file).length > 0 && (
+            {(getFileTags(file).length > 0 || (dragState.targetFile?.path === file.path && dragState.isDragging)) && (
               <Box
                 sx={{
                   position: 'absolute',
@@ -1247,39 +1535,195 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                   gap: 0.25,
                   maxHeight: tagOverlayHeight,
                   overflow: 'hidden',
+                  minHeight: dragState.targetFile?.path === file.path && dragState.isDragging ? '18px' : 'auto',
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  // 检查是否是标签拖拽
+                  const dragData = e.dataTransfer.types.includes('application/json');
+                  if (dragData) {
+                    e.dataTransfer.dropEffect = 'copy';
+                    
+                    // 计算插入位置
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    // 找到最接近的标签位置
+                    const tagElements = e.currentTarget.querySelectorAll('.MuiChip-root:not(.drag-preview)');
+                    let insertPosition = -1; // -1表示末尾
+                    let minDistance = Infinity;
+                    
+                    tagElements.forEach((tagEl, index) => {
+                      const tagRect = tagEl.getBoundingClientRect();
+                      const tagX = tagRect.left - rect.left;
+                      const tagY = tagRect.top - rect.top;
+                      const tagCenterX = tagX + tagRect.width / 2;
+                      const tagCenterY = tagY + tagRect.height / 2;
+                      
+                      const distance = Math.sqrt(Math.pow(x - tagCenterX, 2) + Math.pow(y - tagCenterY, 2));
+                      
+                      if (distance < minDistance) {
+                        minDistance = distance;
+                        // 如果鼠标在标签左半部分，插入到该位置；否则插入到下一个位置
+                        insertPosition = x < tagCenterX ? index : index + 1;
+                      }
+                    });
+                    
+                    // 更新拖拽状态
+                    setDragState(prev => ({
+                      ...prev,
+                      targetFile: file,
+                      insertPosition: insertPosition,
+                      previewPosition: { x: e.clientX, y: e.clientY },
+                    }));
+                    
+                    // 存储插入位置信息
+                    e.currentTarget.setAttribute('data-insert-position', insertPosition.toString());
+                  }
+                }}
+                onDragLeave={(e) => {
+                  // 检查是否真正离开了标签区域
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = e.clientX;
+                  const y = e.clientY;
+                  
+                  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                    setDragState(prev => ({
+                      ...prev,
+                      targetFile: null,
+                      insertPosition: -1,
+                      previewPosition: null,
+                    }));
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  try {
+                    const data = e.dataTransfer.getData('application/json');
+                    if (data) {
+                      const draggedData = JSON.parse(data);
+                      if (draggedData.type === 'tag' && draggedData.tag) {
+                        const insertPosition = parseInt(e.currentTarget.getAttribute('data-insert-position') || '-1');
+                        handleTagDropWithPosition(file, draggedData.tag, insertPosition);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('处理标签拖拽数据失败:', error);
+                  }
+                  
+                  // 清除拖拽状态
+                  setDragState(prev => ({
+                    ...prev,
+                    targetFile: null,
+                    insertPosition: -1,
+                    previewPosition: null,
+                  }));
                 }}
               >
                 {getFileTags(file).map((tag, index) => {
                   const tagStyle = getTagStyle(tag);
+                  const isTargetFile = dragState.targetFile?.path === file.path;
+                  const shouldShowPreview = isTargetFile && dragState.isDragging && dragState.draggedTag;
+                  const insertPos = dragState.insertPosition;
+                  
+                  // 如果需要在当前位置插入预览标签
+                  const showPreviewBefore = shouldShowPreview && insertPos === index;
+                  
                   return (
-                    <Chip
-                      key={index}
-                      size="small"
-                      label={tag.name}
-                      variant={tagStyle.variant}
-                      sx={{
-                        backgroundColor: tagStyle.backgroundColor,
-                        borderColor: tagStyle.borderColor,
-                        color: tagStyle.color,
-                        fontSize: '0.6rem',
-                        height: '18px',
-                        border: tagStyle.border,
-                        opacity: 0.9,
-                        backdropFilter: 'blur(4px)',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        '&:hover': {
-                          opacity: 1,
-                          transform: 'scale(1.05)',
-                        },
-                        '& .MuiChip-label': {
-                          px: 0.4
-                        }
-                      }}
-                      onClick={(e) => handleTagContextMenu(e, tag)}
-                    />
+                    <React.Fragment key={index}>
+                      {/* 预览标签 - 在当前标签之前 */}
+                      {showPreviewBefore && dragState.draggedTag && (
+                        <Chip
+                          size="small"
+                          label={dragState.draggedTag.name}
+                          className="drag-preview"
+                          sx={{
+                            backgroundColor: dragState.draggedTag.color || '#1976d2',
+                            color: 'white',
+                            fontSize: '0.6rem',
+                            height: '18px',
+                            borderRadius: '4px',
+                            opacity: 0.6,
+                            animation: 'fadeIn 0.2s ease-in-out',
+                            transform: 'scale(0.95)',
+                            border: '2px dashed rgba(255,255,255,0.8)',
+                            '& .MuiChip-label': {
+                              px: 0.4
+                            },
+                            '@keyframes fadeIn': {
+                              from: { opacity: 0, transform: 'scale(0.8)' },
+                              to: { opacity: 0.6, transform: 'scale(0.95)' }
+                            }
+                          }}
+                        />
+                      )}
+                      
+                      {/* 原有标签 */}
+                      <Chip
+                        size="small"
+                        label={tag.name}
+                        variant={tagStyle.variant}
+                        sx={{
+                          backgroundColor: tagStyle.backgroundColor,
+                          borderColor: tagStyle.borderColor,
+                          color: tagStyle.color,
+                          fontSize: '0.6rem',
+                          height: '18px',
+                          border: tagStyle.border,
+                          opacity: 0.9,
+                          backdropFilter: 'blur(4px)',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease-in-out',
+                          transform: shouldShowPreview && insertPos <= index ? 'translateX(4px)' : 'translateX(0)',
+                          '&:hover': {
+                            opacity: 1,
+                            transform: 'scale(1.05)',
+                          },
+                          '& .MuiChip-label': {
+                            px: 0.4
+                          }
+                        }}
+                        onClick={(e) => handleTagContextMenu(e, tag, file)}
+                      />
+                    </React.Fragment>
                   );
                 })}
+                
+                {/* 预览标签 - 在末尾或没有标签时显示 */}
+                {dragState.targetFile?.path === file.path && 
+                 dragState.isDragging && 
+                 dragState.draggedTag && 
+                 (dragState.insertPosition === -1 || dragState.insertPosition >= getFileTags(file).length) && (
+                  <Chip
+                    size="small"
+                    label={dragState.draggedTag.name}
+                    className="drag-preview"
+                    sx={{
+                      backgroundColor: dragState.draggedTag.color || '#1976d2',
+                      color: 'white',
+                      fontSize: '0.6rem',
+                      height: '18px',
+                      borderRadius: '4px',
+                      opacity: 0.6,
+                      animation: 'fadeIn 0.2s ease-in-out',
+                      transform: 'scale(0.95)',
+                      border: '2px dashed rgba(255,255,255,0.8)',
+                      '& .MuiChip-label': {
+                        px: 0.4
+                      },
+                      '@keyframes fadeIn': {
+                        from: { opacity: 0, transform: 'scale(0.8)' },
+                        to: { opacity: 0.6, transform: 'scale(0.95)' }
+                      }
+                    }}
+                  />
+                )}
               </Box>
             )}
             
@@ -1502,7 +1946,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                             px: 0.5
                           }
                         }}
-                        onClick={(e) => handleTagContextMenu(e, tag)}
+                        onClick={(e) => handleTagContextMenu(e, tag, file)}
                       />
                     );
                   })}
@@ -1758,6 +2202,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             <FilterListIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>显示此标签的文件</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => tagContextMenu?.tag && tagContextMenu?.file && handleRemoveTagFromFile(tagContextMenu.tag, tagContextMenu.file)}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>从文件中删除标签</ListItemText>
         </MenuItem>
       </Menu>
 
