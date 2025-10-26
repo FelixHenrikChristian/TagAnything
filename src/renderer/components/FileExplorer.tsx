@@ -850,7 +850,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                   overflow: 'hidden',
                 }}
               >
-                {getFileTags(file).slice(0, 2).map((tag, index) => {
+                {getFileTags(file).map((tag, index) => {
                   const tagStyle = getTagStyle(tag);
                   return (
                     <Chip
