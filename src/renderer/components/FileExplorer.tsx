@@ -1208,6 +1208,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         {sortedFiles.map((file) => (
           <Card
             key={file.path}
+            draggable={false} // 明确禁用拖拽
             sx={{
               width: gridItemWidth,
               height: thumbnailHeight + fileInfoHeight + 8,
@@ -1230,6 +1231,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
               }
             }}
             onContextMenu={(e) => handleContextMenu(e, file)}
+            onDragStart={(e) => e.preventDefault()} // 阻止任何拖拽开始事件
           >
             {/* 标签覆盖层 - 位于顶部 */}
             {getFileTags(file).length > 0 && (
@@ -1408,6 +1410,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         <ListItem
           key={file.path}
           button
+          draggable={false} // 明确禁用拖拽
           onClick={() => {
             if (file.isDirectory) {
               handleNavigate(file.path);
@@ -1416,6 +1419,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             }
           }}
           onContextMenu={(e) => handleContextMenu(e, file)}
+          onDragStart={(e) => e.preventDefault()} // 阻止任何拖拽开始事件
           sx={{
             borderRadius: 1,
             mb: 0.5,
