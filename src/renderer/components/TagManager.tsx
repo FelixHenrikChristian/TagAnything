@@ -292,17 +292,28 @@ const TagManager: React.FC = () => {
 
   // 处理标签筛选
   const handleFilterByTag = (tag: Tag) => {
+    console.log('🏷️ TagManager发送筛选事件:', tag);
+    // 读取当前文件浏览器路径
+    const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
+    console.log('🏷️ 读取到当前路径(currentPath):', currentPath);
+    
     // 通过localStorage传递筛选信息给FileExplorer
     const filterInfo = {
-      type: 'tag',
+      type: 'tag' as const,
       tagId: tag.id,
       tagName: tag.name,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      origin: 'tagManager' as const,
+      currentPath,
     };
     localStorage.setItem('tagAnything_filter', JSON.stringify(filterInfo));
+    console.log('🏷️ 存储到localStorage的筛选信息:', filterInfo);
     
     // 触发自定义事件通知FileExplorer
-    window.dispatchEvent(new CustomEvent('tagFilter', { detail: filterInfo }));
+    const customEvent = new CustomEvent('tagFilter', { detail: filterInfo });
+    console.log('🏷️ 发送CustomEvent:', customEvent);
+    console.log('🏷️ CustomEvent detail:', customEvent.detail);
+    window.dispatchEvent(customEvent);
     
     handleCloseMenu();
   };

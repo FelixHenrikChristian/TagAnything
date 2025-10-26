@@ -69,6 +69,8 @@ interface TagFilter {
   tagId: string;
   tagName: string;
   timestamp: number;
+  origin?: 'fileExplorer' | 'tagManager';
+  currentPath?: string;
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
@@ -228,6 +230,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     // 标签筛选事件监听器
     const handleTagFilterEvent = (event: CustomEvent) => {
       const filterData = event.detail;
+      console.log('🔍 FileExplorer收到筛选事件:', filterData);
+      console.log('🔍 当前路径:', currentPath);
+      console.log('🔍 当前文件数量:', files.length);
       setTagFilter(filterData);
       setIsFiltering(true);
       // 触发筛选逻辑
@@ -244,6 +249,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   }, []);
 
   // 读取最新标签库（优先localStorage）
+
+  // 同步当前路径到localStorage，供其他组件使用
+  useEffect(() => {
+    try {
+      localStorage.setItem('tagAnything_currentPath', currentPath || '');
+    } catch (e) {
+      console.warn('⚠️ 无法写入localStorage当前路径:', e);
+    }
+  }, [currentPath]);
   const getEffectiveTagGroups = (): TagGroup[] => {
     const savedTagGroups = localStorage.getItem('tagAnything_tagGroups');
     if (savedTagGroups) {
@@ -391,6 +405,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       await loadFiles(currentPath, effectiveGroups);
       // 重新扫描当前位置的所有文件以解析标签
       await scanAllFilesForTags(currentLocation.path, effectiveGroups);
+
+      // 如果当前处于筛选状态，也刷新当前显示文件的缩略图
+      try {
+        if (isFiltering && filteredFiles.length > 0) {
+          await generateVideoThumbnails(filteredFiles);
+        }
+      } catch (e) {
+        console.warn('⚠️ 刷新缩略图失败:', e);
+      }
     }
   };
 
@@ -458,32 +481,136 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
   // 执行标签筛选
   const performTagFilter = async (filter: TagFilter) => {
-    if (!currentPath) return;
-    
     try {
-      console.log(`开始在当前目录搜索标签: ${filter.tagName} (ID: ${filter.tagId})`);
+      console.log(`🔍 开始搜索标签: ${filter.tagName} (ID: ${filter.tagId})`);
+      console.log('🔍 筛选来源:', filter.origin || '未知');
+      console.log('🔍 当前路径(state):', currentPath);
+      console.log('🔍 当前路径(event):', filter.currentPath);
+      console.log('🔍 当前文件数量:', files.length);
       
-      // 只在当前目录中筛选，不递归搜索子目录
-      const currentFiles = files; // 使用当前已加载的文件列表
-      const foundFiles: FileItem[] = [];
+      let foundFiles: FileItem[] = [];
+      const targetPath = filter.currentPath || currentPath;
+      const effectiveGroups = getEffectiveTagGroups();
       
-      // 从当前文件列表中筛选包含指定标签的文件
-      for (const file of currentFiles) {
-        if (!file.isDirectory) {
-          // 获取文件的标签（从已解析的标签映射中获取）
-          const fileTags = getFileTags(file);
-          const hasTargetTag = fileTags.some(tag => tag.id === filter.tagId);
-          
-          if (hasTargetTag) {
-            foundFiles.push(file);
+      if (targetPath) {
+        if (filter.origin === 'fileExplorer') {
+          // 仅在当前目录非递归搜索
+          console.log('🔍 在当前目录非递归搜索...', targetPath);
+          try {
+            const entries = await window.electron.getFiles(targetPath);
+            for (const file of entries) {
+              if (!file.isDirectory) {
+                const tagNames = parseTagsFromFilename(file.name);
+                if (tagNames.length > 0) {
+                  const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+                  const temporaryTags = createTemporaryTags(unmatchedTags);
+                  const allTags = [...matchedTags, ...temporaryTags];
+                  const hasTargetTag = allTags.some(tag => tag.id === filter.tagId);
+                  if (hasTargetTag) {
+                    foundFiles.push(file);
+                    console.log(`✅ 非递归匹配文件: ${file.name}`);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('❌ 非递归搜索当前目录时出错:', error);
+          }
+        } else {
+          // 默认递归搜索（例如来源于TagManager）
+          console.log('🔍 在当前目录递归搜索...', targetPath);
+          try {
+            const allFiles = await window.electron.getAllFiles(targetPath);
+            console.log(`🔍 在目录 ${targetPath} 中递归找到 ${allFiles.length} 个文件/夹`);
+            for (const file of allFiles) {
+              if (!file.isDirectory) {
+                const tagNames = parseTagsFromFilename(file.name);
+                if (tagNames.length > 0) {
+                  const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+                  const temporaryTags = createTemporaryTags(unmatchedTags);
+                  const allTags = [...matchedTags, ...temporaryTags];
+                  const hasTargetTag = allTags.some(tag => tag.id === filter.tagId);
+                  if (hasTargetTag) {
+                    foundFiles.push(file);
+                    console.log(`✅ 找到匹配文件: ${file.name}`);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('❌ 递归搜索当前目录时出错:', error);
+          }
+        }
+      } else {
+        // 如果没有当前路径，进行全局搜索（递归）
+        console.log('🔍 进行全局搜索...');
+        const savedLocations = localStorage.getItem('tagAnything_locations');
+        const availableLocations: Location[] = savedLocations ? JSON.parse(savedLocations) : [];
+        console.log('🔍 可用位置:', availableLocations.map((l: Location) => ({ name: l.name, path: l.path })));
+        
+        if (availableLocations.length === 0) {
+          console.log('⚠️ 没有找到任何已添加的位置，请先在位置管理中添加文件夹');
+          setFilteredFiles([]);
+          return;
+        }
+        
+        for (const location of availableLocations) {
+          console.log(`🔍 搜索位置: ${location.name} (${location.path})`);
+          try {
+            const allFiles = await window.electron.getAllFiles(location.path);
+            console.log(`🔍 在位置 ${location.name} 中找到 ${allFiles.length} 个文件`);
+            for (const file of allFiles) {
+              if (!file.isDirectory) {
+                const tagNames = parseTagsFromFilename(file.name);
+                if (tagNames.length > 0) {
+                  const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+                  const temporaryTags = createTemporaryTags(unmatchedTags);
+                  const allTags = [...matchedTags, ...temporaryTags];
+                  const hasTargetTag = allTags.some(tag => tag.id === filter.tagId);
+                  if (hasTargetTag) {
+                    foundFiles.push(file);
+                    console.log(`✅ 找到匹配文件: ${file.name} (位置: ${location.name})`);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`❌ 搜索位置 ${location.name} 时出错:`, error);
           }
         }
       }
       
+      // 根据筛选结果更新文件标签缓存
+      try {
+        const updatedFileTags = new Map(fileTags);
+        for (const file of foundFiles) {
+          if (!file.isDirectory) {
+            const tagNames = parseTagsFromFilename(file.name);
+            if (tagNames.length > 0) {
+              const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+              const temporaryTags = createTemporaryTags(unmatchedTags);
+              const allTags = [...matchedTags, ...temporaryTags];
+              updatedFileTags.set(file.path, allTags);
+            }
+          }
+        }
+        setFileTags(updatedFileTags);
+      } catch (e) {
+        console.warn('⚠️ 更新筛选结果标签缓存失败:', e);
+      }
+
+      // 为筛选结果生成视频缩略图
+      try {
+        await generateVideoThumbnails(foundFiles);
+      } catch (e) {
+        console.warn('⚠️ 为筛选结果生成缩略图失败:', e);
+      }
+
       setFilteredFiles(foundFiles);
-      console.log(`在当前目录找到 ${foundFiles.length} 个包含标签 "${filter.tagName}" 的文件`);
+      console.log(`🔍 筛选完成，找到 ${foundFiles.length} 个包含标签 "${filter.tagName}" 的文件`);
+      console.log('🔍 筛选结果:', foundFiles.map(f => ({ name: f.name, path: f.path })));
     } catch (error) {
-      console.error('执行标签筛选时出错:', error);
+      console.error('❌ 执行标签筛选时出错:', error);
       setFilteredFiles([]);
     }
   };
@@ -535,15 +662,33 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     }
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
+    if (isFiltering) {
+      clearFilter();
+    }
     if (currentPath && currentLocation) {
       const parentPath = currentPath.split(/[/\\]/).slice(0, -1).join('/');
       if (parentPath && parentPath !== currentLocation.path.slice(0, -1)) {
-        handleNavigate(parentPath);
+        await handleNavigate(parentPath);
       } else {
-        handleNavigate(currentLocation.path);
+        await handleNavigate(currentLocation.path);
+      }
+      // 返回后补齐当前目录的缩略图
+      try {
+        const fileList = await window.electron.getFiles(currentPath);
+        await generateVideoThumbnails(fileList);
+      } catch (e) {
+        console.warn('⚠️ 返回后刷新缩略图失败:', e);
       }
     }
+  };
+
+  // 面包屑点击：在筛选状态下先退出筛选再导航
+  const handleBreadcrumbNavigate = async (path: string) => {
+    if (isFiltering) {
+      clearFilter();
+    }
+    await handleNavigate(path);
   };
 
   const handleContextMenu = (event: React.MouseEvent, file: FileItem) => {
@@ -576,13 +721,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
   // 处理标签筛选
   const handleFilterByTag = (tag: Tag) => {
+    console.log('🏷️ FileExplorer卡片标签点击筛选:', tag);
     const filterInfo = {
       type: 'tag' as const,
       tagId: tag.id,
       tagName: tag.name,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      origin: 'fileExplorer' as const,
     };
     
+    console.log('🏷️ FileExplorer创建筛选信息:', filterInfo);
     setTagFilter(filterInfo);
     setIsFiltering(true);
     performTagFilter(filterInfo);
@@ -610,7 +758,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         <Link
           component="button"
           variant="body2"
-          onClick={() => handleNavigate(currentLocation.path)}
+          onClick={() => handleBreadcrumbNavigate(currentLocation.path)}
           sx={{ 
             display: 'flex', 
             alignItems: 'center',
@@ -634,7 +782,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
               key={index}
               component="button"
               variant="body2"
-              onClick={() => handleNavigate(partPath)}
+              onClick={() => handleBreadcrumbNavigate(partPath)}
               sx={{ 
                 textDecoration: 'none',
                 '&:hover': { textDecoration: 'underline' }
@@ -1176,7 +1324,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
           {/* Refresh Button */}
           <IconButton 
             onClick={handleRefresh}
-            title="刷新文件和标签"
+            title="刷新文件、标签和缩略图"
             size="small"
           >
             <RefreshIcon />
