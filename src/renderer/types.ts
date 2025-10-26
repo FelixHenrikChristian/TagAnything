@@ -29,6 +29,26 @@ export interface FileItem {
   tags?: string[];
 }
 
+// 文件操作相关类型
+export interface DraggedFile {
+  name: string;
+  path: string;
+  size: number;
+}
+
+export interface FileOperationRequest {
+  operation: 'move' | 'copy';
+  files: string[]; // 源文件路径数组
+  targetPath: string; // 目标目录路径
+}
+
+export interface FileOperationResult {
+  success: boolean;
+  error?: string;
+  processedFiles?: string[]; // 成功处理的文件路径
+  failedFiles?: { path: string; error: string }[]; // 失败的文件及错误信息
+}
+
 declare global {
   interface Window {
     electron: {
@@ -39,6 +59,7 @@ declare global {
       generateVideoThumbnail: (videoPath: string) => Promise<string>;
       isVideoFile: (filePath: string) => Promise<boolean>;
       resetWindowSize: () => Promise<{ width: number; height: number } | null>;
+      performFileOperation: (request: FileOperationRequest) => Promise<FileOperationResult>;
     };
   }
 }

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import { resolveHtmlPath } from './util';
 import fluentFfmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
@@ -300,6 +301,116 @@ ipcMain.handle('reset-window-size', async () => {
   }
   return null;
 });
+
+// 文件操作处理器（移动/复制文件）
+ipcMain.handle('perform-file-operation', async (event, request: {
+  operation: 'move' | 'copy';
+  files: string[];
+  targetPath: string;
+}) => {
+  const { operation, files, targetPath } = request;
+  const processedFiles: string[] = [];
+  const failedFiles: { path: string; error: string }[] = [];
+
+  try {
+    // 检查目标路径是否存在
+    try {
+      await fsPromises.access(targetPath);
+    } catch {
+      return {
+        success: false,
+        error: `目标路径不存在: ${targetPath}`
+      };
+    }
+
+    // 检查目标路径是否为目录
+    const targetStats = await fsPromises.stat(targetPath);
+    if (!targetStats.isDirectory()) {
+      return {
+        success: false,
+        error: `目标路径不是一个目录: ${targetPath}`
+      };
+    }
+
+    for (const filePath of files) {
+      try {
+        // 检查源文件是否存在
+        try {
+          await fsPromises.access(filePath);
+        } catch {
+          failedFiles.push({
+            path: filePath,
+            error: '源文件不存在'
+          });
+          continue;
+        }
+
+        const fileName = path.basename(filePath);
+        const targetFilePath = path.join(targetPath, fileName);
+
+        // 检查目标文件是否已存在
+        try {
+          await fsPromises.access(targetFilePath);
+          failedFiles.push({
+            path: filePath,
+            error: '目标位置已存在同名文件'
+          });
+          continue;
+        } catch {
+          // 目标文件不存在，可以继续操作
+        }
+
+        if (operation === 'copy') {
+          // 复制文件或目录
+          await copyFileOrDirectory(filePath, targetFilePath);
+        } else if (operation === 'move') {
+          // 移动文件或目录
+          await fsPromises.rename(filePath, targetFilePath);
+        }
+
+        processedFiles.push(filePath);
+      } catch (error) {
+        failedFiles.push({
+          path: filePath,
+          error: error instanceof Error ? error.message : '未知错误'
+        });
+      }
+    }
+
+    return {
+      success: failedFiles.length === 0,
+      processedFiles,
+      failedFiles: failedFiles.length > 0 ? failedFiles : undefined,
+      error: failedFiles.length > 0 ? `${failedFiles.length} 个文件操作失败` : undefined
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '文件操作失败'
+    };
+  }
+});
+
+// 递归复制文件或目录的辅助函数
+async function copyFileOrDirectory(src: string, dest: string): Promise<void> {
+  const stats = await fsPromises.stat(src);
+  
+  if (stats.isDirectory()) {
+    // 创建目标目录
+    await fsPromises.mkdir(dest, { recursive: true });
+    
+    // 递归复制目录内容
+    const items = await fsPromises.readdir(src);
+    for (const item of items) {
+      const srcPath = path.join(src, item);
+      const destPath = path.join(dest, item);
+      await copyFileOrDirectory(srcPath, destPath);
+    }
+  } else {
+    // 复制文件
+    await fsPromises.copyFile(src, dest);
+  }
+}
 
 fluentFfmpeg.setFfmpegPath(ffmpegInstaller.path);
 fluentFfmpeg.setFfprobePath(ffprobeInstaller.path);

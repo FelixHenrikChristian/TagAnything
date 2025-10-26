@@ -24,6 +24,22 @@ import {
   Slider,
   FormControl,
   Select,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Snackbar,
+  Alert,
+  CircularProgress,
+  LinearProgress,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -38,14 +54,24 @@ import {
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
   MoreVert as MoreIcon,
+  Sort as SortIcon,
+  FilterList as FilterListIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  FileCopy as CopyIcon,
+  ContentCopy as CopyIcon,
   Label as LabelIcon,
-  FilterList as FilterListIcon,
   Clear as ClearIcon,
+  Close as CloseIcon,
+  PlayArrow as PlayIcon,
+  Image as ImageIcon,
+  PictureAsPdf as PdfIcon,
+  Description as DocIcon,
+  Archive as ArchiveIcon,
+  Code as CodeIcon,
+  AudioFile as AudioIcon,
+  VideoFile as VideoIcon,
 } from '@mui/icons-material';
-import { Location, FileItem, Tag, TagGroup } from '../types';
+import { Location, FileItem, Tag, TagGroup, DraggedFile, FileOperationRequest, FileOperationResult } from '../types';
 import { 
   parseTagsFromFilename, 
   createTagsFromNames, 
@@ -71,6 +97,29 @@ interface TagFilter {
   timestamp: number;
   origin?: 'fileExplorer' | 'tagManager';
   currentPath?: string;
+}
+
+interface FileOperationDialog {
+  open: boolean;
+  files: DraggedFile[];
+  targetPath: string;
+}
+
+// 添加文件操作状态接口
+interface FileOperationStatus {
+  isOperating: boolean;
+  operation: 'copy' | 'move' | null;
+  progress: number;
+  currentFile: string;
+  totalFiles: number;
+  completedFiles: number;
+}
+
+// 添加通知状态接口
+interface NotificationState {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error' | 'info' | 'warning';
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
@@ -129,6 +178,31 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const [tagFilter, setTagFilter] = useState<TagFilter | null>(null);
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
   const [isFiltering, setIsFiltering] = useState<boolean>(false);
+  
+  // 拖拽文件操作状态
+  const [fileOperationDialog, setFileOperationDialog] = useState<FileOperationDialog>({
+    open: false,
+    files: [],
+    targetPath: ''
+  });
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  
+  // 添加文件操作状态管理
+  const [operationStatus, setOperationStatus] = useState<FileOperationStatus>({
+    isOperating: false,
+    operation: null,
+    progress: 0,
+    currentFile: '',
+    totalFiles: 0,
+    completedFiles: 0
+  });
+  
+  // 添加通知状态管理
+  const [notification, setNotification] = useState<NotificationState>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
   
   // 标签相关状态
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
@@ -741,6 +815,172 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     handleCloseTagContextMenu();
   };
 
+  // 拖拽事件处理函数
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // 检查是否有文件被拖拽
+    if (event.dataTransfer.types.includes('Files')) {
+      event.dataTransfer.dropEffect = 'copy';
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragEnter = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (event.dataTransfer.types.includes('Files')) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // 只有当鼠标离开整个容器时才设置为false
+    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // 转换为DraggedFile格式
+    const draggedFiles: DraggedFile[] = files.map(file => ({
+      name: file.name,
+      path: (file as any).path || file.name, // Electron环境下file.path包含完整路径
+      size: file.size
+    }));
+
+    console.log('拖拽的文件:', draggedFiles);
+
+    // 打开确认对话框
+    setFileOperationDialog({
+      open: true,
+      files: draggedFiles,
+      targetPath: currentPath
+    });
+  };
+
+  // 关闭文件操作对话框
+  const handleCloseFileOperationDialog = () => {
+    setFileOperationDialog({
+      open: false,
+      files: [],
+      targetPath: ''
+    });
+  };
+
+  // 执行文件操作
+  const handleFileOperation = async (operation: 'move' | 'copy') => {
+    const { files, targetPath } = fileOperationDialog;
+    
+    // 立即关闭对话框
+    handleCloseFileOperationDialog();
+    
+    // 设置操作状态
+    setOperationStatus({
+      isOperating: true,
+      operation,
+      progress: 0,
+      currentFile: '',
+      totalFiles: files.length,
+      completedFiles: 0
+    });
+    
+    // 显示开始操作的通知
+    setNotification({
+      open: true,
+      message: `开始${operation === 'move' ? '移动' : '复制'} ${files.length} 个文件...`,
+      severity: 'info'
+    });
+    
+    try {
+      // 异步执行文件操作
+      setTimeout(async () => {
+        try {
+          const result = await window.electron.performFileOperation({
+            operation,
+            files: files.map(f => f.path),
+            targetPath
+          });
+
+          if (result.success) {
+            // 刷新文件列表
+            await loadFiles(currentPath);
+            
+            // 显示成功通知
+            setNotification({
+              open: true,
+              message: `${files.length} 个文件${operation === 'move' ? '移动' : '复制'}成功！`,
+              severity: 'success'
+            });
+            
+            console.log(`✅ 文件${operation === 'move' ? '移动' : '复制'}成功`);
+          } else {
+            // 显示错误通知
+            setNotification({
+              open: true,
+              message: `文件${operation === 'move' ? '移动' : '复制'}失败: ${result.error}`,
+              severity: 'error'
+            });
+            
+            console.error(`❌ 文件${operation === 'move' ? '移动' : '复制'}失败:`, result.error);
+          }
+        } catch (error) {
+          // 显示错误通知
+          setNotification({
+            open: true,
+            message: `文件${operation === 'move' ? '移动' : '复制'}操作出错: ${error instanceof Error ? error.message : '未知错误'}`,
+            severity: 'error'
+          });
+          
+          console.error(`❌ 文件${operation === 'move' ? '移动' : '复制'}操作出错:`, error);
+        } finally {
+          // 重置操作状态
+          setOperationStatus({
+            isOperating: false,
+            operation: null,
+            progress: 0,
+            currentFile: '',
+            totalFiles: 0,
+            completedFiles: 0
+          });
+        }
+      }, 100); // 短暂延迟确保UI更新
+      
+    } catch (error) {
+      // 立即错误处理
+      setNotification({
+        open: true,
+        message: `启动文件操作失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        severity: 'error'
+      });
+      
+      setOperationStatus({
+        isOperating: false,
+        operation: null,
+        progress: 0,
+        currentFile: '',
+        totalFiles: 0,
+        completedFiles: 0
+      });
+    }
+  };
+
+  // 关闭通知
+  const handleCloseNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
+  };
+
   // 移除重复的getFileTypeColor函数，使用导入的版本
   const getFileIcon = (file: FileItem) => {
     if (file.isDirectory) {
@@ -1295,7 +1535,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box 
+      sx={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        // 拖拽视觉反馈
+        backgroundColor: isDragOver ? 'action.hover' : 'transparent',
+        border: '2px solid transparent',
+        borderColor: isDragOver ? 'primary.main' : 'transparent',
+        borderStyle: isDragOver ? 'dashed' : 'solid',
+        borderRadius: 1,
+        transition: 'all 0.2s ease-in-out'
+      }}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1498,6 +1756,163 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
           <ListItemText>显示此标签的文件</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* 文件操作确认对话框 */}
+      <Dialog
+        open={fileOperationDialog.open}
+        onClose={handleCloseFileOperationDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FileIcon color="primary" />
+            <Typography variant="h6">文件操作确认</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              目标路径：
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                backgroundColor: 'background.paper', 
+                border: 1,
+                borderColor: 'divider',
+                p: 1, 
+                borderRadius: 1,
+                fontFamily: 'monospace',
+                wordBreak: 'break-all'
+              }}
+            >
+              {fileOperationDialog.targetPath}
+            </Typography>
+          </Box>
+
+          <Typography variant="subtitle1" gutterBottom>
+            要操作的文件 ({fileOperationDialog.files.length} 个)：
+          </Typography>
+          
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>文件名</TableCell>
+                  <TableCell>大小</TableCell>
+                  <TableCell>原路径</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {fileOperationDialog.files.map((file, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <FileIcon fontSize="small" />
+                        <Typography variant="body2">{file.name}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {formatFileSize(file.size)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{ 
+                          fontFamily: 'monospace',
+                          fontSize: '0.75rem',
+                          wordBreak: 'break-all'
+                        }}
+                      >
+                        {file.path}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button 
+            onClick={handleCloseFileOperationDialog}
+            variant="outlined"
+          >
+            取消
+          </Button>
+          <Button 
+            onClick={() => handleFileOperation('copy')}
+            variant="contained"
+            color="primary"
+            startIcon={<CopyIcon />}
+          >
+            复制
+          </Button>
+          <Button 
+            onClick={() => handleFileOperation('move')}
+            variant="contained"
+            color="primary"
+            startIcon={<ArrowUpwardIcon />}
+          >
+            移动
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 操作进度指示器 */}
+      {operationStatus.isOperating && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 9999,
+            backgroundColor: 'background.paper',
+            borderRadius: 2,
+            p: 2,
+            boxShadow: 3,
+            minWidth: 300,
+            border: 1,
+            borderColor: 'divider'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <CircularProgress size={20} />
+            <Typography variant="body2" fontWeight="medium">
+              正在{operationStatus.operation === 'move' ? '移动' : '复制'}文件...
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {operationStatus.completedFiles} / {operationStatus.totalFiles} 个文件
+          </Typography>
+          <LinearProgress 
+            variant="determinate" 
+            value={(operationStatus.completedFiles / operationStatus.totalFiles) * 100}
+            sx={{ mt: 1 }}
+          />
+        </Box>
+      )}
+
+      {/* 通知组件 */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
