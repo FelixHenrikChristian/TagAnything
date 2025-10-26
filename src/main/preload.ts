@@ -30,11 +30,6 @@ const electronHandler = {
   isVideoFile: (filePath: string) => ipcRenderer.invoke('is-video-file', filePath),
 };
 
-const electronHandlerWithThumbnail = {
-  ...electronHandler,
-  saveThumbnail: (thumbnailPath: string, imageData: string) => ipcRenderer.invoke('save-thumbnail', thumbnailPath, imageData),
-};
-
-contextBridge.exposeInMainWorld('electron', electronHandlerWithThumbnail);
+contextBridge.exposeInMainWorld('electron', electronHandler);
 
 export type ElectronHandler = typeof electronHandler;

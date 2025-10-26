@@ -38,7 +38,6 @@ declare global {
       openFile: (filePath: string) => Promise<void>;
       generateVideoThumbnail: (videoPath: string) => Promise<string>;
       isVideoFile: (filePath: string) => Promise<boolean>;
-      saveThumbnail: (thumbnailPath: string, imageData: string) => Promise<string>;
     };
   }
 }

@@ -230,19 +230,7 @@ ipcMain.handle('generate-video-thumbnail', async (event, videoPath: string) => {
   }
 });
 
-// 保存缩略图文件
-ipcMain.handle('save-thumbnail', async (event, thumbnailPath: string, imageData: string) => {
-  try {
-    // 将base64数据转换为buffer并保存
-    const base64Data = imageData.replace(/^data:image\/jpeg;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    fs.writeFileSync(thumbnailPath, buffer);
-    return thumbnailPath;
-  } catch (error) {
-    console.error('Error saving thumbnail:', error);
-    throw error;
-  }
-});
+
 
 // 检查是否为视频文件
 ipcMain.handle('is-video-file', async (event, filePath: string) => {

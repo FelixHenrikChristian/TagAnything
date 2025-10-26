@@ -388,20 +388,6 @@ const LocationManager: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add location"
-        onClick={handleOpenDialog}
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          zIndex: 1000,
-        }}
-      >
-        <AddIcon />
-      </Fab>
     </Box>
   );
 };
