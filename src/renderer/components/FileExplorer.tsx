@@ -22,22 +22,26 @@ import {
   ListItem,
   ListItemAvatar,
   Slider,
+  FormControl,
+  Select,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
   InsertDriveFile as FileIcon,
   ArrowBack as BackIcon,
   Home as HomeIcon,
+  Refresh as RefreshIcon,
+  GridView as GridViewIcon,
   ViewList as ListViewIcon,
-  ViewModule as GridViewIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
   MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   FileCopy as CopyIcon,
   Label as LabelIcon,
-  ZoomIn as ZoomInIcon,
-  ZoomOut as ZoomOutIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { Location, FileItem, Tag, TagGroup } from '../types';
 import { 
@@ -53,6 +57,10 @@ interface FileExplorerProps {
   tagDisplayStyle?: 'original' | 'library';
 }
 
+// 排序类型枚举
+type SortType = 'name' | 'modified' | 'type' | 'size';
+type SortDirection = 'asc' | 'desc';
+
 const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
@@ -65,6 +73,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     mouseY: number;
     file: FileItem | null;
   } | null>(null);
+  
+  // 排序相关状态
+  const [sortType, setSortType] = useState<SortType>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   
   // 标签相关状态
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
@@ -487,6 +499,59 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     return thumbnail + info + 8;
   };
 
+  // 排序函数
+  const sortFiles = (files: FileItem[], sortType: SortType, sortDirection: SortDirection): FileItem[] => {
+    const sortedFiles = [...files];
+    
+    // 分离文件夹和文件
+    const directories = sortedFiles.filter(f => f.isDirectory);
+    const regularFiles = sortedFiles.filter(f => !f.isDirectory);
+    
+    // 排序函数
+    const getSortValue = (file: FileItem) => {
+      switch (sortType) {
+        case 'name':
+          // 使用去掉标签后的文件名进行排序
+          return getDisplayName(file.name).toLowerCase();
+        case 'modified':
+          return file.modified.getTime();
+        case 'type':
+          // 按文件扩展名排序
+          const ext = file.name.split('.').pop()?.toLowerCase() || '';
+          return ext;
+        case 'size':
+          return file.size || 0;
+        default:
+          return file.name.toLowerCase();
+      }
+    };
+    
+    // 排序比较函数
+    const compareFunction = (a: FileItem, b: FileItem) => {
+      const aValue = getSortValue(a);
+      const bValue = getSortValue(b);
+      
+      let result = 0;
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        result = aValue.localeCompare(bValue, 'zh-CN', { numeric: true });
+      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        result = aValue - bValue;
+      }
+      
+      return sortDirection === 'asc' ? result : -result;
+    };
+    
+    // 分别排序文件夹和文件
+    directories.sort(compareFunction);
+    regularFiles.sort(compareFunction);
+    
+    // 文件夹始终在前面
+    return [...directories, ...regularFiles];
+  };
+  
+  // 获取排序后的文件列表
+  const sortedFiles = sortFiles(files, sortType, sortDirection);
+
   const renderGridView = () => {
     const gridItemWidth = getGridItemSize();
     const iconSize = getIconSize();
@@ -564,7 +629,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
           width: '100%',
         }}
       >
-        {files.map((file) => (
+        {sortedFiles.map((file) => (
           <Card
             key={file.path}
             sx={{
@@ -623,6 +688,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                         border: tagStyle.border,
                         opacity: 0.9,
                         backdropFilter: 'blur(4px)',
+                        borderRadius: '4px',
                         '& .MuiChip-label': {
                           px: 0.4
                         }
@@ -689,26 +755,30 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                       backgroundColor: 'primary.main',
                       color: 'primary.contrastText',
                       fontWeight: 'bold',
+                      borderRadius: '4px',
                       '& .MuiChip-label': {
                         px: 0.4
                       }
                     }}
                   />
                 )}
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 500,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    fontSize: '0.75rem',
-                    lineHeight: 1.2,
-                    flex: 1,
-                  }}
-                >
-                  {getDisplayName(file.name)}
-                </Typography>
+                <Tooltip title={file.name} placement="top" arrow>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 500,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.75rem',
+                      lineHeight: 1.2,
+                      flex: 1,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {getDisplayName(file.name)}
+                  </Typography>
+                </Tooltip>
               </Box>
 
               {/* 文件元数据行 */}
@@ -752,7 +822,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
   const renderListView = () => (
     <List>
-      {files.map((file) => (
+      {sortedFiles.map((file) => (
         <ListItem
           key={file.path}
           button
@@ -799,7 +869,20 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             </Avatar>
           </ListItemAvatar>
           <ListItemText
-            primary={getDisplayName(file.name)}
+            primary={
+              <Tooltip title={file.name} placement="top" arrow>
+                <Typography
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {getDisplayName(file.name)}
+                </Typography>
+              </Tooltip>
+            }
             secondary={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 {!file.isDirectory && (
@@ -823,6 +906,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                           fontSize: '0.7rem',
                           height: '20px',
                           border: tagStyle.border,
+                          borderRadius: '4px',
                           '& .MuiChip-label': {
                             px: 0.5
                           }
@@ -888,6 +972,30 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
           >
             <RefreshIcon />
           </IconButton>
+
+          {/* Sort Controls */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <Select
+                value={sortType}
+                onChange={(e) => setSortType(e.target.value as SortType)}
+                displayEmpty
+                sx={{ fontSize: '0.875rem' }}
+              >
+                <MenuItem value="name">文件名</MenuItem>
+                <MenuItem value="modified">修改日期</MenuItem>
+                <MenuItem value="type">文件类型</MenuItem>
+                <MenuItem value="size">文件大小</MenuItem>
+              </Select>
+            </FormControl>
+            <IconButton
+              size="small"
+              onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+              title={sortDirection === 'asc' ? '升序' : '降序'}
+            >
+              {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+            </IconButton>
+          </Box>
 
           {/* Grid Size Slider (only show in grid view) */}
           {viewMode === 'grid' && (
