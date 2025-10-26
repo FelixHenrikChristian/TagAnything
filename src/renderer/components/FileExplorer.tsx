@@ -667,15 +667,19 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       clearFilter();
     }
     if (currentPath && currentLocation) {
-      const parentPath = currentPath.split(/[/\\]/).slice(0, -1).join('/');
-      if (parentPath && parentPath !== currentLocation.path.slice(0, -1)) {
-        await handleNavigate(parentPath);
-      } else {
-        await handleNavigate(currentLocation.path);
-      }
-      // 返回后补齐当前目录的缩略图
+      // 统一分隔符并计算父路径，避免因路径分隔符不一致导致错误
+      const normalize = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '');
+      const curr = normalize(currentPath);
+      const root = normalize(currentLocation.path);
+      const parent = curr.split('/').slice(0, -1).join('/');
+
+      // 若父路径仍在根路径下且不等于根，则导航到父路径；否则回到根
+      const target = parent.startsWith(root) && parent !== root ? parent : currentLocation.path;
+      await handleNavigate(target);
+
+      // 返回后补齐当前目录的视频缩略图（使用刚刚导航到的路径，而不是依赖state）
       try {
-        const fileList = await window.electron.getFiles(currentPath);
+        const fileList = await window.electron.getFiles(target);
         await generateVideoThumbnails(fileList);
       } catch (e) {
         console.warn('⚠️ 返回后刷新缩略图失败:', e);
@@ -751,7 +755,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const renderBreadcrumbs = () => {
     if (!currentLocation || !currentPath) return null;
 
-    const pathParts = currentPath.replace(currentLocation.path, '').split(/[/\\]/).filter(Boolean);
+    // 统一分隔符并计算相对路径，避免 Windows 路径分隔符导致替换失败
+    const normalizePath = (p: string) => p.replace(/\\/g, '/');
+    const root = normalizePath(currentLocation.path).replace(/\/+$/, '');
+    const curr = normalizePath(currentPath).replace(/\/+$/, '');
+    const relative = curr.startsWith(root) ? curr.slice(root.length) : curr;
+    const pathParts = relative.split('/').filter(Boolean);
 
     return (
       <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
