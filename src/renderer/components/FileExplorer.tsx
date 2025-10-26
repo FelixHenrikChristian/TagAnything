@@ -42,6 +42,8 @@ import {
   Delete as DeleteIcon,
   FileCopy as CopyIcon,
   Label as LabelIcon,
+  FilterList as FilterListIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { Location, FileItem, Tag, TagGroup } from '../types';
 import { 
@@ -61,6 +63,14 @@ interface FileExplorerProps {
 type SortType = 'name' | 'modified' | 'type' | 'size';
 type SortDirection = 'asc' | 'desc';
 
+// 筛选类型接口
+interface TagFilter {
+  type: 'tag';
+  tagId: string;
+  tagName: string;
+  timestamp: number;
+}
+
 const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
@@ -68,15 +78,55 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const [files, setFiles] = useState<FileItem[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [gridSize, setGridSize] = useState<number>(3); // 1=最大，递增越小
+
+  // 加载已缓存的缩放等级
+  useEffect(() => {
+    const savedGridSize = localStorage.getItem('tagAnything_gridSize');
+    if (savedGridSize) {
+      const parsed = parseInt(savedGridSize, 10);
+      if (!Number.isNaN(parsed)) {
+        setGridSize(parsed);
+      }
+    }
+  }, []);
+
+  // 缓存缩放等级到本地
+  useEffect(() => {
+    localStorage.setItem('tagAnything_gridSize', String(gridSize));
+  }, [gridSize]);
+
+  // 监听重置事件，重置缩放等级并清除缓存
+  useEffect(() => {
+    const resetHandler = () => {
+      setGridSize(3);
+      localStorage.removeItem('tagAnything_gridSize');
+    };
+    window.addEventListener('ta:reset-grid-zoom', resetHandler);
+    return () => {
+      window.removeEventListener('ta:reset-grid-zoom', resetHandler);
+    };
+  }, []);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
     file: FileItem | null;
   } | null>(null);
   
+  // 标签菜单相关状态
+  const [tagContextMenu, setTagContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    tag: Tag | null;
+  } | null>(null);
+  
   // 排序相关状态
   const [sortType, setSortType] = useState<SortType>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // 筛选相关状态
+  const [tagFilter, setTagFilter] = useState<TagFilter | null>(null);
+  const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
+  const [isFiltering, setIsFiltering] = useState<boolean>(false);
   
   // 标签相关状态
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
@@ -175,10 +225,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       handleLocationSelect(selectedLocation);
     };
 
+    // 标签筛选事件监听器
+    const handleTagFilterEvent = (event: CustomEvent) => {
+      const filterData = event.detail;
+      setTagFilter(filterData);
+      setIsFiltering(true);
+      // 触发筛选逻辑
+      performTagFilter(filterData);
+    };
+
     window.addEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
+    window.addEventListener('tagFilter', handleTagFilterEvent as EventListener);
 
     return () => {
       window.removeEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
+      window.removeEventListener('tagFilter', handleTagFilterEvent as EventListener);
     };
   }, []);
 
@@ -346,6 +407,94 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     return fileTags.get(file.path) || [];
   };
 
+  // 递归搜索带指定标签的文件
+  const searchFilesByTag = async (dirPath: string, targetTagId: string): Promise<FileItem[]> => {
+    const foundFiles: FileItem[] = [];
+    
+    // 首先找到目标标签的名称
+    const effectiveGroups = getEffectiveTagGroups();
+    let targetTagName = '';
+    for (const group of effectiveGroups) {
+      const tag = group.tags.find(t => t.id === targetTagId);
+      if (tag) {
+        targetTagName = tag.name;
+        break;
+      }
+    }
+    
+    if (!targetTagName) {
+      console.error(`未找到ID为 ${targetTagId} 的标签`);
+      return foundFiles;
+    }
+    
+    try {
+      const files = await window.electron.getFiles(dirPath);
+      
+      for (const file of files) {
+        if (file.isDirectory) {
+          // 递归搜索子目录
+          const subFiles = await searchFilesByTag(file.path, targetTagId);
+          foundFiles.push(...subFiles);
+        } else {
+          // 检查文件是否包含目标标签
+          const tagNames = parseTagsFromFilename(file.name);
+          if (tagNames.length > 0) {
+            // 直接按标签名称匹配，不依赖ID
+            const hasTargetTag = tagNames.some(tagName => 
+              tagName.toLowerCase() === targetTagName.toLowerCase()
+            );
+            if (hasTargetTag) {
+              foundFiles.push(file);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`搜索目录 ${dirPath} 时出错:`, error);
+    }
+    
+    return foundFiles;
+  };
+
+  // 执行标签筛选
+  const performTagFilter = async (filter: TagFilter) => {
+    if (!currentPath) return;
+    
+    try {
+      console.log(`开始在当前目录搜索标签: ${filter.tagName} (ID: ${filter.tagId})`);
+      
+      // 只在当前目录中筛选，不递归搜索子目录
+      const currentFiles = files; // 使用当前已加载的文件列表
+      const foundFiles: FileItem[] = [];
+      
+      // 从当前文件列表中筛选包含指定标签的文件
+      for (const file of currentFiles) {
+        if (!file.isDirectory) {
+          // 获取文件的标签（从已解析的标签映射中获取）
+          const fileTags = getFileTags(file);
+          const hasTargetTag = fileTags.some(tag => tag.id === filter.tagId);
+          
+          if (hasTargetTag) {
+            foundFiles.push(file);
+          }
+        }
+      }
+      
+      setFilteredFiles(foundFiles);
+      console.log(`在当前目录找到 ${foundFiles.length} 个包含标签 "${filter.tagName}" 的文件`);
+    } catch (error) {
+      console.error('执行标签筛选时出错:', error);
+      setFilteredFiles([]);
+    }
+  };
+
+  // 清除筛选
+  const clearFilter = () => {
+    setTagFilter(null);
+    setIsFiltering(false);
+    setFilteredFiles([]);
+  };
+
   // 获取标签样式
   const getTagStyle = (tag: Tag) => {
     if (tag.groupId === 'temporary') {
@@ -408,6 +557,36 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
   const handleCloseContextMenu = () => {
     setContextMenu(null);
+  };
+
+  // 标签菜单处理函数
+  const handleTagContextMenu = (event: React.MouseEvent, tag: Tag) => {
+    event.preventDefault();
+    event.stopPropagation(); // 阻止事件冒泡到文件卡片
+    setTagContextMenu({
+      mouseX: event.clientX - 2,
+      mouseY: event.clientY - 4,
+      tag,
+    });
+  };
+
+  const handleCloseTagContextMenu = () => {
+    setTagContextMenu(null);
+  };
+
+  // 处理标签筛选
+  const handleFilterByTag = (tag: Tag) => {
+    const filterInfo = {
+      type: 'tag' as const,
+      tagId: tag.id,
+      tagName: tag.name,
+      timestamp: Date.now()
+    };
+    
+    setTagFilter(filterInfo);
+    setIsFiltering(true);
+    performTagFilter(filterInfo);
+    handleCloseTagContextMenu();
   };
 
   // 移除重复的getFileTypeColor函数，使用导入的版本
@@ -550,7 +729,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   };
   
   // 获取排序后的文件列表
-  const sortedFiles = sortFiles(files, sortType, sortDirection);
+  const sortedFiles = sortFiles(isFiltering ? filteredFiles : files, sortType, sortDirection);
 
   const renderGridView = () => {
     const gridItemWidth = getGridItemSize();
@@ -689,10 +868,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                         opacity: 0.9,
                         backdropFilter: 'blur(4px)',
                         borderRadius: '4px',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          opacity: 1,
+                          transform: 'scale(1.05)',
+                        },
                         '& .MuiChip-label': {
                           px: 0.4
                         }
                       }}
+                      onClick={(e) => handleTagContextMenu(e, tag)}
                     />
                   );
                 })}
@@ -907,10 +1092,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                           height: '20px',
                           border: tagStyle.border,
                           borderRadius: '4px',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            opacity: 0.8,
+                            transform: 'scale(1.05)',
+                          },
                           '& .MuiChip-label': {
                             px: 0.5
                           }
                         }}
+                        onClick={(e) => handleTagContextMenu(e, tag)}
                       />
                     );
                   })}
@@ -964,6 +1155,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Filter Status Indicator */}
+          {isFiltering && tagFilter && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, bgcolor: 'primary.light', borderRadius: 1 }}>
+              <FilterListIcon fontSize="small" sx={{ color: 'primary.contrastText' }} />
+              <Typography variant="body2" sx={{ color: 'primary.contrastText', fontSize: '0.75rem' }}>
+                筛选: {tagFilter.tagName} ({filteredFiles.length} 个文件)
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={clearFilter}
+                title="清除筛选"
+                sx={{ color: 'primary.contrastText', p: 0.25 }}
+              >
+                <ClearIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+
           {/* Refresh Button */}
           <IconButton 
             onClick={handleRefresh}
@@ -1111,6 +1320,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             <DeleteIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>删除</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Tag Context Menu */}
+      <Menu
+        open={tagContextMenu !== null}
+        onClose={handleCloseTagContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          tagContextMenu !== null
+            ? { top: tagContextMenu.mouseY, left: tagContextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem onClick={() => tagContextMenu?.tag && handleFilterByTag(tagContextMenu.tag)}>
+          <ListItemIcon>
+            <FilterListIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>显示此标签的文件</ListItemText>
         </MenuItem>
       </Menu>
     </Box>

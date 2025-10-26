@@ -20,6 +20,20 @@ import {
   InputAdornment,
   Fab,
   useMediaQuery,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Switch,
+  Grid,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -182,6 +196,11 @@ const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [tagDisplayStyle, setTagDisplayStyle] = useState<'original' | 'library'>('original');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   
@@ -212,6 +231,76 @@ const App: React.FC = () => {
 
   const handleThemeToggle = () => {
     setDarkMode(!darkMode);
+  };
+
+  // 清除所有缓存的函数
+  const handleClearCache = () => {
+    try {
+      // 清除所有 localStorage 中的应用数据
+      const keysToRemove = [
+        'tagAnything_locations',
+        'tagAnything_selectedLocation', 
+        'tagAnything_tagGroups',
+        'tagAnything_videoThumbnails',
+        'tagAnything_filter',
+        '·w'
+      ];
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      // 清除 sessionStorage
+      sessionStorage.clear();
+      
+      // 显示成功消息并关闭对话框
+      setSnackbarMessage('缓存已成功清除！应用将在下次启动时重置为默认状态。');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      setClearCacheConfirmOpen(false);
+      setSettingsOpen(false);
+      
+      // 延迟重新加载页面，让用户看到成功消息
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('清除缓存时出错:', error);
+      setSnackbarMessage('清除缓存时出现错误，请重试。');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
+  // 处理Snackbar关闭
+  const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
+  // 处理重置窗口大小
+  const handleResetWindowSize = async () => {
+    try {
+      const result = await window.electron.resetWindowSize();
+      if (result) {
+        // 同步重置文件浏览器的缩放等级
+        window.dispatchEvent(new CustomEvent('ta:reset-grid-zoom'));
+        setSnackbarMessage(`窗口大小与缩放等级已重置为默认值 (${result.width} × ${result.height})`);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      } else {
+        setSnackbarMessage('重置窗口大小失败，请重试。');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    } catch (error) {
+      console.error('重置窗口大小时出错:', error);
+      setSnackbarMessage('重置窗口大小时出现错误，请重试。');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
   };
 
   const menuItems = [
@@ -300,7 +389,7 @@ const App: React.FC = () => {
               <StyleIcon />
             </IconButton>
 
-            <IconButton color="inherit">
+            <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
               <SettingsIcon />
             </IconButton>
           </Toolbar>
@@ -393,6 +482,134 @@ const App: React.FC = () => {
         >
           <AddIcon />
         </Fab>
+
+        {/* Settings Dialog */}
+        <Dialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>设置</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+              {/* Window Settings */}
+              <Grid item xs={12}>
+                <FormControl component="fieldset">
+                  <FormLabel component="legend">窗口设置</FormLabel>
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      默认窗口大小: 1200 × 800 像素
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      窗口大小会自动保存，下次启动时恢复
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleResetWindowSize}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      重置窗口大小
+                    </Button>
+                  </Box>
+                </FormControl>
+              </Grid>
+
+              {/* Cache Management */}
+              <Grid item xs={12}>
+                <FormControl component="fieldset">
+                  <FormLabel component="legend">缓存管理</FormLabel>
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      清除所有应用缓存数据，包括位置信息、标签组、视频缩略图等
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      onClick={() => setClearCacheConfirmOpen(true)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      清除所有缓存
+                    </Button>
+                  </Box>
+                </FormControl>
+              </Grid>
+
+              {/* About */}
+              <Grid item xs={12}>
+                <FormControl component="fieldset">
+                  <FormLabel component="legend">关于</FormLabel>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    TagAnything - 文件标签管理工具
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    版本: 1.0.0
+                  </Typography>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSettingsOpen(false)} color="primary">
+              关闭
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Clear Cache Confirmation Dialog */}
+        <Dialog
+          open={clearCacheConfirmOpen}
+          onClose={() => setClearCacheConfirmOpen(false)}
+          aria-labelledby="clear-cache-dialog-title"
+        >
+          <DialogTitle id="clear-cache-dialog-title">
+            确认清除缓存
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              您确定要清除所有缓存数据吗？
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              此操作将清除以下数据：
+            </Typography>
+            <Typography variant="body2" color="text.secondary" component="ul" sx={{ mt: 1, pl: 2 }}>
+              <li>所有位置信息</li>
+              <li>标签组设置</li>
+              <li>视频缩略图缓存</li>
+              <li>过滤器设置</li>
+              <li>其他应用设置</li>
+            </Typography>
+            <Typography variant="body2" color="warning.main" sx={{ mt: 2, fontWeight: 'bold' }}>
+              此操作无法撤销，应用将重新加载。
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setClearCacheConfirmOpen(false)} color="primary">
+              取消
+            </Button>
+            <Button onClick={handleClearCache} color="warning" variant="contained">
+              确认清除
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleSnackbarClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={handleSnackbarClose}
+            severity={snackbarSeverity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Box>
     </ThemeProvider>
   );

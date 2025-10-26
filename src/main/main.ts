@@ -5,6 +5,7 @@ import { resolveHtmlPath } from './util';
 import fluentFfmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import ffprobeInstaller from '@ffprobe-installer/ffprobe';
+const Store = require('electron-store');
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -46,16 +47,55 @@ const createWindow = async (): Promise<void> => {
     return path.join(RESOURCES_PATH, ...paths);
   };
 
+  // 从缓存中获取窗口大小，如果没有则使用默认值
+  const getWindowSize = () => {
+    try {
+      const store = new Store();
+      const savedSize = store.get('windowSize');
+      if (savedSize && typeof savedSize === 'object' && savedSize.width && savedSize.height) {
+        return {
+          width: Math.max(800, savedSize.width), // 最小宽度800
+          height: Math.max(600, savedSize.height) // 最小高度600
+        };
+      }
+    } catch (error) {
+      console.log('Failed to load window size from cache:', error);
+    }
+    return { width: 1280, height: 960 }; // 默认大小
+  };
+
+  const windowSize = getWindowSize();
+
   mainWindow = new BrowserWindow({
     show: false,
-    width: 1200,
-    height: 800,
+    width: windowSize.width,
+    height: windowSize.height,
+    minWidth: 800,
+    minHeight: 600,
     icon: getAssetPath('icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
+  });
+
+  // 监听窗口大小变化并保存到缓存
+  let saveTimeout: NodeJS.Timeout;
+  mainWindow.on('resize', () => {
+    // 使用防抖，避免频繁保存
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const [width, height] = mainWindow.getSize();
+        try {
+          const store = new Store();
+          store.set('windowSize', { width, height });
+        } catch (error) {
+          console.log('Failed to save window size:', error);
+        }
+      }
+    }, 500); // 500ms 防抖
   });
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
@@ -238,5 +278,28 @@ ipcMain.handle('is-video-file', async (event, filePath: string) => {
   const ext = path.extname(filePath).toLowerCase();
   return videoExtensions.includes(ext);
 });
+
+// 重置窗口大小到默认值
+ipcMain.handle('reset-window-size', async () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const defaultWidth = 1280;
+    const defaultHeight = 960;
+    
+    // 重置窗口大小
+    mainWindow.setSize(defaultWidth, defaultHeight);
+    
+    // 清除缓存中的窗口大小
+    try {
+      const store = new Store();
+      store.delete('windowSize');
+    } catch (error) {
+      console.log('Failed to clear window size cache:', error);
+    }
+    
+    return { width: defaultWidth, height: defaultHeight };
+  }
+  return null;
+});
+
 fluentFfmpeg.setFfmpegPath(ffmpegInstaller.path);
 fluentFfmpeg.setFfprobePath(ffprobeInstaller.path);

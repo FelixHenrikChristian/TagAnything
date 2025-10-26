@@ -41,6 +41,7 @@ import {
   FileUpload as ImportIcon,
   FileDownload as ExportIcon,
   CheckCircle as CheckCircleIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { Tag, TagGroup } from '../types';
 
@@ -287,6 +288,23 @@ const TagManager: React.FC = () => {
     setAnchorEl(null);
     setSelectedGroup(null);
     setSelectedTag(null);
+  };
+
+  // 处理标签筛选
+  const handleFilterByTag = (tag: Tag) => {
+    // 通过localStorage传递筛选信息给FileExplorer
+    const filterInfo = {
+      type: 'tag',
+      tagId: tag.id,
+      tagName: tag.name,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('tagAnything_filter', JSON.stringify(filterInfo));
+    
+    // 触发自定义事件通知FileExplorer
+    window.dispatchEvent(new CustomEvent('tagFilter', { detail: filterInfo }));
+    
+    handleCloseMenu();
   };
 
   const handleCloseMainMenu = () => {
@@ -817,6 +835,12 @@ const TagManager: React.FC = () => {
         )}
         {menuType === 'tag' && selectedTag && (
           [
+            <MenuItem key="filter" onClick={() => handleFilterByTag(selectedTag)}>
+              <ListItemIcon>
+                <FilterListIcon />
+              </ListItemIcon>
+              <ListItemText>显示此标签文件</ListItemText>
+            </MenuItem>,
             <MenuItem key="edit" onClick={() => {
               handleEditTag(selectedTag);
               handleCloseMenu();

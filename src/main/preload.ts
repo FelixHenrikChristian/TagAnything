@@ -28,6 +28,7 @@ const electronHandler = {
   openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
   generateVideoThumbnail: (videoPath: string) => ipcRenderer.invoke('generate-video-thumbnail', videoPath),
   isVideoFile: (filePath: string) => ipcRenderer.invoke('is-video-file', filePath),
+  resetWindowSize: () => ipcRenderer.invoke('reset-window-size'),
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);
