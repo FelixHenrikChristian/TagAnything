@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   Box,
   Typography,
@@ -59,7 +59,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const [currentPath, setCurrentPath] = useState<string>('');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
-  const [gridSize, setGridSize] = useState<number>(3); // 1=大, 2=中, 3=小, 4=超小
+  const [gridSize, setGridSize] = useState<number>(3); // 1=最大，递增越小
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -72,6 +72,28 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   
   // 视频缩略图缓存
   const [videoThumbnails, setVideoThumbnails] = useState<Map<string, string>>(new Map());
+  
+  // 容器宽度测量（用于精确计算列间距，避免换行）
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerClientWidth, setContainerClientWidth] = useState<number>(0);
+  useLayoutEffect(() => {
+     const update = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const style = window.getComputedStyle(containerRef.current);
+      const paddingLeft = parseFloat(style.paddingLeft || '0');
+      const paddingRight = parseFloat(style.paddingRight || '0');
+      setContainerClientWidth(rect.width - paddingLeft - paddingRight);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [currentLocation, files, viewMode]);
   
   // 从 localStorage 加载缓存的缩略图
   useEffect(() => {
@@ -520,126 +542,296 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     );
   };
 
+  // 缩放配置常量
+  const GRID_CONFIG = {
+    MAX_GRID_SIZE: 17,
+    MIN_WIDTH: 80,
+    MAX_WIDTH: 260,
+  };
+
   // 移除重复的formatFileSize函数，使用导入的版本
   const getGridItemSize = () => {
-    switch (gridSize) {
-      case 1: return { xs: 12, sm: 6, md: 3, lg: 2 }; // 超大
-      case 2: return { xs: 12, sm: 6, md: 4, lg: 3 }; // 大
-      case 3: return { xs: 12, sm: 6, md: 4, lg: 4 }; // 中 (默认)
-      case 4: return { xs: 6, sm: 4, md: 3, lg: 3 }; // 小
-      case 5: return { xs: 6, sm: 3, md: 2, lg: 2 }; // 超小
-      default: return { xs: 12, sm: 6, md: 4, lg: 4 };
-    }
+    // 扩展为17级缩放：1最大，17最小，线性插值宽度
+    const { MAX_GRID_SIZE, MIN_WIDTH, MAX_WIDTH } = GRID_CONFIG;
+    const step = (MAX_WIDTH - MIN_WIDTH) / (MAX_GRID_SIZE - 1);
+    const clamped = Math.min(MAX_GRID_SIZE, Math.max(1, gridSize));
+    return Math.round(MAX_WIDTH - (clamped - 1) * step);
   };
 
   const getIconSize = () => {
-    switch (gridSize) {
-      case 1: return 80; // 超大
-      case 2: return 64; // 大
-      case 3: return 48; // 中 (默认)
-      case 4: return 36; // 小
-      case 5: return 28; // 超小
-      default: return 48;
-    }
+    // 图标大小与卡片宽度成比例（约0.6），并限制上下界
+    const width = getGridItemSize();
+    return Math.round(Math.max(48, Math.min(120, width * 0.6)));
+  };
+
+  // 获取卡片总高度（近似值）
+  const getCardHeight = () => {
+    const width = getGridItemSize();
+    const thumbnail = Math.floor(width * 0.6);
+    const info = 52; // 与renderGridView中保持一致
+    return thumbnail + info + 8;
   };
 
   const renderGridView = () => {
-    const gridItemSize = getGridItemSize();
+    const gridItemWidth = getGridItemSize();
     const iconSize = getIconSize();
+    const cardHeight = getCardHeight();
+
+    const thumbnailHeight = Math.floor(gridItemWidth * 0.6);
+    const fileInfoHeight = 52; // 进一步缩短文件信息区域高度
+    const tagOverlayHeight = 24;
+
+    // 固定纵向间距，单位px
+    const rowGapPx = '6px';
+
+    const MIN_GAP = 8; // 最小间距8px
+
+    // 使用容器的实际可用宽度（减去左右padding），避免换行误差
+    const availableWidth = Math.max(0, containerClientWidth || window.innerWidth - 48);
+
+    // 以最小间距估算当前行可容纳的卡片数量，确保不溢出
+    const maxItemsWithMinGap = Math.floor((availableWidth + MIN_GAP) / (gridItemWidth + MIN_GAP));
+    const itemsPerRow = Math.max(1, maxItemsWithMinGap);
+
+    // 计算在 itemsPerRow 下的剩余空间，并用整数像素分配列间距
+    const totalItemWidth = itemsPerRow * gridItemWidth;
+    const remainingSpace = availableWidth - totalItemWidth;
+    const gapFit = itemsPerRow > 1 ? Math.floor(remainingSpace / (itemsPerRow - 1)) : 0;
+    const calculatedGap = itemsPerRow > 1 ? Math.max(MIN_GAP, gapFit) : 0;
+
+    // 为最后一行添加占位元素以保持间距一致
+    const totalFiles = files.length;
+    const lastRowItems = totalFiles % itemsPerRow;
+    const needPlaceholders = lastRowItems > 0 && lastRowItems < itemsPerRow;
+    const placeholderCount = needPlaceholders ? itemsPerRow - lastRowItems : 0;
+
+    // 获取文件扩展名
+    const getFileExtension = (fileName: string): string => {
+      const ext = fileName.split('.').pop()?.toLowerCase();
+      return ext ? ext.toUpperCase() : '';
+    };
+    
+    // 格式化文件大小
+    const formatFileSize = (bytes: number): string => {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    };
+    
+    // 格式化修改日期
+    const formatModifiedDate = (date: Date): string => {
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) return '今天';
+      if (diffDays === 2) return '昨天';
+      if (diffDays <= 7) return `${diffDays}天前`;
+      
+      return date.toLocaleDateString('zh-CN', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    };
     
     return (
-      <Grid container spacing={2}>
+      <Box
+        ref={containerRef}
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'flex-start',
+          alignItems: 'flex-start',
+          rowGap: rowGapPx,
+          columnGap: `${calculatedGap}px`,
+          width: '100%',
+        }}
+      >
         {files.map((file) => (
-          <Grid item {...gridItemSize} key={file.path}>
-            <Card
-              sx={{
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: 4,
-                },
+          <Card
+            key={file.path}
+            sx={{
+              width: gridItemWidth,
+              height: thumbnailHeight + fileInfoHeight + 8,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+              overflow: 'hidden',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: 4,
+              },
+            }}
+            onClick={() => {
+              if (file.isDirectory) {
+                handleNavigate(file.path);
+              } else {
+                handleFileOpen(file);
+              }
+            }}
+            onContextMenu={(e) => handleContextMenu(e, file)}
+          >
+            {/* 标签覆盖层 - 位于顶部 */}
+            {getFileTags(file).length > 0 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 4,
+                  left: 4,
+                  right: 4,
+                  zIndex: 2,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 0.25,
+                  maxHeight: tagOverlayHeight,
+                  overflow: 'hidden',
+                }}
+              >
+                {getFileTags(file).slice(0, 2).map((tag, index) => {
+                  const tagStyle = getTagStyle(tag);
+                  return (
+                    <Chip
+                      key={index}
+                      size="small"
+                      label={tag.name}
+                      variant={tagStyle.variant}
+                      sx={{
+                        backgroundColor: tagStyle.backgroundColor,
+                        borderColor: tagStyle.borderColor,
+                        color: tagStyle.color,
+                        fontSize: '0.6rem',
+                        height: '18px',
+                        border: tagStyle.border,
+                        opacity: 0.9,
+                        backdropFilter: 'blur(4px)',
+                        '& .MuiChip-label': {
+                          px: 0.4
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </Box>
+            )}
+            
+            {/* 缩略图/图标区域 - 固定高度 */}
+            <Box 
+              sx={{ 
+                height: thumbnailHeight,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                // 移除文件夹图标的背景色，使其更自然
+                backgroundColor: file.isDirectory ? 'transparent' : 'grey.50',
+                position: 'relative',
               }}
-              onClick={() => {
-                if (file.isDirectory) {
-                  handleNavigate(file.path);
-                } else {
-                  handleFileOpen(file);
-                }
-              }}
-              onContextMenu={(e) => handleContextMenu(e, file)}
             >
-              <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                <Box sx={{ mb: 1 }}>
-                  {file.isDirectory ? (
-                    <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
-                  ) : (
-                    // 检查是否有视频缩略图
-                    videoThumbnails.has(file.path) ? (
-                      <Box
-                        component="img"
-                        src={`file://${videoThumbnails.get(file.path)}`}
-                        alt={file.name}
-                        sx={{
-                          width: iconSize,
-                          height: iconSize,
-                          objectFit: 'cover',
-                          borderRadius: 1,
-                          border: '1px solid',
-                          borderColor: 'divider'
-                        }}
-                      />
-                    ) : (
-                      <FileIcon sx={{ fontSize: iconSize, color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
-                    )
-                  )}
-                </Box>
+              {file.isDirectory ? (
+                <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
+              ) : (
+                // 检查是否有视频缩略图
+                videoThumbnails.has(file.path) ? (
+                  <Box
+                    component="img"
+                    src={`file://${videoThumbnails.get(file.path)}`}
+                    alt={file.name}
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover', // 保持比例，填充容器
+                    }}
+                  />
+                ) : (
+                  <FileIcon sx={{ fontSize: iconSize, color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
+                )
+              )}
+            </Box>
+            
+            {/* 文件信息区域 - 减少高度 */}
+            <CardContent 
+              sx={{ 
+                height: fileInfoHeight,
+                p: 0.5, // 进一步减少内边距
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-start',
+                '&:last-child': { pb: 0.5 }
+              }}
+            >
+              {/* 文件名和类型标签行 */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0 }}>
+                {!file.isDirectory && getFileExtension(file.name) && (
+                  <Chip
+                    size="small"
+                    label={getFileExtension(file.name)}
+                    sx={{
+                      height: '16px',
+                      fontSize: '0.6rem',
+                      backgroundColor: 'primary.main',
+                      color: 'primary.contrastText',
+                      fontWeight: 'bold',
+                      '& .MuiChip-label': {
+                        px: 0.4
+                      }
+                    }}
+                  />
+                )}
                 <Typography
                   variant="body2"
                   sx={{
                     fontWeight: 500,
-                    mb: 1,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    fontSize: '0.75rem',
+                    lineHeight: 1.2,
+                    flex: 1,
                   }}
                 >
                   {getDisplayName(file.name)}
                 </Typography>
-                {!file.isDirectory && (
-                  <Typography variant="caption" color="text.secondary">
+              </Box>
+
+              {/* 文件元数据行 */}
+              {!file.isDirectory && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary"
+                    sx={{ fontSize: '0.65rem', lineHeight: 1 }}
+                  >
+                    {formatModifiedDate(new Date(file.modified))}
+                  </Typography>
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary"
+                    sx={{ fontSize: '0.65rem', lineHeight: 1 }}
+                  >
                     {formatFileSize(file.size || 0)}
                   </Typography>
-                )}
-                <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-                   {getFileTags(file).map((tag, index) => {
-                     const tagStyle = getTagStyle(tag);
-                     return (
-                       <Chip
-                         key={index}
-                         size="small"
-                         label={tag.name}
-                         variant={tagStyle.variant}
-                         sx={{
-                           backgroundColor: tagStyle.backgroundColor,
-                           borderColor: tagStyle.borderColor,
-                           color: tagStyle.color,
-                           fontSize: '0.65rem',
-                           height: '18px',
-                           border: tagStyle.border,
-                           '& .MuiChip-label': {
-                             px: 0.5
-                           }
-                         }}
-                       />
-                     );
-                   })}
-                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+                </Box>
+              )}
+
+              {/* 目录信息 */}
+              {file.isDirectory && (
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary"
+                  sx={{ fontSize: '0.65rem', lineHeight: 1, mt: 'auto' }}
+                >
+                  {formatModifiedDate(new Date(file.modified))}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
         ))}
-      </Grid>
+        
+
+      </Box>
     );
   };
 
@@ -784,23 +976,23 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
           {/* Grid Size Slider (only show in grid view) */}
           {viewMode === 'grid' && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 140 }}>
               <IconButton
                 size="small"
-                onClick={() => setGridSize(Math.min(5, gridSize + 1))}
-                disabled={gridSize >= 5}
+                onClick={() => setGridSize(Math.min(GRID_CONFIG.MAX_GRID_SIZE, gridSize + 1))}
+                disabled={gridSize >= GRID_CONFIG.MAX_GRID_SIZE}
                 sx={{ p: 0.5 }}
               >
                 <ZoomOutIcon fontSize="small" />
               </IconButton>
               <Slider
-                value={6 - gridSize} // 反转值：1变成5，5变成1
-                onChange={(_, newValue) => setGridSize(6 - (newValue as number))} // 反转回来
+                value={GRID_CONFIG.MAX_GRID_SIZE + 1 - gridSize} // 反转值：1最大→MAX_GRID_SIZE最小
+                onChange={(_, newValue) => setGridSize(GRID_CONFIG.MAX_GRID_SIZE + 1 - (newValue as number))}
                 min={1}
-                max={5}
+                max={GRID_CONFIG.MAX_GRID_SIZE}
                 step={1}
                 size="small"
-                sx={{ width: 80 }}
+                sx={{ width: 100 }}
               />
               <IconButton
                 size="small"
