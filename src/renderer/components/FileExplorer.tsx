@@ -1546,37 +1546,87 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                   if (dragData) {
                     e.dataTransfer.dropEffect = 'copy';
                     
-                    // 计算插入位置
+                    // 计算插入位置（按行分组 + 顺序比较中心点）
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const y = e.clientY - rect.top;
                     
-                    // 找到最接近的标签位置
-                    const tagElements = e.currentTarget.querySelectorAll('.MuiChip-root:not(.drag-preview)');
+                    const tagNodeList = e.currentTarget.querySelectorAll('.MuiChip-root:not(.drag-preview)');
+                    const tagElements = Array.from(tagNodeList) as HTMLElement[];
                     let insertPosition = -1; // -1表示末尾
-                    let minDistance = Infinity;
                     
-                    tagElements.forEach((tagEl, index) => {
-                      const tagRect = tagEl.getBoundingClientRect();
-                      const tagX = tagRect.left - rect.left;
-                      const tagY = tagRect.top - rect.top;
-                      const tagCenterX = tagX + tagRect.width / 2;
-                      const tagCenterY = tagY + tagRect.height / 2;
+                    if (tagElements.length > 0) {
+                      // 将标签按行分组（flex-wrap情况下按top近似分组）
+                      const thresholdY = 8; // 行判定阈值（像素）
+                      const rows: { startIndex: number; endIndex: number; top: number; bottom: number }[] = [];
                       
-                      const distance = Math.sqrt(Math.pow(x - tagCenterX, 2) + Math.pow(y - tagCenterY, 2));
-                      
-                      if (distance < minDistance) {
-                        minDistance = distance;
-                        // 如果鼠标在标签左半部分，插入到该位置；否则插入到下一个位置
-                        insertPosition = x < tagCenterX ? index : index + 1;
+                      for (let i = 0; i < tagElements.length; i++) {
+                        const tagRect = tagElements[i].getBoundingClientRect();
+                        const top = tagRect.top - rect.top;
+                        const bottom = tagRect.bottom - rect.top;
+                        
+                        if (rows.length === 0) {
+                          rows.push({ startIndex: i, endIndex: i, top, bottom });
+                        } else {
+                          const last = rows[rows.length - 1];
+                          // 同一行：top接近上一行的top
+                          if (Math.abs(top - last.top) <= thresholdY) {
+                            last.endIndex = i;
+                            // 行的top、bottom取当前和已有的范围
+                            last.top = Math.min(last.top, top);
+                            last.bottom = Math.max(last.bottom, bottom);
+                          } else {
+                            rows.push({ startIndex: i, endIndex: i, top, bottom });
+                          }
+                        }
                       }
-                    });
+                      
+                      // 找到与鼠标y最匹配的行
+                      let targetRowIndex = -1;
+                      for (let r = 0; r < rows.length; r++) {
+                        const row = rows[r];
+                        if (y >= row.top - thresholdY && y <= row.bottom + thresholdY) {
+                          targetRowIndex = r;
+                          break;
+                        }
+                      }
+                      // 若没有直接命中行，选择垂直距离最近的行
+                      if (targetRowIndex === -1) {
+                        let minDelta = Infinity;
+                        for (let r = 0; r < rows.length; r++) {
+                          const row = rows[r];
+                          const midY = (row.top + row.bottom) / 2;
+                          const delta = Math.abs(y - midY);
+                          if (delta < minDelta) {
+                            minDelta = delta;
+                            targetRowIndex = r;
+                          }
+                        }
+                      }
+                      
+                      const targetRow = rows[targetRowIndex];
+                      // 在目标行中根据x相对于centerX顺序插入
+                      let positioned = false;
+                      for (let i = targetRow.startIndex; i <= targetRow.endIndex; i++) {
+                        const tagRect = tagElements[i].getBoundingClientRect();
+                        const tagCenterX = (tagRect.left - rect.left) + tagRect.width / 2;
+                        if (x < tagCenterX) {
+                          insertPosition = i; // 插入到该标签前
+                          positioned = true;
+                          break;
+                        }
+                      }
+                      if (!positioned) {
+                        // 鼠标在该行最后一个标签右半部分之后
+                        insertPosition = targetRow.endIndex + 1;
+                      }
+                    }
                     
                     // 更新拖拽状态
                     setDragState(prev => ({
                       ...prev,
                       targetFile: file,
-                      insertPosition: insertPosition,
+                      insertPosition,
                       previewPosition: { x: e.clientX, y: e.clientY },
                     }));
                     
