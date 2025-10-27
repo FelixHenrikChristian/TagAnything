@@ -212,12 +212,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     targetFile: FileItem | null;
     insertPosition: number;
     previewPosition: { x: number; y: number } | null;
+    sourceFilePath: string | null;
+    sourceIndex: number | null;
   }>({
     isDragging: false,
     draggedTag: null,
     targetFile: null,
     insertPosition: -1,
     previewPosition: null,
+    sourceFilePath: null,
+    sourceIndex: null,
   });
 
   // 标签相关状态
@@ -343,12 +347,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   // 监听全局拖拽事件
   useEffect(() => {
     const handleGlobalDragStart = (event: CustomEvent) => {
-      const { tag } = event.detail;
+      const { tag, sourceFilePath = null, sourceIndex = null } = event.detail || {};
       if (tag) {
         setDragState(prev => ({
           ...prev,
           isDragging: true,
           draggedTag: tag,
+          sourceFilePath,
+          sourceIndex,
         }));
       }
     };
@@ -361,6 +367,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         targetFile: null,
         insertPosition: -1,
         previewPosition: null,
+        sourceFilePath: null,
+        sourceIndex: null,
       }));
     };
 
@@ -1031,6 +1039,53 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     }
   };
 
+  // 同文件内标签重排
+  const reorderTagWithinFile = async (file: FileItem, sourceIndex: number, targetIndex: number) => {
+    try {
+      const currentTags = getFileTags(file);
+      if (!currentTags || currentTags.length === 0) return;
+
+      // 拿到待移动标签
+      const tagToMove = currentTags[sourceIndex];
+      if (!tagToMove) return;
+
+      // 先移除原位置
+      const withoutTag = currentTags.filter((_, idx) => idx !== sourceIndex);
+
+      // 计算插入位置（-1 或超出则插入末尾；若移至后方，需 -1 调整）
+      let adjustedIndex: number;
+      if (targetIndex === -1 || targetIndex >= currentTags.length) {
+        adjustedIndex = withoutTag.length;
+      } else {
+        adjustedIndex = targetIndex;
+        if (sourceIndex < targetIndex) {
+          adjustedIndex = Math.max(0, targetIndex - 1);
+        }
+      }
+
+      const newTags = [
+        ...withoutTag.slice(0, adjustedIndex),
+        tagToMove,
+        ...withoutTag.slice(adjustedIndex),
+      ];
+
+      await updateFileWithTags(file, newTags);
+
+      setNotification({
+        open: true,
+        message: `已重排文件 "${getDisplayName(file.name)}" 的标签`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('处理文件标签重排失败:', error);
+      setNotification({
+        open: true,
+        message: `重排标签失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        severity: 'error'
+      });
+    }
+  };
+
   // 更新文件标签（重命名文件）
   const updateFileWithTags = async (file: FileItem, newTags: Tag[]) => {
     try {
@@ -1544,7 +1599,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                   // 检查是否是标签拖拽
                   const dragData = e.dataTransfer.types.includes('application/json');
                   if (dragData) {
-                    e.dataTransfer.dropEffect = 'copy';
+                    // 同文件内重排使用 move，其他情况保持 copy
+                    if (dragState.sourceFilePath && dragState.sourceFilePath === file.path) {
+                      e.dataTransfer.dropEffect = 'move';
+                    } else {
+                      e.dataTransfer.dropEffect = 'copy';
+                    }
                     
                     // 计算插入位置（按行分组 + 顺序比较中心点）
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -1657,8 +1717,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                     const data = e.dataTransfer.getData('application/json');
                     if (data) {
                       const draggedData = JSON.parse(data);
-                      if (draggedData.type === 'tag' && draggedData.tag) {
-                        const insertPosition = parseInt(e.currentTarget.getAttribute('data-insert-position') || '-1');
+                      const insertPosition = parseInt(e.currentTarget.getAttribute('data-insert-position') || '-1');
+                      if (draggedData.type === 'fileTag' && draggedData.tag) {
+                        const sourcePath = draggedData.sourceFilePath as string | undefined;
+                        const sourceIndex = draggedData.sourceIndex as number | undefined;
+                        if (sourcePath && sourceIndex !== undefined) {
+                          if (sourcePath === file.path) {
+                            // 同文件内重排
+                            reorderTagWithinFile(file, sourceIndex, insertPosition);
+                          } else {
+                            // 不同文件：复制到目标文件（不移除源文件标签）
+                            handleTagDropWithPosition(file, draggedData.tag, insertPosition);
+                          }
+                        }
+                      } else if (draggedData.type === 'tag' && draggedData.tag) {
+                        // 从标签库拖拽
                         handleTagDropWithPosition(file, draggedData.tag, insertPosition);
                       }
                     }
@@ -1672,6 +1745,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                     targetFile: null,
                     insertPosition: -1,
                     previewPosition: null,
+                    sourceFilePath: null,
+                    sourceIndex: null,
                   }));
                 }}
               >
@@ -1713,7 +1788,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                         />
                       )}
                       
-                      {/* 原有标签 */}
+                      {/* 原有标签（支持拖拽重排） */}
                       <Chip
                         size="small"
                         label={tag.name}
@@ -1738,6 +1813,51 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                           '& .MuiChip-label': {
                             px: 0.4
                           }
+                        }}
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          // 设置拖拽数据（标记为来自文件的标签）
+                          e.dataTransfer.setData('application/json', JSON.stringify({
+                            type: 'fileTag',
+                            tag,
+                            sourceFilePath: file.path,
+                            sourceIndex: index,
+                          }));
+                          e.dataTransfer.effectAllowed = 'move';
+
+                          // 创建拖拽预览
+                          const dragImage = document.createElement('div');
+                          dragImage.style.cssText = `
+                            position: absolute;
+                            top: -1000px;
+                            left: -1000px;
+                            background: ${tag.color || '#1976d2'};
+                            color: ${tag.textcolor || '#fff'};
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            font-size: 12px;
+                            font-weight: 500;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                            z-index: 9999;
+                          `;
+                          dragImage.textContent = tag.name;
+                          document.body.appendChild(dragImage);
+                          e.dataTransfer.setDragImage(dragImage, 0, 0);
+
+                          // 发送全局拖拽开始事件（包含来源信息）
+                          window.dispatchEvent(new CustomEvent('tagDragStart', {
+                            detail: { tag, sourceFilePath: file.path, sourceIndex: index }
+                          }));
+
+                          // 清理拖拽预览元素
+                          setTimeout(() => {
+                            try { document.body.removeChild(dragImage); } catch {}
+                          }, 0);
+                        }}
+                        onDragEnd={() => {
+                          // 发送全局拖拽结束事件
+                          window.dispatchEvent(new CustomEvent('tagDragEnd'));
                         }}
                         onClick={(e) => handleTagContextMenu(e, tag, file)}
                       />
