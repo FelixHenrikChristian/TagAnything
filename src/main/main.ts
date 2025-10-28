@@ -79,7 +79,17 @@ const createWindow = async (): Promise<void> => {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
+    autoHideMenuBar: true,
   });
+
+  if (mainWindow) {
+    try {
+      mainWindow.removeMenu();
+      mainWindow.setMenuBarVisibility(false);
+    } catch (e) {
+      console.warn('Failed to remove menu bar:', e);
+    }
+  }
 
   // 监听窗口大小变化并保存到缓存
   let saveTimeout: NodeJS.Timeout;
@@ -425,5 +435,16 @@ async function copyFileOrDirectory(src: string, dest: string): Promise<void> {
   }
 }
 
-fluentFfmpeg.setFfmpegPath(ffmpegInstaller.path);
-fluentFfmpeg.setFfprobePath(ffprobeInstaller.path);
+// 在打包环境下，@ffmpeg-installer/@ffprobe-installer 的路径位于 app.asar，
+// 实际可执行文件被解压到 app.asar.unpacked。需要替换路径避免 ENOENT。
+const ffmpegPathRaw = ffmpegInstaller.path;
+const ffprobePathRaw = ffprobeInstaller.path;
+const ffmpegPathResolved = app.isPackaged
+  ? ffmpegPathRaw.replace('app.asar', 'app.asar.unpacked')
+  : ffmpegPathRaw;
+const ffprobePathResolved = app.isPackaged
+  ? ffprobePathRaw.replace('app.asar', 'app.asar.unpacked')
+  : ffprobePathRaw;
+
+fluentFfmpeg.setFfmpegPath(ffmpegPathResolved);
+fluentFfmpeg.setFfprobePath(ffprobePathResolved);

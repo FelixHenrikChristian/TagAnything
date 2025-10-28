@@ -433,6 +433,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     }
   };
 
+  // 将本地文件路径转换为跨平台的 file URL（Windows 支持）
+  const toFileUrl = (p: string) => 'file:///' + p.replace(/\\/g, '/');
+
   // 生成视频缩略图 - 使用FFmpeg主进程
   const generateVideoThumbnails = async (fileList: FileItem[]) => {
     const videoFiles = fileList.filter(file => !file.isDirectory);
@@ -1916,7 +1919,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                 videoThumbnails.has(file.path) ? (
                   <Box
                     component="img"
-                    src={`file://${videoThumbnails.get(file.path)}`}
+                    src={toFileUrl(videoThumbnails.get(file.path) as string)}
                     alt={file.name}
                     sx={{
                       width: '100%',
@@ -2051,7 +2054,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                 videoThumbnails.has(file.path) ? (
                   <Box
                     component="img"
-                    src={`file://${videoThumbnails.get(file.path)}`}
+                    src={toFileUrl(videoThumbnails.get(file.path) as string)}
                     alt={file.name}
                     sx={{
                       width: 40,
