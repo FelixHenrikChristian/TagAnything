@@ -2,7 +2,7 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
-export type Channels = 'ipc-example';
+export type Channels = 'ipc-example' | 'update-checking' | 'update-available' | 'update-not-available' | 'update-error' | 'update-download-progress' | 'update-downloaded';
 
 const electronHandler = {
   ipcRenderer: {
@@ -31,6 +31,49 @@ const electronHandler = {
   resetWindowSize: () => ipcRenderer.invoke('reset-window-size'),
   performFileOperation: (request: any) => ipcRenderer.invoke('perform-file-operation', request),
   renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('rename-file', oldPath, newPath),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+  getVersion: () => ipcRenderer.invoke('get-version'),
+  // 自动更新 API
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  // 自动更新事件监听
+  onUpdateChecking: (callback: () => void) => {
+    const unsubscribe = electronHandler.ipcRenderer.on('update-checking', (...args: unknown[]) => {
+      callback();
+    });
+    return unsubscribe;
+  },
+  onUpdateAvailable: (callback: (info: any) => void) => {
+    const unsubscribe = electronHandler.ipcRenderer.on('update-available', (...args: unknown[]) => {
+      callback(args[0]);
+    });
+    return unsubscribe;
+  },
+  onUpdateNotAvailable: (callback: (info: any) => void) => {
+    const unsubscribe = electronHandler.ipcRenderer.on('update-not-available', (...args: unknown[]) => {
+      callback(args[0]);
+    });
+    return unsubscribe;
+  },
+  onUpdateError: (callback: (error: string) => void) => {
+    const unsubscribe = electronHandler.ipcRenderer.on('update-error', (...args: unknown[]) => {
+      callback(args[0] as string);
+    });
+    return unsubscribe;
+  },
+  onUpdateDownloadProgress: (callback: (progress: any) => void) => {
+    const unsubscribe = electronHandler.ipcRenderer.on('update-download-progress', (...args: unknown[]) => {
+      callback(args[0]);
+    });
+    return unsubscribe;
+  },
+  onUpdateDownloaded: (callback: (info: any) => void) => {
+    const unsubscribe = electronHandler.ipcRenderer.on('update-downloaded', (...args: unknown[]) => {
+      callback(args[0]);
+    });
+    return unsubscribe;
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

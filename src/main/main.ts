@@ -6,6 +6,8 @@ import { resolveHtmlPath } from './util';
 import fluentFfmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import ffprobeInstaller from '@ffprobe-installer/ffprobe';
+import { autoUpdater } from 'electron-updater';
+import { version as appVersionFromPackage } from '../../package.json';
 const Store = require('electron-store');
 
 let mainWindow: BrowserWindow | null = null;
@@ -448,3 +450,123 @@ const ffprobePathResolved = app.isPackaged
 
 fluentFfmpeg.setFfmpegPath(ffmpegPathResolved);
 fluentFfmpeg.setFfprobePath(ffprobePathResolved);
+
+// 打开外部链接
+ipcMain.handle('open-external', async (event, url: string) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '打开链接失败'
+    };
+  }
+});
+
+// 获取应用版本号
+ipcMain.handle('get-version', async () => {
+  try {
+    // 优先从根目录的 package.json 读取版本号，确保与项目版本一致
+    return appVersionFromPackage ?? app.getVersion();
+  } catch (e) {
+    // 兜底返回 Electron 的版本，避免抛错
+    return app.getVersion();
+  }
+});
+
+// 自动更新配置
+if (app.isPackaged) {
+  // 只在打包版本中启用自动更新
+  autoUpdater.checkForUpdatesAndNotify();
+  
+  // 配置更新服务器
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'FelixChristian011226',
+    repo: 'TagAnything'
+  });
+}
+
+// 自动更新 IPC 处理器
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const updateCheckResult = await autoUpdater.checkForUpdates();
+    return {
+      success: true,
+      updateInfo: updateCheckResult?.updateInfo || null
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '检查更新失败'
+    };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '下载更新失败'
+    };
+  }
+});
+
+ipcMain.handle('install-update', async () => {
+  try {
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '安装更新失败'
+    };
+  }
+});
+
+// 自动更新事件监听
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-checking');
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', info);
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-not-available', info);
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  console.log('Error in auto-updater:', err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-error', err.message);
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  console.log('Download progress:', progressObj);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-download-progress', progressObj);
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', info);
+  }
+});

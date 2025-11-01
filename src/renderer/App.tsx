@@ -34,6 +34,8 @@ import {
   Grid,
   Snackbar,
   Alert,
+  LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -46,6 +48,8 @@ import {
   Brightness7 as LightModeIcon,
   Home as HomeIcon,
   Style as StyleIcon,
+  SystemUpdate as UpdateIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import LocationManager from './components/LocationManager';
 import TagManager from './components/TagManager';
@@ -198,9 +202,21 @@ const App: React.FC = () => {
   const [tagDisplayStyle, setTagDisplayStyle] = useState<'original' | 'library'>('original');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+  
+  // 自动更新相关状态
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [updateDownloading, setUpdateDownloading] = useState(false);
+  const [updateDownloaded, setUpdateDownloaded] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [appVersion, setAppVersion] = useState<string>('1.0.1');
   
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   
@@ -221,6 +237,163 @@ const App: React.FC = () => {
     const newStyle = tagDisplayStyle === 'original' ? 'library' : 'original';
     setTagDisplayStyle(newStyle);
     localStorage.setItem('tagDisplayStyle', newStyle);
+  };
+
+  // 获取应用版本号
+  useEffect(() => {
+    const getAppVersion = async () => {
+      try {
+        const version = await window.electron.getVersion();
+        setAppVersion(version);
+      } catch (error) {
+        console.error('Failed to get app version:', error);
+      }
+    };
+    getAppVersion();
+  }, []);
+
+  // 自动更新事件监听器
+  useEffect(() => {
+    // 监听自动更新事件
+    const unsubscribeChecking = window.electron.onUpdateChecking(() => {
+      setCheckingForUpdates(true);
+      setUpdateError(null);
+    });
+
+    const unsubscribeAvailable = window.electron.onUpdateAvailable((info: any) => {
+      setCheckingForUpdates(false);
+      setUpdateAvailable(true);
+      setUpdateInfo({
+        ...info,
+        currentVersion: require('../../package.json').version,
+        downloadUrl: `https://github.com/FelixChristian011226/TagAnything/releases/tag/v${info.version}`
+      });
+      // 如果启用了自动更新，显示更新对话框
+      if (autoUpdateEnabled) {
+        setUpdateDialogOpen(true);
+      }
+    });
+
+    const unsubscribeNotAvailable = window.electron.onUpdateNotAvailable(() => {
+      setCheckingForUpdates(false);
+      setUpdateAvailable(false);
+    });
+
+    const unsubscribeError = window.electron.onUpdateError((error: string) => {
+      setCheckingForUpdates(false);
+      setUpdateError(error);
+      setSnackbarMessage(`检查更新失败: ${error}`);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    });
+
+    const unsubscribeProgress = window.electron.onUpdateDownloadProgress((progress: any) => {
+      setUpdateProgress(progress.percent || 0);
+    });
+
+    const unsubscribeDownloaded = window.electron.onUpdateDownloaded(() => {
+      setUpdateDownloading(false);
+      setUpdateDownloaded(true);
+      setSnackbarMessage('更新已下载完成，可以安装了！');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    });
+
+    // 加载自动更新设置并在启动时检查更新
+    const initializeAutoUpdate = async () => {
+      const savedAutoUpdate = localStorage.getItem('autoUpdateEnabled');
+      const autoUpdateEnabledValue = savedAutoUpdate !== null ? JSON.parse(savedAutoUpdate) : true; // 默认启用
+      setAutoUpdateEnabled(autoUpdateEnabledValue);
+      
+      // 如果启用了自动更新，在应用启动时检查更新
+      if (autoUpdateEnabledValue) {
+        try {
+          await window.electron.checkForUpdates();
+        } catch (error) {
+          console.log('启动时检查更新失败:', error);
+        }
+      }
+    };
+
+    initializeAutoUpdate();
+
+    return () => {
+      unsubscribeChecking();
+      unsubscribeAvailable();
+      unsubscribeNotAvailable();
+      unsubscribeError();
+      unsubscribeProgress();
+      unsubscribeDownloaded();
+    };
+  }, []); // 移除autoUpdateEnabled依赖，避免循环
+
+  // 手动检查更新
+  const handleCheckForUpdates = async () => {
+    setCheckingForUpdates(true);
+    setUpdateError(null);
+    
+    try {
+      const result = await window.electron.checkForUpdates();
+      if (result.success) {
+        if (!result.updateInfo) {
+          setSnackbarMessage('当前已是最新版本！');
+          setSnackbarSeverity('info');
+          setSnackbarOpen(true);
+        }
+      } else {
+        setUpdateError(result.error || '检查更新失败');
+        setSnackbarMessage(`检查更新失败: ${result.error || '未知错误'}`);
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    } catch (error) {
+      setUpdateError('检查更新时发生未知错误');
+      setSnackbarMessage('检查更新时发生未知错误');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setCheckingForUpdates(false);
+    }
+  };
+
+  // 下载更新
+  const handleDownloadUpdate = async () => {
+    setUpdateDownloading(true);
+    setUpdateProgress(0);
+    
+    try {
+      const result = await window.electron.downloadUpdate();
+      if (!result.success) {
+        setUpdateError(result.error || '下载更新失败');
+        setSnackbarMessage(`下载更新失败: ${result.error || '未知错误'}`);
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        setUpdateDownloading(false);
+      }
+    } catch (error) {
+      setUpdateError('下载更新时发生未知错误');
+      setSnackbarMessage('下载更新时发生未知错误');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      setUpdateDownloading(false);
+    }
+  };
+
+  // 安装更新
+  const handleInstallUpdate = async () => {
+    try {
+      await window.electron.installUpdate();
+    } catch (error) {
+      setSnackbarMessage('安装更新失败，请手动下载安装包');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
+  // 切换自动更新设置
+  const handleAutoUpdateToggle = (enabled: boolean) => {
+    setAutoUpdateEnabled(enabled);
+    localStorage.setItem('autoUpdateEnabled', JSON.stringify(enabled));
   };
 
   const theme = createAppTheme(darkMode ? 'dark' : 'light');
@@ -495,58 +668,198 @@ const App: React.FC = () => {
             <Grid container spacing={3} sx={{ mt: 1 }}>
               {/* Window Settings */}
               <Grid item xs={12}>
-                <FormControl component="fieldset">
-                  <FormLabel component="legend">窗口设置</FormLabel>
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      默认窗口大小: 1200 × 800 像素
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      窗口大小会自动保存，下次启动时恢复
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      onClick={handleResetWindowSize}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      重置窗口大小
-                    </Button>
-                  </Box>
-                </FormControl>
+                <Box sx={{ 
+                  p: 3, 
+                  border: '1px solid', 
+                  borderColor: 'divider', 
+                  borderRadius: 2, 
+                  bgcolor: 'background.paper',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}>
+                  <Typography variant="h6" sx={{ 
+                    mb: 2, 
+                    color: 'primary.main', 
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    🪟 窗口设置
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    默认窗口大小: 1200 × 800 像素
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    窗口大小会自动保存，下次启动时恢复
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={handleResetWindowSize}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    重置窗口大小
+                  </Button>
+                </Box>
               </Grid>
 
               {/* Cache Management */}
               <Grid item xs={12}>
-                <FormControl component="fieldset">
-                  <FormLabel component="legend">缓存管理</FormLabel>
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      清除所有应用缓存数据，包括位置信息、标签组、视频缩略图等
-                    </Typography>
+                <Box sx={{ 
+                  p: 3, 
+                  border: '1px solid', 
+                  borderColor: 'divider', 
+                  borderRadius: 2, 
+                  bgcolor: 'background.paper',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}>
+                  <Typography variant="h6" sx={{ 
+                    mb: 2, 
+                    color: 'warning.main', 
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    🗂️ 缓存管理
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    清除所有应用缓存数据，包括位置信息、标签组、视频缩略图等
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={() => setClearCacheConfirmOpen(true)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    清除所有缓存
+                  </Button>
+                </Box>
+              </Grid>
+
+              {/* Auto Update Settings */}
+              <Grid item xs={12}>
+                <Box sx={{ 
+                  p: 3, 
+                  border: '1px solid', 
+                  borderColor: 'divider', 
+                  borderRadius: 2, 
+                  bgcolor: 'background.paper',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}>
+                  <Typography variant="h6" sx={{ 
+                    mb: 2, 
+                    color: 'success.main', 
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    🔄 自动更新
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box>
+                      <Typography variant="body2" color="text.primary">
+                        启动时自动检查更新
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        应用启动时自动检查是否有新版本可用
+                      </Typography>
+                    </Box>
+                    <Switch
+                      checked={autoUpdateEnabled}
+                      onChange={(e) => handleAutoUpdateToggle(e.target.checked)}
+                      color="primary"
+                    />
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Button
                       variant="outlined"
-                      color="warning"
-                      onClick={() => setClearCacheConfirmOpen(true)}
+                      color="primary"
+                      onClick={handleCheckForUpdates}
+                      disabled={checkingForUpdates}
+                      startIcon={checkingForUpdates ? <CircularProgress size={16} /> : <UpdateIcon />}
                       sx={{ textTransform: 'none' }}
                     >
-                      清除所有缓存
+                      {checkingForUpdates ? '检查中...' : '手动检查更新'}
                     </Button>
+                    
+                    {updateAvailable && !updateDownloaded && (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleDownloadUpdate}
+                        disabled={updateDownloading}
+                        startIcon={updateDownloading ? <CircularProgress size={16} /> : <DownloadIcon />}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        {updateDownloading ? `下载中 ${Math.round(updateProgress)}%` : '下载更新'}
+                      </Button>
+                    )}
+                    
+                    {updateDownloaded && (
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={handleInstallUpdate}
+                        startIcon={<UpdateIcon />}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        安装并重启
+                      </Button>
+                    )}
                   </Box>
-                </FormControl>
+                  
+                  {updateDownloading && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        下载进度: {Math.round(updateProgress)}%
+                      </Typography>
+                      <LinearProgress variant="determinate" value={updateProgress} />
+                    </Box>
+                  )}
+                  
+                  {updateError && (
+                    <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                      {updateError}
+                    </Typography>
+                  )}
+                </Box>
               </Grid>
 
               {/* About */}
               <Grid item xs={12}>
-                <FormControl component="fieldset">
-                  <FormLabel component="legend">关于</FormLabel>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    TagAnything - 文件标签管理工具
+                <Box sx={{ 
+                  p: 3, 
+                  border: '1px solid', 
+                  borderColor: 'divider', 
+                  borderRadius: 2, 
+                  bgcolor: 'background.paper',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}>
+                  <Typography variant="h6" sx={{ 
+                    mb: 2, 
+                    color: 'info.main', 
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    ℹ️ 关于
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    版本: 1.0.0
-                  </Typography>
-                </FormControl>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography variant="body2" color="text.primary">
+                      <strong>TagAnything</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                       版本: {appVersion}
+                     </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      一个功能强大的标签管理工具
+                    </Typography>
+                  </Box>
+                </Box>
               </Grid>
             </Grid>
           </DialogContent>
@@ -590,6 +903,80 @@ const App: React.FC = () => {
             </Button>
             <Button onClick={handleClearCache} color="warning" variant="contained">
               确认清除
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Update Notification Dialog */}
+        <Dialog
+          open={updateDialogOpen}
+          onClose={() => setUpdateDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <UpdateIcon color="primary" />
+              发现新版本
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {updateInfo && (
+              <Box>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  有新版本可用，是否要下载并安装？
+                </Typography>
+                <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>当前版本:</strong> {updateInfo.currentVersion}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>最新版本:</strong> {updateInfo.version}
+                  </Typography>
+                  {updateInfo.releaseDate && (
+                    <Typography variant="body2" color="text.secondary">
+                      <strong>发布日期:</strong> {new Date(updateInfo.releaseDate).toLocaleDateString('zh-CN')}
+                    </Typography>
+                  )}
+                </Box>
+                {updateInfo.releaseNotes && (
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                      更新内容:
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {updateInfo.releaseNotes}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setUpdateDialogOpen(false)} color="inherit">
+              稍后提醒
+            </Button>
+            <Button 
+              onClick={() => {
+                setUpdateDialogOpen(false);
+                // 打开外部链接到GitHub releases页面
+                if (updateInfo?.downloadUrl) {
+                  window.electron.openExternal(updateInfo.downloadUrl);
+                }
+              }} 
+              color="primary"
+            >
+              手动下载
+            </Button>
+            <Button 
+              onClick={() => {
+                setUpdateDialogOpen(false);
+                handleDownloadUpdate();
+              }} 
+              color="primary" 
+              variant="contained"
+            >
+              立即更新
             </Button>
           </DialogActions>
         </Dialog>

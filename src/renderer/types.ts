@@ -61,6 +61,19 @@ declare global {
       resetWindowSize: () => Promise<{ width: number; height: number } | null>;
       performFileOperation: (request: FileOperationRequest) => Promise<FileOperationResult>;
       renameFile: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>;
+      openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
+      getVersion: () => Promise<string>;
+      // 自动更新 API
+      checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
+      downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+      installUpdate: () => Promise<{ success: boolean; error?: string }>;
+      // 自动更新事件监听
+      onUpdateChecking: (callback: () => void) => () => void;
+      onUpdateAvailable: (callback: (info: any) => void) => () => void;
+      onUpdateNotAvailable: (callback: (info: any) => void) => () => void;
+      onUpdateError: (callback: (error: string) => void) => () => void;
+      onUpdateDownloadProgress: (callback: (progress: any) => void) => () => void;
+      onUpdateDownloaded: (callback: (info: any) => void) => () => void;
     };
   }
 }
