@@ -1,9 +1,9 @@
 {
   "name": "taganything",
   "version": "1.0.0",
-  "description": "A simplified file tagging application",
+  "description": "开源文件标签管理工具 - A modern file tagging application inspired by TagSpaces",
   "main": "dist/main/main.js",
-  "homepage": "./",
+  "homepage": "https://github.com/FelixChristian011226/TagAnything",
   "scripts": {
     "build": "npm run build:main && npm run build:renderer",
     "build:main": "tsc -p src/main/tsconfig.json",
@@ -23,8 +23,18 @@
     "file-manager",
     "tagging"
   ],
-  "author": "TagAnything Team",
+  "author": {
+    "name": "FelixChristian",
+    "url": "https://github.com/FelixChristian011226"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FelixChristian011226/TagAnything.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FelixChristian011226/TagAnything/issues"
+  },
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
@@ -69,28 +79,56 @@
     "npm": ">=8.0.0"
   },
   "build": {
-    "appId": "com.taganything.app",
+    "appId": "com.felixchristian.taganything",
     "productName": "TagAnything",
+    "copyright": "Copyright © 2024 FelixChristian",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
     "asar": true,
     "asarUnpack": [
       "**/node_modules/@ffmpeg-installer/**",
       "**/node_modules/@ffprobe-installer/**"
     ],
-    "files": [
-      "dist/**/*",
-      "node_modules/**/*"
-    ],
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ]
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "publisherName": "FelixChristian",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TagAnything"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "build/icon.ico",
+      "category": "Utility"
     }
   }
 }
