@@ -277,6 +277,9 @@ const App: React.FC = () => {
     const unsubscribeNotAvailable = window.electron.onUpdateNotAvailable(() => {
       setCheckingForUpdates(false);
       setUpdateAvailable(false);
+      setSnackbarMessage('当前已是最新版本！');
+      setSnackbarSeverity('info');
+      setSnackbarOpen(true);
     });
 
     const unsubscribeError = window.electron.onUpdateError((error: string) => {
@@ -337,13 +340,7 @@ const App: React.FC = () => {
     
     try {
       const result = await window.electron.checkForUpdates();
-      if (result.success) {
-        if (!result.updateInfo) {
-          setSnackbarMessage('当前已是最新版本！');
-          setSnackbarSeverity('info');
-          setSnackbarOpen(true);
-        }
-      } else {
+      if (!result.success) {
         setUpdateError(result.error || '检查更新失败');
         setSnackbarMessage(`检查更新失败: ${result.error || '未知错误'}`);
         setSnackbarSeverity('error');
@@ -456,6 +453,7 @@ const App: React.FC = () => {
 
   // 处理Snackbar关闭
   const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+    // 只阻止点击外部区域关闭，但允许自动隐藏和手动关闭
     if (reason === 'clickaway') {
       return;
     }
@@ -1048,7 +1046,6 @@ const App: React.FC = () => {
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
           <Alert
-            onClose={handleSnackbarClose}
             severity={snackbarSeverity}
             variant="filled"
             sx={{ width: '100%' }}
