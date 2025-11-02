@@ -128,7 +128,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const [currentPath, setCurrentPath] = useState<string>('');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
-  const [gridSize, setGridSize] = useState<number>(3); // 1=最大，递增越小
+  const [gridSize, setGridSize] = useState<number>(6); // 1=最大，递增越小，默认下调一级
 
   // 加载已缓存的缩放等级
   useEffect(() => {
@@ -149,7 +149,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   // 监听重置事件，重置缩放等级并清除缓存
   useEffect(() => {
     const resetHandler = () => {
-      setGridSize(3); // 重置为原始默认值
+      setGridSize(6); // 重置时也使用下调一级的默认值
       localStorage.removeItem('tagAnything_gridSize');
     };
     window.addEventListener('ta:reset-grid-zoom', resetHandler);
