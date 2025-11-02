@@ -696,7 +696,7 @@ const App: React.FC = () => {
                     🪟 窗口设置
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    默认窗口大小: 1200 × 800 像素
+                    默认窗口大小: 1280 × 960 像素
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     窗口大小会自动保存，下次启动时恢复

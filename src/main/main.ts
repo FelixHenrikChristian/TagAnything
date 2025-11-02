@@ -64,7 +64,7 @@ const createWindow = async (): Promise<void> => {
     } catch (error) {
       console.log('Failed to load window size from cache:', error);
     }
-    return { width: 1280, height: 960 }; // 默认大小
+    return { width: 1280, height: 960 };
   };
 
   const windowSize = getWindowSize();
