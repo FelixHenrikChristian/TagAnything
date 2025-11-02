@@ -299,20 +299,23 @@ const App: React.FC = () => {
       setSnackbarOpen(true);
     });
 
-    // 加载自动更新设置并在启动时检查更新
+    // 加载自动更新设置
     const initializeAutoUpdate = async () => {
-      const savedAutoUpdate = localStorage.getItem('autoUpdateEnabled');
-      const autoUpdateEnabledValue = savedAutoUpdate !== null ? JSON.parse(savedAutoUpdate) : true; // 默认启用
-      setAutoUpdateEnabled(autoUpdateEnabledValue);
-      
-      // 如果启用了自动更新，在应用启动时检查更新
-      if (autoUpdateEnabledValue) {
-        try {
-          await window.electron.checkForUpdates();
-        } catch (error) {
-          console.log('启动时检查更新失败:', error);
-        }
+      try {
+        // 优先从 electron-store 读取设置
+        const storedSetting = await window.electron.getSetting('autoUpdateEnabled', false);
+        setAutoUpdateEnabled(storedSetting);
+        
+        // 同步到 localStorage 以保持一致性
+        localStorage.setItem('autoUpdateEnabled', JSON.stringify(storedSetting));
+      } catch (error) {
+        // 如果读取失败，从 localStorage 读取
+        console.warn('从 electron-store 读取设置失败，使用 localStorage:', error);
+        const savedAutoUpdate = localStorage.getItem('autoUpdateEnabled');
+        const autoUpdateEnabledValue = savedAutoUpdate !== null ? JSON.parse(savedAutoUpdate) : false;
+        setAutoUpdateEnabled(autoUpdateEnabledValue);
       }
+      
     };
 
     initializeAutoUpdate();
@@ -391,9 +394,15 @@ const App: React.FC = () => {
   };
 
   // 切换自动更新设置
-  const handleAutoUpdateToggle = (enabled: boolean) => {
+  const handleAutoUpdateToggle = async (enabled: boolean) => {
     setAutoUpdateEnabled(enabled);
+    // 同时保存到 localStorage 和 electron-store
     localStorage.setItem('autoUpdateEnabled', JSON.stringify(enabled));
+    try {
+      await window.electron.setSetting('autoUpdateEnabled', enabled);
+    } catch (error) {
+      console.error('保存设置失败:', error);
+    }
   };
 
   const theme = createAppTheme(darkMode ? 'dark' : 'light');
@@ -926,15 +935,22 @@ const App: React.FC = () => {
                 <Typography variant="body1" sx={{ mb: 2 }}>
                   有新版本可用，是否要下载并安装？
                 </Typography>
-                <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
+                <Box sx={{ 
+                  bgcolor: 'background.default', 
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  p: 2, 
+                  borderRadius: 1, 
+                  mb: 2 
+                }}>
+                  <Typography variant="body2" color="text.primary">
                     <strong>当前版本:</strong> {updateInfo.currentVersion}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.primary">
                     <strong>最新版本:</strong> {updateInfo.version}
                   </Typography>
                   {updateInfo.releaseDate && (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.primary">
                       <strong>发布日期:</strong> {new Date(updateInfo.releaseDate).toLocaleDateString('zh-CN')}
                     </Typography>
                   )}
@@ -944,9 +960,52 @@ const App: React.FC = () => {
                     <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
                       更新内容:
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
-                      {updateInfo.releaseNotes}
-                    </Typography>
+                    <Box 
+                      sx={{ 
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        p: 2,
+                        maxHeight: 300,
+                        overflow: 'auto',
+                        '& h2': {
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold',
+                          margin: '0.5rem 0',
+                          color: 'primary.main'
+                        },
+                        '& h3': {
+                          fontSize: '1rem',
+                          fontWeight: 'bold',
+                          margin: '0.4rem 0',
+                          color: 'text.primary'
+                        },
+                        '& ul': {
+                          margin: '0.5rem 0',
+                          paddingLeft: '1.5rem'
+                        },
+                        '& li': {
+                          margin: '0.2rem 0',
+                          color: 'text.secondary'
+                        },
+                        '& strong': {
+                          color: 'text.primary',
+                          fontWeight: 'bold'
+                        },
+                        '& p': {
+                          margin: '0.5rem 0',
+                          color: 'text.secondary'
+                        },
+                        '& hr': {
+                          margin: '1rem 0',
+                          border: 'none',
+                          borderTop: '1px solid',
+                          borderColor: 'divider'
+                        }
+                      }}
+                      dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
+                    />
                   </Box>
                 )}
               </Box>

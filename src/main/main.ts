@@ -475,10 +475,20 @@ ipcMain.handle('get-version', async () => {
   }
 });
 
+// 设置相关的 IPC 处理器
+ipcMain.handle('get-setting', async (event, key: string, defaultValue?: any) => {
+  const store = new Store();
+  return store.get(key, defaultValue);
+});
+
+ipcMain.handle('set-setting', async (event, key: string, value: any) => {
+  const store = new Store();
+  store.set(key, value);
+});
+
 // 自动更新配置
 if (app.isPackaged) {
-  // 只在打包版本中启用自动更新
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.autoDownload = false;
   
   // 配置更新服务器
   autoUpdater.setFeedURL({
@@ -486,6 +496,14 @@ if (app.isPackaged) {
     owner: 'FelixChristian011226',
     repo: 'TagAnything'
   });
+  
+  // 检查设置中是否启用了启动时自动检查更新
+  const store = new Store();
+  const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+  
+  if (autoUpdateEnabled) {
+    autoUpdater.checkForUpdates();
+  }
 }
 
 // 自动更新 IPC 处理器

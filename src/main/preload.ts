@@ -33,6 +33,9 @@ const electronHandler = {
   renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('rename-file', oldPath, newPath),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   getVersion: () => ipcRenderer.invoke('get-version'),
+  // 设置相关 API
+  getSetting: (key: string, defaultValue?: any) => ipcRenderer.invoke('get-setting', key, defaultValue),
+  setSetting: (key: string, value: any) => ipcRenderer.invoke('set-setting', key, value),
   // 自动更新 API
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),

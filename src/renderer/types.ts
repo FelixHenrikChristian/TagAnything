@@ -63,6 +63,9 @@ declare global {
       renameFile: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
+      // 设置相关 API
+      getSetting: (key: string, defaultValue?: any) => Promise<any>;
+      setSetting: (key: string, value: any) => Promise<void>;
       // 自动更新 API
       checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
       downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
