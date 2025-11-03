@@ -649,19 +649,7 @@ const App: React.FC = () => {
           </Box>
         </Box>
 
-        {/* Floating Action Button */}
-        <Fab
-          color="primary"
-          aria-label="add"
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            zIndex: theme.zIndex.speedDial,
-          }}
-        >
-          <AddIcon />
-        </Fab>
+        {/* Removed unused floating action button to clean up UI */}
 
         {/* Settings Dialog */}
         <Dialog
@@ -786,7 +774,6 @@ const App: React.FC = () => {
                       color="primary"
                       onClick={handleCheckForUpdates}
                       disabled={checkingForUpdates}
-                      startIcon={checkingForUpdates ? <CircularProgress size={16} /> : <UpdateIcon />}
                       sx={{ textTransform: 'none' }}
                     >
                       {checkingForUpdates ? '检查中...' : '手动检查更新'}
