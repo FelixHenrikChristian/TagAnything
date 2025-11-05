@@ -1560,6 +1560,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
               const dragData = e.dataTransfer.types.includes('application/json');
               if (dragData) {
                 e.dataTransfer.dropEffect = 'copy';
+
+                // 当文件没有标签时，卡片本身需要声明为拖拽目标，
+                // 以便展示顶部标签覆盖层与预览。否则仅有覆盖层的 onDragOver 会生效，
+                // 导致空标签文件无法出现预览。
+                setDragState(prev => ({
+                  ...prev,
+                  targetFile: file,
+                  // 默认插入到末尾（-1），覆盖层会在后续更精确计算具体位置
+                  insertPosition: -1,
+                }));
               }
             }}
             onDrop={(e) => {
