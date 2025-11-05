@@ -418,8 +418,8 @@ ipcMain.handle('perform-file-operation', async (event, request: {
           // 复制文件或目录
           await copyFileOrDirectory(filePath, targetFilePath);
         } else if (operation === 'move') {
-          // 移动文件或目录
-          await fsPromises.rename(filePath, targetFilePath);
+          // 移动文件或目录（跨分区回退为复制+删除）
+          await moveFileOrDirectory(filePath, targetFilePath);
         }
 
         processedFiles.push(filePath);
@@ -476,6 +476,28 @@ async function copyFileOrDirectory(src: string, dest: string): Promise<void> {
   } else {
     // 复制文件
     await fsPromises.copyFile(src, dest);
+  }
+}
+
+// 安全移动文件或目录：优先使用 rename，跨分区等情况回退到复制+删除
+async function moveFileOrDirectory(src: string, dest: string): Promise<void> {
+  try {
+    await fsPromises.rename(src, dest);
+  } catch (error: any) {
+    const code = error?.code;
+    // EXDEV: 跨设备移动不允许；EPERM/EACCES：权限问题（有时复制+删除可行）
+    if (code === 'EXDEV' || code === 'EPERM' || code === 'EACCES') {
+      // 先复制，再删除源文件/目录
+      await copyFileOrDirectory(src, dest);
+      const stats = await fsPromises.stat(src);
+      if (stats.isDirectory()) {
+        await fsPromises.rm(src, { recursive: true, force: true });
+      } else {
+        await fsPromises.unlink(src);
+      }
+    } else {
+      throw error;
+    }
   }
 }
 
