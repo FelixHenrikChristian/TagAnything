@@ -63,6 +63,8 @@
     "css-loader": "^6.8.1",
     "electron": "^27.1.2",
     "electron-builder": "^24.6.4",
+    "electron-debug": "^4.1.0",
+    "electron-devtools-installer": "^4.0.0",
     "eslint": "^8.54.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -107,7 +109,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },

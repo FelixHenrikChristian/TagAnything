@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
@@ -113,6 +113,16 @@ const createWindow = async (): Promise<void> => {
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
+  // 根据环境变量选择是否自动打开 DevTools（不影响生产发布）
+  if (process.env.OPEN_DEVTOOLS === 'true') {
+    try {
+      // 使用右侧内嵌模式，而不是独立窗口
+      mainWindow.webContents.openDevTools({ mode: 'right' });
+    } catch (e) {
+      console.warn('Failed to open DevTools:', e);
+    }
+  }
+
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
@@ -150,6 +160,29 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
+    // 在调试模式或显式开启时注册全局快捷键打开 DevTools
+    const enableDevtoolsShortcuts = isDebug || process.env.ENABLE_DEVTOOLS_SHORTCUTS === 'true';
+    if (enableDevtoolsShortcuts) {
+      try {
+        const toggleEmbeddedDevtools = () => {
+          const win = BrowserWindow.getFocusedWindow() || mainWindow;
+          if (!win) return;
+          const wc = win.webContents;
+          if (wc.isDevToolsOpened()) {
+            wc.closeDevTools();
+          } else {
+            // 强制以右侧内嵌方式打开
+            wc.openDevTools({ mode: 'right' });
+          }
+        };
+
+        globalShortcut.register('CommandOrControl+Shift+I', toggleEmbeddedDevtools);
+        globalShortcut.register('F12', toggleEmbeddedDevtools);
+      } catch (e) {
+        console.warn('Failed to register DevTools shortcuts:', e);
+      }
+    }
+
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
@@ -158,6 +191,15 @@ app
     });
   })
   .catch(console.log);
+
+// 退出时清理所有注册的快捷键
+app.on('will-quit', () => {
+  try {
+    globalShortcut.unregisterAll();
+  } catch (e) {
+    // ignore
+  }
+});
 
 // IPC handlers
 ipcMain.handle('select-folder', async () => {
