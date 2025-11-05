@@ -160,27 +160,24 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
-    // 在调试模式或显式开启时注册全局快捷键打开 DevTools
-    const enableDevtoolsShortcuts = isDebug || process.env.ENABLE_DEVTOOLS_SHORTCUTS === 'true';
-    if (enableDevtoolsShortcuts) {
-      try {
-        const toggleEmbeddedDevtools = () => {
-          const win = BrowserWindow.getFocusedWindow() || mainWindow;
-          if (!win) return;
-          const wc = win.webContents;
-          if (wc.isDevToolsOpened()) {
-            wc.closeDevTools();
-          } else {
-            // 强制以右侧内嵌方式打开
-            wc.openDevTools({ mode: 'right' });
-          }
-        };
+    // 始终注册全局快捷键以打开/关闭右侧内嵌 DevTools（不再依赖环境变量）
+    try {
+      const toggleEmbeddedDevtools = () => {
+        const win = BrowserWindow.getFocusedWindow() || mainWindow;
+        if (!win) return;
+        const wc = win.webContents;
+        if (wc.isDevToolsOpened()) {
+          wc.closeDevTools();
+        } else {
+          // 强制以右侧内嵌方式打开
+          wc.openDevTools({ mode: 'right' });
+        }
+      };
 
-        globalShortcut.register('CommandOrControl+Shift+I', toggleEmbeddedDevtools);
-        globalShortcut.register('F12', toggleEmbeddedDevtools);
-      } catch (e) {
-        console.warn('Failed to register DevTools shortcuts:', e);
-      }
+      globalShortcut.register('CommandOrControl+Shift+I', toggleEmbeddedDevtools);
+      globalShortcut.register('F12', toggleEmbeddedDevtools);
+    } catch (e) {
+      console.warn('Failed to register DevTools shortcuts:', e);
     }
 
     createWindow();

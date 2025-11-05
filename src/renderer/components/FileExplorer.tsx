@@ -187,6 +187,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     targetPath: ''
   });
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  // 外部文件拖拽激活状态（用于让覆盖层响应拖拽事件）
+  const [isExternalDragActive, setIsExternalDragActive] = useState<boolean>(false);
+  // 绑定到组件根容器，便于查找父级 Paper
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  // 记录在 Paper 上的拖拽深度，避免在内部元素之间移动导致误判离开
+  const [paperDragDepth, setPaperDragDepth] = useState<number>(0);
   
   // 添加文件操作状态管理
   const [operationStatus, setOperationStatus] = useState<FileOperationStatus>({
@@ -380,6 +386,118 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       window.removeEventListener('tagDragEnd', handleGlobalDragEnd as EventListener);
     };
   }, []);
+
+  // 监听窗口级外部文件拖拽，激活覆盖层以捕获更大范围的拖拽事件
+  useEffect(() => {
+    const onWindowDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        setIsExternalDragActive(true);
+        // 允许页面上的投放
+        e.preventDefault();
+      }
+    };
+
+    const onWindowDragOver = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        setIsExternalDragActive(true);
+        // 允许页面上的投放
+        e.preventDefault();
+        if (e.dataTransfer) {
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }
+    };
+
+    const deactivate = () => {
+      setIsExternalDragActive(false);
+    };
+
+    window.addEventListener('dragenter', onWindowDragEnter);
+    window.addEventListener('dragover', onWindowDragOver);
+    window.addEventListener('dragleave', deactivate);
+    window.addEventListener('drop', deactivate);
+
+    return () => {
+      window.removeEventListener('dragenter', onWindowDragEnter);
+      window.removeEventListener('dragover', onWindowDragOver);
+      window.removeEventListener('dragleave', deactivate);
+      window.removeEventListener('drop', deactivate);
+    };
+  }, []);
+
+  // 在父级 Paper 节点上扩展拖拽可投放区域
+  useEffect(() => {
+    const paperEl = rootRef.current?.closest('.MuiPaper-root') as HTMLElement | null;
+    if (!paperEl) return;
+
+    const handleNativeDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPaperDragDepth((d) => d + 1);
+        setIsDragOver(true);
+      }
+    };
+
+    const handleNativeDragOver = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) {
+          e.dataTransfer.dropEffect = 'copy';
+        }
+        setIsDragOver(true);
+      }
+    };
+
+    const handleNativeDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // 使用深度计数避免在 Paper 内部移动被误判为离开
+      setPaperDragDepth((d) => {
+        const next = Math.max(0, d - 1);
+        if (next === 0) {
+          setIsDragOver(false);
+        }
+        return next;
+      });
+    };
+
+    const handleNativeDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      setPaperDragDepth(0);
+
+      const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : [];
+      if (files.length === 0) return;
+
+      const draggedFiles: DraggedFile[] = files.map((file) => ({
+        name: file.name,
+        path: (file as any).path || file.name,
+        size: file.size,
+      }));
+
+      // 打开确认对话框
+      setFileOperationDialog({
+        open: true,
+        files: draggedFiles,
+        targetPath: currentPath,
+      });
+    };
+
+    paperEl.addEventListener('dragenter', handleNativeDragEnter);
+    paperEl.addEventListener('dragover', handleNativeDragOver);
+    paperEl.addEventListener('dragleave', handleNativeDragLeave);
+    paperEl.addEventListener('drop', handleNativeDrop);
+
+    return () => {
+      paperEl.removeEventListener('dragenter', handleNativeDragEnter);
+      paperEl.removeEventListener('dragover', handleNativeDragOver);
+      paperEl.removeEventListener('dragleave', handleNativeDragLeave);
+      paperEl.removeEventListener('drop', handleNativeDrop);
+    };
+  }, [currentPath]);
 
   // 同步当前路径到localStorage，供其他组件使用
   useEffect(() => {
@@ -2167,16 +2285,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
   return (
     <Box 
+      ref={rootRef}
       sx={{ 
         height: '100%', 
         display: 'flex', 
         flexDirection: 'column',
-        // 拖拽视觉反馈
-        backgroundColor: isDragOver ? 'action.hover' : 'transparent',
-        border: '2px solid transparent',
-        borderColor: isDragOver ? 'primary.main' : 'transparent',
-        borderStyle: isDragOver ? 'dashed' : 'solid',
+        // 由覆盖层统一渲染拖拽视觉反馈，根容器保持透明
+        backgroundColor: 'transparent',
         borderRadius: 1,
+        position: 'relative',
         transition: 'all 0.2s ease-in-out'
       }}
       onDragEnter={handleDragEnter}
@@ -2184,6 +2301,28 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* 拖拽边框覆盖整个 Paper（含内边距） */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: (theme) => `-${theme.spacing(3)}`,
+          left: (theme) => `-${theme.spacing(3)}`,
+          right: (theme) => `-${theme.spacing(3)}`,
+          bottom: (theme) => `-${theme.spacing(3)}`,
+          border: isDragOver ? '2px dashed' : '0',
+          borderColor: isDragOver ? 'primary.main' : 'transparent',
+          // 统一在覆盖层上显示变灰效果，确保包含 Paper 的内边距
+          backgroundColor: isDragOver ? 'action.hover' : 'transparent',
+          borderRadius: 2,
+          pointerEvents: isExternalDragActive ? 'auto' : 'none',
+          zIndex: 1000,
+          transition: 'all 0.2s ease-in-out'
+        }}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      />
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
