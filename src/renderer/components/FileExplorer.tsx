@@ -106,6 +106,10 @@ type SortType = 'name' | 'modified' | 'type' | 'size';
     timestamp: number;
     origin?: 'appBar' | 'fileExplorer';
     currentPath?: string;
+    // 是否要求立即执行（用于输入法组合结束时）
+    immediate?: boolean;
+    // 是否清除所有筛选与搜索（用于地址栏点击/切换目录/清除按钮）
+    clearAll?: boolean;
   }
 
 interface FileOperationDialog {
@@ -189,6 +193,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
   const [isFiltering, setIsFiltering] = useState<boolean>(false);
   const [nameFilterQuery, setNameFilterQuery] = useState<string | null>(null);
+  // 记录最新的筛选与搜索条件，避免事件监听闭包导致读取旧值
+  const tagFilterRef = useRef<TagFilter | null>(null);
+  const nameFilterQueryRef = useRef<string | null>(null);
+  useEffect(() => { tagFilterRef.current = tagFilter; }, [tagFilter]);
+  useEffect(() => { nameFilterQueryRef.current = nameFilterQuery; }, [nameFilterQuery]);
+  // 文件名搜索防抖
+  const filenameSearchDebounceRef = useRef<number | null>(null);
+  const FILENAME_SEARCH_DEBOUNCE_MS = 200;
+  useEffect(() => {
+    return () => {
+      if (filenameSearchDebounceRef.current) {
+        window.clearTimeout(filenameSearchDebounceRef.current);
+        filenameSearchDebounceRef.current = null;
+      }
+    };
+  }, []);
   
   // 拖拽文件操作状态
   const [fileOperationDialog, setFileOperationDialog] = useState<FileOperationDialog>({
@@ -354,13 +374,28 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     const detail: FilenameSearchFilter = event.detail;
     const query = detail?.query || '';
     console.log('🔎 FileExplorer收到文件名搜索事件:', detail);
-    setTagFilter(null);
-    try {
-      localStorage.removeItem('tagAnything_filter');
-    } catch {}
+    // 若为全量清除，直接重置并返回
+    if (detail?.clearAll) {
+      clearFilter();
+      return;
+    }
     setNameFilterQuery(query);
-    setIsFiltering(true);
-    performFilenameSearch(query, detail?.currentPath);
+    setIsFiltering(!!query || !!tagFilterRef.current);
+    // 清除上一次防抖定时器
+    if (filenameSearchDebounceRef.current) {
+      window.clearTimeout(filenameSearchDebounceRef.current);
+      filenameSearchDebounceRef.current = null;
+    }
+    // 立即执行（用于输入法组合结束场景）
+    if (detail?.immediate) {
+      performFilenameSearch(query, detail?.currentPath);
+      return;
+    }
+    // 防抖执行
+    filenameSearchDebounceRef.current = window.setTimeout(() => {
+      performFilenameSearch(query, detail?.currentPath);
+      filenameSearchDebounceRef.current = null;
+    }, FILENAME_SEARCH_DEBOUNCE_MS);
   };
 
     window.addEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
@@ -862,6 +897,19 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         }
       }
       
+      // 若存在文件名搜索，取交集
+      try {
+        const q = (nameFilterQueryRef.current || '').trim().toLowerCase();
+        if (q) {
+          foundFiles = foundFiles.filter(file => {
+            const displayName = getDisplayName(file.name).toLowerCase();
+            return displayName.includes(q);
+          });
+        }
+      } catch (e) {
+        console.warn('⚠️ 在标签筛选结果上应用文件名搜索失败:', e);
+      }
+
       // 根据筛选结果更新文件标签缓存
       try {
         const updatedFileTags = new Map(fileTags);
@@ -902,9 +950,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     try {
       const q = (query || '').trim().toLowerCase();
       if (!q) {
-        setFilteredFiles([]);
-        setIsFiltering(false);
         setNameFilterQuery(null);
+        // 如果仍有标签筛选，使其生效并保持筛选状态
+        if (tagFilterRef.current) {
+          await performTagFilter(tagFilterRef.current);
+          setIsFiltering(true);
+        } else {
+          setFilteredFiles([]);
+          setIsFiltering(false);
+        }
         return;
       }
 
@@ -931,6 +985,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         console.error('❌ 递归获取文件列表时出错:', error);
       }
 
+      // 若存在标签筛选，取二者交集
+      try {
+        const activeTagFilter = tagFilterRef.current;
+        if (activeTagFilter) {
+          const effectiveGroups = getEffectiveTagGroups();
+          foundFiles = foundFiles.filter(file => {
+            const tagNames = parseTagsFromFilename(file.name);
+            if (tagNames.length === 0) return false;
+            const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+            const temporaryTags = createTemporaryTags(unmatchedTags);
+            const allTags = [...matchedTags, ...temporaryTags];
+            return allTags.some(tag => tag.id === activeTagFilter.tagId);
+          });
+        }
+      } catch (e) {
+        console.warn('⚠️ 在搜索结果上应用标签筛选失败:', e);
+      }
+
       // 为搜索结果生成视频缩略图
       try {
         await generateVideoThumbnails(foundFiles);
@@ -939,6 +1011,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       }
 
       setFilteredFiles(foundFiles);
+      setIsFiltering(true);
       console.log(`🔎 文件名搜索完成，找到 ${foundFiles.length} 个匹配文件`);
     } catch (error) {
       console.error('❌ 执行文件名搜索时出错:', error);
@@ -954,6 +1027,19 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     setNameFilterQuery(null);
     try {
       localStorage.removeItem('tagAnything_filter');
+    } catch {}
+    // 通知上层（AppBar）也清空搜索框与筛选提示
+    try {
+      const currentPathInfo = currentPath;
+      const detail = {
+        type: 'filename',
+        query: '',
+        timestamp: Date.now(),
+        origin: 'fileExplorer' as const,
+        currentPath: currentPathInfo,
+        clearAll: true,
+      } as any;
+      window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
     } catch {}
   };
 
@@ -1527,7 +1613,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     const pathParts = relative.split('/').filter(Boolean);
 
     return (
-      <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
+      <Breadcrumbs 
+        aria-label="breadcrumb" 
+        sx={{ mb: 3 }}
+        onClick={() => {
+          // 点击地址栏时自动清除（不改变当前目录）
+          if (isFiltering || (nameFilterQueryRef.current && nameFilterQueryRef.current.trim().length > 0)) {
+            clearFilter();
+          }
+        }}
+      >
         <Link
           component="button"
           variant="body2"

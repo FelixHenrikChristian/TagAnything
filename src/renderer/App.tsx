@@ -211,6 +211,22 @@ const App: React.FC = () => {
   const [tagDisplayStyle, setTagDisplayStyle] = useState<'original' | 'library'>('original');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+
+  // 监听来自 FileExplorer 的全量清除事件，确保 AppBar 搜索框与筛选提示同步清空
+  useEffect(() => {
+    const handleGlobalFilenameSearch = (e: Event) => {
+      const ce = e as CustomEvent<any>;
+      const detail = ce.detail || {};
+      if (detail?.clearAll) {
+        try { localStorage.removeItem('tagAnything_filter'); } catch {}
+        setActiveTagFilter(null);
+        setSearchQuery('');
+        setIsComposing(false);
+      }
+    };
+    window.addEventListener('filenameSearch', handleGlobalFilenameSearch as EventListener);
+    return () => window.removeEventListener('filenameSearch', handleGlobalFilenameSearch as EventListener);
+  }, []);
   
   const handleClearSearchAndFilter = () => {
     try {
@@ -225,6 +241,7 @@ const App: React.FC = () => {
       timestamp: Date.now(),
       origin: 'appBar' as const,
       currentPath,
+      clearAll: true,
     } as any;
     window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
   };
@@ -624,6 +641,7 @@ const App: React.FC = () => {
                   timestamp: Date.now(),
                   origin: 'appBar' as const,
                   currentPath,
+                  immediate: true,
                 } as any;
                 window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
               }}
