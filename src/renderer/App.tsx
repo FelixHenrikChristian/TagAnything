@@ -206,6 +206,7 @@ const App: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
   const [activeTagFilter, setActiveTagFilter] = useState<TagFilterInfo | null>(null);
   const [tagDisplayStyle, setTagDisplayStyle] = useState<'original' | 'library'>('original');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -600,19 +601,31 @@ const App: React.FC = () => {
               size="small"
               placeholder="搜索文件..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const currentPath = localStorage.getItem('tagAnything_currentPath') || undefined;
-                  const detail = {
-                    query: searchQuery,
-                    timestamp: Date.now(),
-                    origin: 'appBar' as const,
-                    currentPath,
-                  };
-                  const evt = new CustomEvent('filenameSearch', { detail });
-                  window.dispatchEvent(evt);
-                }
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchQuery(value);
+                if (isComposing) return; // 输入法组合态中不触发搜索
+                const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
+                const detail = {
+                  query: value,
+                  timestamp: Date.now(),
+                  origin: 'appBar' as const,
+                  currentPath,
+                } as any;
+                window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
+              }}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => {
+                setIsComposing(false);
+                const value = searchQuery;
+                const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
+                const detail = {
+                  query: value,
+                  timestamp: Date.now(),
+                  origin: 'appBar' as const,
+                  currentPath,
+                } as any;
+                window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
               }}
               sx={{
                 flexGrow: 1,

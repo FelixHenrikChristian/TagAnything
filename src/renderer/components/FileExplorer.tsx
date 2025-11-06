@@ -2532,11 +2532,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
       {/* File Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {files.length === 0 ? (
+        {(isFiltering ? filteredFiles : files).length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body1" color="text.secondary">
-              此文件夹为空
+              {isFiltering ? '没有匹配的文件' : '此文件夹为空'}
             </Typography>
+            {isFiltering && (
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{ mt: 2 }}
+                onClick={clearFilter}
+                startIcon={<ClearIcon />}
+              >
+                清除筛选/搜索
+              </Button>
+            )}
           </Box>
         ) : (
           viewMode === 'grid' ? renderGridView() : renderListView()
