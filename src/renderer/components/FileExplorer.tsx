@@ -2514,15 +2514,17 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
       {/* File Stats */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
-        <Chip
-          icon={<FolderIcon />}
-          label={`${files.filter(f => f.isDirectory).length} 个文件夹`}
-          variant="outlined"
-          size="small"
-        />
+        {!isFiltering && (
+          <Chip
+            icon={<FolderIcon />}
+            label={`${files.filter(f => f.isDirectory).length} 个文件夹`}
+            variant="outlined"
+            size="small"
+          />
+        )}
         <Chip
           icon={<FileIcon />}
-          label={`${files.filter(f => !f.isDirectory).length} 个文件`}
+          label={`${(isFiltering ? filteredFiles : files).filter(f => !f.isDirectory).length} 个文件`}
           variant="outlined"
           size="small"
         />
