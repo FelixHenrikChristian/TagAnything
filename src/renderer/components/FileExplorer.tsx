@@ -56,6 +56,7 @@ import {
   MoreVert as MoreIcon,
   Sort as SortIcon,
   FilterList as FilterListIcon,
+  Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
@@ -87,17 +88,25 @@ interface FileExplorerProps {
 
 // 排序类型枚举
 type SortType = 'name' | 'modified' | 'type' | 'size';
-type SortDirection = 'asc' | 'desc';
+  type SortDirection = 'asc' | 'desc';
 
 // 筛选类型接口
-interface TagFilter {
-  type: 'tag';
-  tagId: string;
-  tagName: string;
-  timestamp: number;
-  origin?: 'fileExplorer' | 'tagManager';
-  currentPath?: string;
-}
+  interface TagFilter {
+    type: 'tag';
+    tagId: string;
+    tagName: string;
+    timestamp: number;
+    origin?: 'fileExplorer' | 'tagManager';
+    currentPath?: string;
+  }
+
+  interface FilenameSearchFilter {
+    type: 'filename';
+    query: string;
+    timestamp: number;
+    origin?: 'appBar' | 'fileExplorer';
+    currentPath?: string;
+  }
 
 interface FileOperationDialog {
   open: boolean;
@@ -179,6 +188,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const [tagFilter, setTagFilter] = useState<TagFilter | null>(null);
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
   const [isFiltering, setIsFiltering] = useState<boolean>(false);
+  const [nameFilterQuery, setNameFilterQuery] = useState<string | null>(null);
   
   // 拖拽文件操作状态
   const [fileOperationDialog, setFileOperationDialog] = useState<FileOperationDialog>({
@@ -328,23 +338,39 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     };
 
     // 标签筛选事件监听器
-    const handleTagFilterEvent = (event: CustomEvent) => {
-      const filterData = event.detail;
-      console.log('🔍 FileExplorer收到筛选事件:', filterData);
-      console.log('🔍 当前路径:', currentPath);
-      console.log('🔍 当前文件数量:', files.length);
-      setTagFilter(filterData);
-      setIsFiltering(true);
-      // 触发筛选逻辑
-      performTagFilter(filterData);
-    };
+  const handleTagFilterEvent = (event: CustomEvent) => {
+    const filterData = event.detail;
+    console.log('🔍 FileExplorer收到筛选事件:', filterData);
+    console.log('🔍 当前路径:', currentPath);
+    console.log('🔍 当前文件数量:', files.length);
+    setTagFilter(filterData);
+    setIsFiltering(true);
+    // 触发筛选逻辑
+    performTagFilter(filterData);
+  };
+
+  // 文件名搜索事件监听器
+  const handleFilenameSearchEvent = (event: CustomEvent) => {
+    const detail: FilenameSearchFilter = event.detail;
+    const query = detail?.query || '';
+    console.log('🔎 FileExplorer收到文件名搜索事件:', detail);
+    setTagFilter(null);
+    try {
+      localStorage.removeItem('tagAnything_filter');
+    } catch {}
+    setNameFilterQuery(query);
+    setIsFiltering(true);
+    performFilenameSearch(query, detail?.currentPath);
+  };
 
     window.addEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
     window.addEventListener('tagFilter', handleTagFilterEvent as EventListener);
+    window.addEventListener('filenameSearch', handleFilenameSearchEvent as EventListener);
 
     return () => {
       window.removeEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
       window.removeEventListener('tagFilter', handleTagFilterEvent as EventListener);
+      window.removeEventListener('filenameSearch', handleFilenameSearchEvent as EventListener);
     };
   }, []);
 
@@ -526,6 +552,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
     setCurrentLocation(location);
     setCurrentPath(location.path);
+    // 切换目录时清空筛选与搜索
+    clearFilter();
     await loadFiles(location.path, effectiveGroups);
     // 递归扫描所有文件以解析标签
     await scanAllFilesForTags(location.path, effectiveGroups);
@@ -533,6 +561,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
   const handleNavigate = async (path: string) => {
     setCurrentPath(path);
+    // 目录导航时清空筛选与搜索
+    clearFilter();
     await loadFiles(path);
   };
 
@@ -867,11 +897,64 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     }
   };
 
+  // 执行文件名搜索（仅当前目录及其子目录）
+  const performFilenameSearch = async (query: string, fromPath?: string) => {
+    try {
+      const q = (query || '').trim().toLowerCase();
+      if (!q) {
+        setFilteredFiles([]);
+        setIsFiltering(false);
+        setNameFilterQuery(null);
+        return;
+      }
+
+      const targetPath = fromPath || currentPath;
+      if (!targetPath) {
+        console.log('⚠️ 文件名搜索未指定当前路径，已忽略');
+        setFilteredFiles([]);
+        return;
+      }
+
+      console.log('🔎 开始文件名搜索（递归）:', { query: q, targetPath });
+      let foundFiles: FileItem[] = [];
+      try {
+        const allEntries = await window.electron.getAllFiles(targetPath);
+        for (const entry of allEntries) {
+          if (!entry.isDirectory) {
+            const displayName = getDisplayName(entry.name).toLowerCase();
+            if (displayName.includes(q)) {
+              foundFiles.push(entry);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ 递归获取文件列表时出错:', error);
+      }
+
+      // 为搜索结果生成视频缩略图
+      try {
+        await generateVideoThumbnails(foundFiles);
+      } catch (e) {
+        console.warn('⚠️ 为搜索结果生成缩略图失败:', e);
+      }
+
+      setFilteredFiles(foundFiles);
+      console.log(`🔎 文件名搜索完成，找到 ${foundFiles.length} 个匹配文件`);
+    } catch (error) {
+      console.error('❌ 执行文件名搜索时出错:', error);
+      setFilteredFiles([]);
+    }
+  };
+
   // 清除筛选
   const clearFilter = () => {
     setTagFilter(null);
     setIsFiltering(false);
     setFilteredFiles([]);
+    setNameFilterQuery(null);
+    try {
+      localStorage.removeItem('tagAnything_filter');
+    } catch {}
   };
 
   // 获取标签样式
@@ -988,6 +1071,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     };
     
     console.log('🏷️ FileExplorer创建筛选信息:', filterInfo);
+    try {
+      localStorage.setItem('tagAnything_filter', JSON.stringify(filterInfo));
+    } catch {}
     setTagFilter(filterInfo);
     setIsFiltering(true);
     performTagFilter(filterInfo);
@@ -2340,23 +2426,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {/* Filter Status Indicator */}
-          {isFiltering && tagFilter && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, bgcolor: 'primary.light', borderRadius: 1 }}>
-              <FilterListIcon fontSize="small" sx={{ color: 'primary.contrastText' }} />
-              <Typography variant="body2" sx={{ color: 'primary.contrastText', fontSize: '0.75rem' }}>
-                筛选: {tagFilter.tagName} ({filteredFiles.length} 个文件)
-              </Typography>
-              <IconButton
-                size="small"
-                onClick={clearFilter}
-                title="清除筛选"
-                sx={{ color: 'primary.contrastText', p: 0.25 }}
-              >
-                <ClearIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          )}
+          
+          
 
           {/* Refresh Button */}
           <IconButton 

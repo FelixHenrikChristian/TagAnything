@@ -42,6 +42,8 @@ import {
   Folder as FolderIcon,
   Label as LabelIcon,
   Search as SearchIcon,
+  FilterList as FilterListIcon,
+  Clear as ClearIcon,
   Add as AddIcon,
   Settings as SettingsIcon,
   Brightness4 as DarkModeIcon,
@@ -194,14 +196,37 @@ const createAppTheme = (mode: 'light' | 'dark') => {
   });
 };
 
+interface TagFilterInfo {
+  tagId: string;
+  tagName: string;
+}
+
 const App: React.FC = () => {
   const [sidebarView, setSidebarView] = useState<'locations' | 'tags' | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTagFilter, setActiveTagFilter] = useState<TagFilterInfo | null>(null);
   const [tagDisplayStyle, setTagDisplayStyle] = useState<'original' | 'library'>('original');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+  
+  const handleClearSearchAndFilter = () => {
+    try {
+      localStorage.removeItem('tagAnything_filter');
+    } catch {}
+    setActiveTagFilter(null);
+    setSearchQuery('');
+    const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
+    const detail = {
+      type: 'filename',
+      query: '',
+      timestamp: Date.now(),
+      origin: 'appBar' as const,
+      currentPath,
+    } as any;
+    window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
+  };
   
   // 自动更新相关状态
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
@@ -238,6 +263,47 @@ const App: React.FC = () => {
     setTagDisplayStyle(newStyle);
     localStorage.setItem('tagDisplayStyle', newStyle);
   };
+
+  // 监听标签筛选以在搜索框左侧展示
+  useEffect(() => {
+    const init = () => {
+      try {
+        const saved = localStorage.getItem('tagAnything_filter');
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data && data.tagId && data.tagName) {
+            setActiveTagFilter({ tagId: data.tagId, tagName: data.tagName });
+          }
+        } else {
+          setActiveTagFilter(null);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    init();
+
+    const onTagFilter = (e: Event) => {
+      const ce = e as CustomEvent;
+      const d: any = ce.detail;
+      if (d && d.tagId && d.tagName) {
+        setActiveTagFilter({ tagId: d.tagId, tagName: d.tagName });
+      }
+    };
+    const onFilenameSearch = () => {
+      // 如果本地没有筛选信息，则清除显示
+      const saved = localStorage.getItem('tagAnything_filter');
+      if (!saved) {
+        setActiveTagFilter(null);
+      }
+    };
+    window.addEventListener('tagFilter', onTagFilter as EventListener);
+    window.addEventListener('filenameSearch', onFilenameSearch as EventListener);
+    return () => {
+      window.removeEventListener('tagFilter', onTagFilter as EventListener);
+      window.removeEventListener('filenameSearch', onFilenameSearch as EventListener);
+    };
+  }, []);
 
   // 获取应用版本号
   useEffect(() => {
@@ -514,7 +580,7 @@ const App: React.FC = () => {
             }),
           }}
         >
-          <Toolbar>
+  <Toolbar>
             <IconButton
               color="inherit"
               aria-label="toggle drawer"
@@ -532,9 +598,22 @@ const App: React.FC = () => {
             {/* Search Bar */}
             <TextField
               size="small"
-              placeholder="搜索文件和标签..."
+              placeholder="搜索文件..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const currentPath = localStorage.getItem('tagAnything_currentPath') || undefined;
+                  const detail = {
+                    query: searchQuery,
+                    timestamp: Date.now(),
+                    origin: 'appBar' as const,
+                    currentPath,
+                  };
+                  const evt = new CustomEvent('filenameSearch', { detail });
+                  window.dispatchEvent(evt);
+                }
+              }}
               sx={{
                 flexGrow: 1,
                 maxWidth: 400,
@@ -549,9 +628,31 @@ const App: React.FC = () => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <SearchIcon sx={{ color: 'text.secondary' }} />
+                      {activeTagFilter && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.25, bgcolor: 'primary.light', borderRadius: 1 }}>
+                          <FilterListIcon fontSize="small" sx={{ color: 'primary.contrastText' }} />
+                          <Typography variant="caption" sx={{ color: 'primary.contrastText' }}>
+                            {activeTagFilter.tagName}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
                   </InputAdornment>
                 ),
+                endAdornment: ((searchQuery.trim().length > 0) || !!activeTagFilter ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      edge="end"
+                      aria-label="清除搜索与筛选"
+                      onClick={handleClearSearchAndFilter}
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined),
               }}
             />
 
