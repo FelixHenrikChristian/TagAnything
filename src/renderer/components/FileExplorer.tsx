@@ -374,9 +374,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     const detail: FilenameSearchFilter = event.detail;
     const query = detail?.query || '';
     console.log('🔎 FileExplorer收到文件名搜索事件:', detail);
-    // 若为全量清除，直接重置并返回
+    // 防止处理自身派发的事件，避免递归
+    if (detail?.origin === 'fileExplorer') {
+      return;
+    }
+    // 若为全量清除，内部重置但不再派发事件（避免循环）
     if (detail?.clearAll) {
-      clearFilter();
+      clearFilter({ notify: false });
       return;
     }
     setNameFilterQuery(query);
@@ -1020,27 +1024,34 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   };
 
   // 清除筛选
-  const clearFilter = () => {
+  const clearFilter = (opts?: { notify?: boolean }) => {
     setTagFilter(null);
     setIsFiltering(false);
     setFilteredFiles([]);
     setNameFilterQuery(null);
+    // 清理可能存在的搜索防抖定时器
+    if (filenameSearchDebounceRef.current) {
+      try { window.clearTimeout(filenameSearchDebounceRef.current); } catch {}
+      filenameSearchDebounceRef.current = null;
+    }
     try {
       localStorage.removeItem('tagAnything_filter');
     } catch {}
     // 通知上层（AppBar）也清空搜索框与筛选提示
-    try {
-      const currentPathInfo = currentPath;
-      const detail = {
-        type: 'filename',
-        query: '',
-        timestamp: Date.now(),
-        origin: 'fileExplorer' as const,
-        currentPath: currentPathInfo,
-        clearAll: true,
-      } as any;
-      window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
-    } catch {}
+    if (opts?.notify !== false) {
+      try {
+        const currentPathInfo = currentPath;
+        const detail = {
+          type: 'filename',
+          query: '',
+          timestamp: Date.now(),
+          origin: 'fileExplorer' as const,
+          currentPath: currentPathInfo,
+          clearAll: true,
+        } as any;
+        window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
+      } catch {}
+    }
   };
 
   // 获取标签样式
@@ -2637,7 +2648,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                 variant="outlined"
                 size="small"
                 sx={{ mt: 2 }}
-                onClick={clearFilter}
+                onClick={() => clearFilter()}
                 startIcon={<ClearIcon />}
               >
                 清除筛选/搜索
