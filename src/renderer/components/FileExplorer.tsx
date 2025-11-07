@@ -529,6 +529,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     };
 
     const handleNativeDrop = (e: DragEvent) => {
+      // 仅处理外部文件投放，避免拦截内部标签的投放
+      const isExternalFiles = e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+      if (!isExternalFiles) {
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
@@ -1438,35 +1444,42 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
   // 拖拽事件处理函数
   const handleDragOver = (event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    // 检查是否有文件被拖拽
+    // 仅当拖拽的是外部文件时，才处理
     if (event.dataTransfer.types.includes('Files')) {
+      event.preventDefault();
+      event.stopPropagation();
       event.dataTransfer.dropEffect = 'copy';
       setIsDragOver(true);
     }
   };
 
   const handleDragEnter = (event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
+    // 仅当拖拽的是外部文件时，才处理
     if (event.dataTransfer.types.includes('Files')) {
+      event.preventDefault();
+      event.stopPropagation();
       setIsDragOver(true);
     }
   };
 
   const handleDragLeave = (event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    // 只有当鼠标离开整个容器时才设置为false
-    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-      setIsDragOver(false);
+    // 仅当拖拽的是外部文件时，才处理
+    if (event.dataTransfer.types.includes('Files')) {
+      event.preventDefault();
+      event.stopPropagation();
+      // 只有当鼠标离开整个容器时才设置为false
+      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+        setIsDragOver(false);
+      }
     }
   };
 
   const handleDrop = (event: React.DragEvent) => {
+    // 仅当拖拽的是外部文件时，才处理
+    if (!event.dataTransfer.types.includes('Files')) {
+      return;
+    }
+    
     event.preventDefault();
     event.stopPropagation();
     setIsDragOver(false);
@@ -1861,14 +1874,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
               }
             }}
             onContextMenu={(e) => handleContextMenu(e, file)}
-            onDragStart={(e) => e.preventDefault()} // 阻止任何拖拽开始事件
+            onDragStart={(e) => {
+              // 仅阻止卡片自身的拖拽，不影响子元素（如标签芯片）的拖拽
+              const target = e.target as HTMLElement | null;
+              const isChip = !!target?.closest('.MuiChip-root');
+              if (!isChip) {
+                e.preventDefault();
+              }
+            }} // 仅阻止卡片本身的拖拽
             onDragOver={(e) => {
               e.preventDefault();
               e.stopPropagation();
               
-              // 检查是否是标签拖拽
-              const dragData = e.dataTransfer.types.includes('application/json');
-              if (dragData) {
+              // 检查是否是标签拖拽：兼容 dataTransfer 不包含自定义类型的情况
+              const isTagDragging = e.dataTransfer.types.includes('application/json') || (!!dragState.isDragging && !!dragState.draggedTag);
+              if (isTagDragging) {
                 e.dataTransfer.dropEffect = 'copy';
 
                 // 当文件没有标签时，卡片本身需要声明为拖拽目标，
@@ -1892,7 +1912,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                   const draggedData = JSON.parse(data);
                   if (draggedData.type === 'tag' && draggedData.tag) {
                     handleTagDrop(file, draggedData.tag, e);
+                    return;
                   }
+                }
+                // 兼容回退：使用全局拖拽状态
+                if (dragState.draggedTag) {
+                  handleTagDrop(file, dragState.draggedTag, e);
                 }
               } catch (error) {
                 console.error('处理拖拽数据失败:', error);
@@ -1919,9 +1944,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                   e.preventDefault();
                   e.stopPropagation();
                   
-                  // 检查是否是标签拖拽
-                  const dragData = e.dataTransfer.types.includes('application/json');
-                  if (dragData) {
+                  // 检查是否是标签拖拽：兼容 dataTransfer 不包含自定义类型的情况
+                  const isTagDragging = e.dataTransfer.types.includes('application/json') || (!!dragState.isDragging && !!dragState.draggedTag);
+                  if (isTagDragging) {
                     // 同文件内重排使用 move，其他情况保持 copy
                     if (dragState.sourceFilePath && dragState.sourceFilePath === file.path) {
                       e.dataTransfer.dropEffect = 'move';
@@ -2035,12 +2060,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  const insertPosition = parseInt(e.currentTarget.getAttribute('data-insert-position') || '-1');
                   
                   try {
                     const data = e.dataTransfer.getData('application/json');
                     if (data) {
                       const draggedData = JSON.parse(data);
-                      const insertPosition = parseInt(e.currentTarget.getAttribute('data-insert-position') || '-1');
                       if (draggedData.type === 'fileTag' && draggedData.tag) {
                         const sourcePath = draggedData.sourceFilePath as string | undefined;
                         const sourceIndex = draggedData.sourceIndex as number | undefined;
@@ -2053,9 +2078,20 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
                             handleTagDropWithPosition(file, draggedData.tag, insertPosition);
                           }
                         }
+                        return;
                       } else if (draggedData.type === 'tag' && draggedData.tag) {
                         // 从标签库拖拽
                         handleTagDropWithPosition(file, draggedData.tag, insertPosition);
+                        return;
+                      }
+                    }
+                    // 兼容回退：使用全局拖拽状态
+                    if (dragState.draggedTag) {
+                      const isSameFile = dragState.sourceFilePath && dragState.sourceFilePath === file.path;
+                      if (isSameFile && dragState.sourceIndex !== null && dragState.sourceIndex !== undefined) {
+                        reorderTagWithinFile(file, dragState.sourceIndex, insertPosition);
+                      } else {
+                        handleTagDropWithPosition(file, dragState.draggedTag, insertPosition);
                       }
                     }
                   } catch (error) {
