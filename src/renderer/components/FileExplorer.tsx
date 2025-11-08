@@ -1510,9 +1510,15 @@ interface DeleteTagDialogState {
   // 在资源管理器中显示项目
   const handleOpenInExplorer = async (file: FileItem) => {
     try {
-      const res = await window.electron.showItemInFolder(file.path);
-      if (!res.success) {
-        setNotification({ open: true, message: `打开资源管理器失败：${res.error || '未知错误'}`, severity: 'error' });
+      if (file.isDirectory) {
+        // 目录使用 openPath 直接在资源管理器打开该目录
+        await window.electron.openFile(file.path);
+      } else {
+        // 文件使用 showItemInFolder 在资源管理器中定位该文件
+        const res = await window.electron.showItemInFolder(file.path);
+        if (!res.success) {
+          setNotification({ open: true, message: `打开资源管理器失败：${res.error || '未知错误'}`, severity: 'error' });
+        }
       }
     } catch (e) {
       setNotification({ open: true, message: `打开资源管理器失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
