@@ -100,6 +100,15 @@ type SortType = 'name' | 'modified' | 'type' | 'size';
     currentPath?: string;
   }
 
+  interface MultiTagFilter {
+    type: 'multiTag';
+    tagIds: string[];
+    tagNames?: string[];
+    timestamp: number;
+    origin?: 'appBar' | 'fileExplorer' | 'tagManager';
+    currentPath?: string;
+  }
+
   interface FilenameSearchFilter {
     type: 'filename';
     query: string;
@@ -190,13 +199,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   
   // 筛选相关状态
   const [tagFilter, setTagFilter] = useState<TagFilter | null>(null);
+  const [multiTagFilter, setMultiTagFilter] = useState<MultiTagFilter | null>(null);
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
   const [isFiltering, setIsFiltering] = useState<boolean>(false);
   const [nameFilterQuery, setNameFilterQuery] = useState<string | null>(null);
   // 记录最新的筛选与搜索条件，避免事件监听闭包导致读取旧值
   const tagFilterRef = useRef<TagFilter | null>(null);
+  const multiTagFilterRef = useRef<MultiTagFilter | null>(null);
   const nameFilterQueryRef = useRef<string | null>(null);
   useEffect(() => { tagFilterRef.current = tagFilter; }, [tagFilter]);
+  useEffect(() => { multiTagFilterRef.current = multiTagFilter; }, [multiTagFilter]);
   useEffect(() => { nameFilterQueryRef.current = nameFilterQuery; }, [nameFilterQuery]);
   // 文件名搜索防抖
   const filenameSearchDebounceRef = useRef<number | null>(null);
@@ -357,16 +369,31 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       handleLocationSelect(selectedLocation);
     };
 
-    // 标签筛选事件监听器
+  // 标签筛选事件监听器
   const handleTagFilterEvent = (event: CustomEvent) => {
     const filterData = event.detail;
     console.log('🔍 FileExplorer收到筛选事件:', filterData);
     console.log('🔍 当前路径:', currentPath);
     console.log('🔍 当前文件数量:', files.length);
+    // 与多标签筛选互斥：清除多标签状态与存储
+    setMultiTagFilter(null);
+    try { localStorage.removeItem('tagAnything_multiFilter'); } catch {}
     setTagFilter(filterData);
     setIsFiltering(true);
     // 触发筛选逻辑
     performTagFilter(filterData);
+  };
+
+  // 多标签筛选事件监听器
+  const handleMultiTagFilterEvent = (event: CustomEvent) => {
+    const filterData: MultiTagFilter = event.detail;
+    console.log('🔍 FileExplorer收到多标签筛选事件:', filterData);
+    // 与单标签筛选互斥：清除单标签状态与存储
+    setTagFilter(null);
+    try { localStorage.removeItem('tagAnything_filter'); } catch {}
+    setMultiTagFilter(filterData);
+    setIsFiltering(true);
+    performMultiTagFilter(filterData);
   };
 
   // 文件名搜索事件监听器
@@ -385,6 +412,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     }
     setNameFilterQuery(query);
     setIsFiltering(!!query || !!tagFilterRef.current);
+    setIsFiltering(!!query || !!tagFilterRef.current || !!multiTagFilterRef.current);
     // 清除上一次防抖定时器
     if (filenameSearchDebounceRef.current) {
       window.clearTimeout(filenameSearchDebounceRef.current);
@@ -404,11 +432,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
     window.addEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
     window.addEventListener('tagFilter', handleTagFilterEvent as EventListener);
+    window.addEventListener('multiTagFilter', handleMultiTagFilterEvent as EventListener);
     window.addEventListener('filenameSearch', handleFilenameSearchEvent as EventListener);
 
     return () => {
       window.removeEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
       window.removeEventListener('tagFilter', handleTagFilterEvent as EventListener);
+      window.removeEventListener('multiTagFilter', handleMultiTagFilterEvent as EventListener);
       window.removeEventListener('filenameSearch', handleFilenameSearchEvent as EventListener);
     };
   }, []);
@@ -920,6 +950,28 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         console.warn('⚠️ 在标签筛选结果上应用文件名搜索失败:', e);
       }
 
+      // 若存在多标签筛选，进一步与其取交集（AND）
+      try {
+        const activeMulti = multiTagFilterRef.current;
+        if (activeMulti && activeMulti.tagIds && activeMulti.tagIds.length > 0) {
+          const requiredIds = new Set(activeMulti.tagIds);
+          const effectiveGroups = getEffectiveTagGroups();
+          foundFiles = foundFiles.filter(file => {
+            const tagNames = parseTagsFromFilename(file.name);
+            if (tagNames.length === 0) return false;
+            const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+            const temporaryTags = createTemporaryTags(unmatchedTags);
+            const allTags = [...matchedTags, ...temporaryTags];
+            for (const id of requiredIds) {
+              if (!allTags.some(t => t.id === id)) return false;
+            }
+            return true;
+          });
+        }
+      } catch (e) {
+        console.warn('⚠️ 在标签筛选结果上应用多标签筛选失败:', e);
+      }
+
       // 根据筛选结果更新文件标签缓存
       try {
         const updatedFileTags = new Map(fileTags);
@@ -955,6 +1007,114 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     }
   };
 
+  // 执行多标签筛选（AND 逻辑）
+  const performMultiTagFilter = async (filter: MultiTagFilter) => {
+    try {
+      console.log('🔍 开始多标签筛选:', filter.tagIds);
+      let foundFiles: FileItem[] = [];
+      const targetPath = filter.currentPath || currentPath;
+      const effectiveGroups = getEffectiveTagGroups();
+
+      const matchAllTags = (file: FileItem) => {
+        const tagNames = parseTagsFromFilename(file.name);
+        if (tagNames.length === 0) return false;
+        const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+        const temporaryTags = createTemporaryTags(unmatchedTags);
+        const allTags = [...matchedTags, ...temporaryTags];
+        for (const id of filter.tagIds) {
+          if (!allTags.some(t => t.id === id)) return false;
+        }
+        return true;
+      };
+
+      if (targetPath) {
+        if (filter.origin === 'fileExplorer') {
+          try {
+            const entries = await window.electron.getFiles(targetPath);
+            for (const file of entries) {
+              if (!file.isDirectory && matchAllTags(file)) {
+                foundFiles.push(file);
+              }
+            }
+          } catch (e) {
+            console.error('❌ 非递归多标签筛选出错:', e);
+          }
+        } else {
+          try {
+            const allFiles = await window.electron.getAllFiles(targetPath);
+            for (const file of allFiles) {
+              if (!file.isDirectory && matchAllTags(file)) {
+                foundFiles.push(file);
+              }
+            }
+          } catch (e) {
+            console.error('❌ 递归多标签筛选出错:', e);
+          }
+        }
+      } else {
+        // 全局递归
+        const savedLocations = localStorage.getItem('tagAnything_locations');
+        const availableLocations: Location[] = savedLocations ? JSON.parse(savedLocations) : [];
+        for (const location of availableLocations) {
+          try {
+            const allFiles = await window.electron.getAllFiles(location.path);
+            for (const file of allFiles) {
+              if (!file.isDirectory && matchAllTags(file)) {
+                foundFiles.push(file);
+              }
+            }
+          } catch (e) {
+            console.error(`❌ 搜索位置 ${location.name} 时出错:`, e);
+          }
+        }
+      }
+
+      // 与文件名搜索取交集
+      try {
+        const q = (nameFilterQueryRef.current || '').trim().toLowerCase();
+        if (q) {
+          foundFiles = foundFiles.filter(file => {
+            const displayName = getDisplayName(file.name).toLowerCase();
+            return displayName.includes(q);
+          });
+        }
+      } catch (e) {
+        console.warn('⚠️ 在多标签筛选结果上应用文件名搜索失败:', e);
+      }
+
+      // 更新标签缓存与缩略图
+      try {
+        const updatedFileTags = new Map(fileTags);
+        for (const file of foundFiles) {
+          if (!file.isDirectory) {
+            const tagNames = parseTagsFromFilename(file.name);
+            if (tagNames.length > 0) {
+              const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+              const temporaryTags = createTemporaryTags(unmatchedTags);
+              const allTags = [...matchedTags, ...temporaryTags];
+              updatedFileTags.set(file.path, allTags);
+            }
+          }
+        }
+        setFileTags(updatedFileTags);
+      } catch (e) {
+        console.warn('⚠️ 更新多标签筛选结果标签缓存失败:', e);
+      }
+
+      try {
+        await generateVideoThumbnails(foundFiles);
+      } catch (e) {
+        console.warn('⚠️ 为多标签筛选结果生成缩略图失败:', e);
+      }
+
+      setFilteredFiles(foundFiles);
+      console.log(`🔍 多标签筛选完成，找到 ${foundFiles.length} 个匹配文件`);
+    } catch (error) {
+      console.error('❌ 执行多标签筛选时出错:', error);
+      setFilteredFiles([]);
+    }
+  };
+
   // 执行文件名搜索（仅当前目录及其子目录）
   const performFilenameSearch = async (query: string, fromPath?: string) => {
     try {
@@ -964,6 +1124,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         // 如果仍有标签筛选，使其生效并保持筛选状态
         if (tagFilterRef.current) {
           await performTagFilter(tagFilterRef.current);
+          setIsFiltering(true);
+        } else if (multiTagFilterRef.current) {
+          await performMultiTagFilter(multiTagFilterRef.current);
           setIsFiltering(true);
         } else {
           setFilteredFiles([]);
@@ -1013,6 +1176,28 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         console.warn('⚠️ 在搜索结果上应用标签筛选失败:', e);
       }
 
+      // 若存在多标签筛选，进一步与其取交集（AND）
+      try {
+        const activeMulti = multiTagFilterRef.current;
+        if (activeMulti && activeMulti.tagIds && activeMulti.tagIds.length > 0) {
+          const requiredIds = new Set(activeMulti.tagIds);
+          const effectiveGroups = getEffectiveTagGroups();
+          foundFiles = foundFiles.filter(file => {
+            const tagNames = parseTagsFromFilename(file.name);
+            if (tagNames.length === 0) return false;
+            const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+            const temporaryTags = createTemporaryTags(unmatchedTags);
+            const allTags = [...matchedTags, ...temporaryTags];
+            for (const id of requiredIds) {
+              if (!allTags.some(t => t.id === id)) return false;
+            }
+            return true;
+          });
+        }
+      } catch (e) {
+        console.warn('⚠️ 在搜索结果上应用多标签筛选失败:', e);
+      }
+
       // 为搜索结果生成视频缩略图
       try {
         await generateVideoThumbnails(foundFiles);
@@ -1032,6 +1217,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   // 清除筛选
   const clearFilter = (opts?: { notify?: boolean }) => {
     setTagFilter(null);
+    setMultiTagFilter(null);
     setIsFiltering(false);
     setFilteredFiles([]);
     setNameFilterQuery(null);
@@ -1042,6 +1228,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     }
     try {
       localStorage.removeItem('tagAnything_filter');
+      localStorage.removeItem('tagAnything_multiFilter');
     } catch {}
     // 通知上层（AppBar）也清空搜索框与筛选提示
     if (opts?.notify !== false) {
@@ -1175,8 +1362,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     
     console.log('🏷️ FileExplorer创建筛选信息:', filterInfo);
     try {
+      // 与多标签筛选互斥：清除多标签持久化
+      localStorage.removeItem('tagAnything_multiFilter');
       localStorage.setItem('tagAnything_filter', JSON.stringify(filterInfo));
     } catch {}
+    // 与多标签筛选互斥：清除多标签状态
+    setMultiTagFilter(null);
     setTagFilter(filterInfo);
     setIsFiltering(true);
     performTagFilter(filterInfo);
