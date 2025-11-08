@@ -24,6 +24,7 @@ import {
   Slider,
   FormControl,
   Select,
+  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -64,6 +65,8 @@ import {
   Clear as ClearIcon,
   Close as CloseIcon,
   PlayArrow as PlayIcon,
+  FolderOpen as FolderOpenIcon,
+  Info as InfoIcon,
   Image as ImageIcon,
   PictureAsPdf as PdfIcon,
   Description as DocIcon,
@@ -144,7 +147,48 @@ interface NotificationState {
   severity: 'success' | 'error' | 'info' | 'warning';
 }
 
-const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
+// 重命名对话框状态
+interface RenameDialogState {
+  open: boolean;
+  file: FileItem | null;
+  inputName: string;
+}
+
+// 添加标签对话框状态
+interface AddTagDialogState {
+  open: boolean;
+  file: FileItem | null;
+  input: string; // 空格分隔的标签名
+}
+
+// 删除标签对话框状态
+interface DeleteTagDialogState {
+  open: boolean;
+  file: FileItem | null;
+  selectedTagIds: string[];
+}
+
+// 文件详情对话框状态
+  interface DetailsDialogState {
+    open: boolean;
+    file: FileItem | null;
+  }
+
+// 直接操作对话框（用于右键的移动/复制），内置目录选择器，限制在当前位置根目录下
+  interface DirectOperationDialog {
+    open: boolean;
+    operation: 'move' | 'copy';
+    files: DraggedFile[];
+    rootPath: string; // 限制范围（currentLocation.path）
+    browsePath: string; // 当前浏览目录
+  }
+
+  interface DeleteConfirmDialogState {
+    open: boolean;
+    files: DraggedFile[];
+  }
+
+  const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
@@ -252,6 +296,23 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     message: '',
     severity: 'info'
   });
+
+  // 各类对话框状态
+  const [renameDialog, setRenameDialog] = useState<RenameDialogState>({ open: false, file: null, inputName: '' });
+  const [addTagDialog, setAddTagDialog] = useState<AddTagDialogState>({ open: false, file: null, input: '' });
+  const [deleteTagDialog, setDeleteTagDialog] = useState<DeleteTagDialogState>({ open: false, file: null, selectedTagIds: [] });
+  const [detailsDialog, setDetailsDialog] = useState<DetailsDialogState>({ open: false, file: null });
+  const [directOperationDialog, setDirectOperationDialog] = useState<DirectOperationDialog>({
+    open: false,
+    operation: 'move',
+    files: [],
+    rootPath: '',
+    browsePath: ''
+  });
+  const [pickerDirectories, setPickerDirectories] = useState<FileItem[]>([]);
+  const [pickerLoading, setPickerLoading] = useState<boolean>(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteConfirmDialogState>({ open: false, files: [] });
   
   // 拖拽状态管理
   const [dragState, setDragState] = useState<{
@@ -1340,6 +1401,228 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     await handleNavigate(path);
   };
 
+  // 打开受限目录选择器（右键的移动/复制专用）
+  const openDirectOperationDialog = (operation: 'move' | 'copy', files: DraggedFile[]) => {
+    if (!currentLocation || !currentPath) return;
+    const root = currentLocation.path;
+    setDirectOperationDialog({ open: true, operation, files, rootPath: root, browsePath: currentPath });
+  };
+
+  // 删除确认对话框
+  const openDeleteConfirmDialog = (files: DraggedFile[]) => {
+    setDeleteDialog({ open: true, files });
+  };
+  const closeDeleteConfirmDialog = () => {
+    setDeleteDialog({ open: false, files: [] });
+  };
+  const doDeleteFiles = async (mode: 'trash' | 'permanent') => {
+    const files = deleteDialog.files;
+    closeDeleteConfirmDialog();
+
+    if (files.length === 0) return;
+
+    setNotification({ open: true, message: `开始${mode === 'trash' ? '移动至回收站' : '永久删除'} ${files.length} 个项目...`, severity: 'info' });
+
+    try {
+      const result = await window.electron.deleteFiles({ mode, files: files.map(f => f.path) });
+      if (result.success) {
+        await loadFiles(currentPath);
+        setNotification({ open: true, message: `${files.length} 个项目已${mode === 'trash' ? '移动至回收站' : '永久删除'}。`, severity: 'success' });
+      } else {
+        const failedCount = (result.failedFiles?.length) || 1;
+        setNotification({ open: true, message: `删除失败（${failedCount} 项）。`, severity: 'error' });
+      }
+    } catch (e) {
+      setNotification({ open: true, message: `删除失败：${e instanceof Error ? e.message : String(e)}` , severity: 'error' });
+    }
+  };
+  const closeDirectOperationDialog = () => {
+    setDirectOperationDialog(prev => ({ ...prev, open: false }));
+  };
+  const loadPickerDirs = async (path: string) => {
+    try {
+      setPickerLoading(true);
+      setPickerError(null);
+      const list = await window.electron.getFiles(path);
+      setPickerDirectories(list.filter(item => item.isDirectory));
+    } catch (e) {
+      setPickerError(e instanceof Error ? e.message : String(e));
+      setPickerDirectories([]);
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (directOperationDialog.open && directOperationDialog.browsePath) {
+      // 保证浏览范围不越过根目录
+      const norm = (p: string) => p.replace(/\\/g, '/');
+      const root = norm(directOperationDialog.rootPath);
+      const browse = norm(directOperationDialog.browsePath);
+      if (!browse.startsWith(root)) {
+        setDirectOperationDialog(prev => ({ ...prev, browsePath: prev.rootPath }));
+        loadPickerDirs(directOperationDialog.rootPath);
+      } else {
+        loadPickerDirs(directOperationDialog.browsePath);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directOperationDialog.open, directOperationDialog.browsePath]);
+
+  const navigatePickerTo = (path: string) => {
+    const norm = (p: string) => p.replace(/\\/g, '/');
+    const root = norm(directOperationDialog.rootPath);
+    const next = norm(path);
+    if (next.startsWith(root)) {
+      setDirectOperationDialog(prev => ({ ...prev, browsePath: path }));
+    }
+  };
+  const navigatePickerUp = () => {
+    const current = directOperationDialog.browsePath;
+    const root = directOperationDialog.rootPath;
+    const normalize = (p: string) => p.replace(/\\/g, '/');
+    const curr = normalize(current);
+    const rt = normalize(root);
+    if (curr === rt) return; // 到达根目录，禁止上移
+    const parent = current.replace(/[\\/][^\\/]+$/, '');
+    const parentNorm = normalize(parent);
+    if (parentNorm.startsWith(rt)) {
+      setDirectOperationDialog(prev => ({ ...prev, browsePath: parent }));
+    } else {
+      setDirectOperationDialog(prev => ({ ...prev, browsePath: prev.rootPath }));
+    }
+  };
+  const confirmDirectOperation = async () => {
+    const { operation, files, browsePath } = directOperationDialog;
+    if (!browsePath || files.length === 0) { closeDirectOperationDialog(); return; }
+    // 复用主进程的 performFileOperation
+    await handleFileOperation(operation, files, browsePath);
+    closeDirectOperationDialog();
+  };
+
+  // 在资源管理器中显示项目
+  const handleOpenInExplorer = async (file: FileItem) => {
+    try {
+      const res = await window.electron.showItemInFolder(file.path);
+      if (!res.success) {
+        setNotification({ open: true, message: `打开资源管理器失败：${res.error || '未知错误'}`, severity: 'error' });
+      }
+    } catch (e) {
+      setNotification({ open: true, message: `打开资源管理器失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    } finally {
+      handleCloseContextMenu();
+    }
+  };
+
+  // 打开重命名对话框
+  const openRenameDialog = (file: FileItem) => {
+    const defaultName = getDisplayName(file.name);
+    setRenameDialog({ open: true, file, inputName: defaultName });
+  };
+  const closeRenameDialog = () => setRenameDialog({ open: false, file: null, inputName: '' });
+  const confirmRename = async () => {
+    const file = renameDialog.file;
+    const input = renameDialog.inputName.trim();
+    if (!file || !input) { closeRenameDialog(); return; }
+    try {
+      // 保留文件的标签（仅文件有标签）
+      let newFileName = input;
+      if (!file.isDirectory) {
+        const tagNames = parseTagsFromFilename(file.name);
+        if (tagNames.length > 0) {
+          newFileName = `[${tagNames.join(' ')}] ${input}`;
+        }
+      }
+      const directory = file.path.substring(0, file.path.lastIndexOf('\\'));
+      const newPath = `${directory}\\${newFileName}`;
+      if (newPath === file.path) { closeRenameDialog(); return; }
+      const result = await window.electron.renameFile(file.path, newPath);
+      if (result.success) {
+        setNotification({ open: true, message: '重命名成功', severity: 'success' });
+        await loadFiles(currentPath);
+      } else {
+        setNotification({ open: true, message: `重命名失败：${result.error || '未知错误'}`, severity: 'error' });
+      }
+    } catch (e) {
+      setNotification({ open: true, message: `重命名失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    } finally {
+      closeRenameDialog();
+    }
+  };
+
+  // 打开添加标签对话框
+  const openAddTagDialog = (file: FileItem) => {
+    if (file.isDirectory) return; // 仅文件支持标签
+    setAddTagDialog({ open: true, file, input: '' });
+  };
+  const closeAddTagDialog = () => setAddTagDialog({ open: false, file: null, input: '' });
+  const confirmAddTags = async () => {
+    const file = addTagDialog.file;
+    const input = addTagDialog.input.trim();
+    if (!file || !input) { closeAddTagDialog(); return; }
+    try {
+      const names = input.split(/\s+/).filter(Boolean);
+      const effectiveGroups = getEffectiveTagGroups();
+      const { matchedTags, unmatchedTags } = createTagsFromNames(names, effectiveGroups);
+      const temporaryTags = createTemporaryTags(unmatchedTags);
+      const toAdd = [...matchedTags, ...temporaryTags];
+      const current = getFileTags(file);
+      // 去重（按名称）
+      const existingNames = new Set(current.map(t => t.name.toLowerCase()));
+      const newTags = [...current, ...toAdd.filter(t => !existingNames.has(t.name.toLowerCase()))];
+      await updateFileWithTags(file, newTags);
+      setNotification({ open: true, message: '标签添加成功', severity: 'success' });
+    } catch (e) {
+      setNotification({ open: true, message: `添加标签失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    } finally {
+      closeAddTagDialog();
+    }
+  };
+
+  // 打开删除标签对话框
+  const openDeleteTagDialog = (file: FileItem) => {
+    if (file.isDirectory) return;
+    const current = getFileTags(file);
+    setDeleteTagDialog({ open: true, file, selectedTagIds: current.map(t => t.id) });
+  };
+  const closeDeleteTagDialog = () => setDeleteTagDialog({ open: false, file: null, selectedTagIds: [] });
+  const toggleDeleteSelection = (id: string) => {
+    setDeleteTagDialog(prev => {
+      const set = new Set(prev.selectedTagIds);
+      if (set.has(id)) set.delete(id); else set.add(id);
+      return { ...prev, selectedTagIds: Array.from(set) };
+    });
+  };
+  const confirmDeleteTags = async () => {
+    const file = deleteTagDialog.file;
+    if (!file) { closeDeleteTagDialog(); return; }
+    try {
+      const current = getFileTags(file);
+      const remain = current.filter(t => deleteTagDialog.selectedTagIds.indexOf(t.id) === -1);
+      await updateFileWithTags(file, remain);
+      setNotification({ open: true, message: '标签删除成功', severity: 'success' });
+    } catch (e) {
+      setNotification({ open: true, message: `删除标签失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    } finally {
+      closeDeleteTagDialog();
+    }
+  };
+
+  // 选择文件操作目标目录
+  const handleSelectTargetPath = async () => {
+    try {
+      const path = await window.electron.selectFolder();
+      if (path) {
+        setFileOperationDialog(prev => ({ ...prev, targetPath: path }));
+      }
+    } catch (e) {
+      setNotification({ open: true, message: `选择目录失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    }
+  };
+
+  // 打开文件详情对话框
+  const openDetailsDialog = (file: FileItem) => setDetailsDialog({ open: true, file });
+  const closeDetailsDialog = () => setDetailsDialog({ open: false, file: null });
+
   const handleContextMenu = (event: React.MouseEvent, file: FileItem) => {
     event.preventDefault();
     setContextMenu({
@@ -1724,9 +2007,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     });
   };
 
-  // 执行文件操作
-  const handleFileOperation = async (operation: 'move' | 'copy') => {
-    const { files, targetPath } = fileOperationDialog;
+  // 执行文件操作（支持从拖拽对话框或直接操作对话框触发）
+  const handleFileOperation = async (
+    operation: 'move' | 'copy',
+    filesOverride?: DraggedFile[],
+    targetPathOverride?: string
+  ) => {
+    const files = filesOverride ?? fileOperationDialog.files;
+    const targetPath = targetPathOverride ?? fileOperationDialog.targetPath;
     
     // 立即关闭对话框
     handleCloseFileOperationDialog();
@@ -2907,7 +3195,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         )}
       </Box>
 
-      {/* Context Menu */}
+      {/* Context Menu - 四栏布局 */}
       <Menu
         open={contextMenu !== null}
         onClose={handleCloseContextMenu}
@@ -2918,30 +3206,84 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             : undefined
         }
       >
-        <MenuItem onClick={handleCloseContextMenu}>
+        {/* 栏 1：打开相关 */}
+        {!contextMenu?.file?.isDirectory && (
+          <MenuItem onClick={() => contextMenu?.file && handleFileOpen(contextMenu.file)}>
+            <ListItemIcon>
+              <PlayIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>打开</ListItemText>
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => contextMenu?.file && handleOpenInExplorer(contextMenu.file)}>
+          <ListItemIcon>
+            <FolderOpenIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>在资源管理器中打开</ListItemText>
+        </MenuItem>
+        <Divider />
+        {/* 栏 2：标签相关（仅文件） */}
+        {!contextMenu?.file?.isDirectory && (
+          <>
+            <MenuItem onClick={() => contextMenu?.file && openAddTagDialog(contextMenu.file)}>
+              <ListItemIcon>
+                <LabelIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>添加标签</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => contextMenu?.file && openDeleteTagDialog(contextMenu.file)}>
+              <ListItemIcon>
+                <DeleteIcon fontSize="small" color="error" />
+              </ListItemIcon>
+              <ListItemText>删除标签</ListItemText>
+            </MenuItem>
+            <Divider />
+          </>
+        )}
+        {/* 栏 3：文件操作 */}
+        <MenuItem onClick={() => contextMenu?.file && openRenameDialog(contextMenu.file)}>
           <ListItemIcon>
             <EditIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>重命名</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleCloseContextMenu}>
+        <MenuItem onClick={() => {
+          if (!contextMenu?.file) return;
+          const f = contextMenu.file;
+          openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]);
+        }}>
           <ListItemIcon>
-            <LabelIcon fontSize="small" />
+            <ArrowUpwardIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>添加标签</ListItemText>
+          <ListItemText>移动</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleCloseContextMenu}>
+        <MenuItem onClick={() => {
+          if (!contextMenu?.file) return;
+          const f = contextMenu.file;
+          openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]);
+        }}>
           <ListItemIcon>
             <CopyIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>复制</ListItemText>
         </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleCloseContextMenu}>
+        <MenuItem onClick={() => {
+          if (!contextMenu?.file) return;
+          const f = contextMenu.file;
+          openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]);
+        }}>
           <ListItemIcon>
-            <DeleteIcon fontSize="small" />
+            <DeleteIcon fontSize="small" color="error" />
           </ListItemIcon>
           <ListItemText>删除</ListItemText>
+        </MenuItem>
+        <Divider />
+        {/* 栏 4：详情 */}
+        <MenuItem onClick={() => contextMenu?.file && openDetailsDialog(contextMenu.file)}>
+          <ListItemIcon>
+            <InfoIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>文件详情</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -3002,6 +3344,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             >
               {fileOperationDialog.targetPath}
             </Typography>
+            <Box sx={{ mt: 1 }}>
+              <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleSelectTargetPath}>
+                选择目标目录
+              </Button>
+            </Box>
           </Box>
 
           <Typography variant="subtitle1" gutterBottom>
@@ -3073,6 +3420,208 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
           >
             移动
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 直接移动/复制对话框（带内置目录选择器，限制在当前位置下） */}
+      <Dialog open={directOperationDialog.open} onClose={closeDirectOperationDialog} maxWidth="md" fullWidth>
+        <DialogTitle>{directOperationDialog.operation === 'move' ? '移动到' : '复制到'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">根目录：</Typography>
+            <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{directOperationDialog.rootPath}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Button variant="outlined" startIcon={<BackIcon />} onClick={navigatePickerUp} disabled={directOperationDialog.browsePath === directOperationDialog.rootPath}>返回上级</Button>
+            <Typography variant="subtitle2">当前目录：</Typography>
+            <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{directOperationDialog.browsePath}</Typography>
+          </Box>
+          {pickerError && (
+            <Alert severity="error" sx={{ mb: 2 }}>{pickerError}</Alert>
+          )}
+          {pickerLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <List>
+              {pickerDirectories.length === 0 && (
+                <ListItem>
+                  <ListItemText primary="此目录下没有子文件夹" secondary="你可以选择当前目录作为目标" />
+                </ListItem>
+              )}
+              {pickerDirectories.map(dir => (
+                <ListItem key={dir.path} button onClick={() => navigatePickerTo(dir.path)}>
+                  <ListItemAvatar>
+                    <Avatar>
+                      <FolderIcon />
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText primary={dir.name} secondary={dir.path} />
+                </ListItem>
+              ))}
+            </List>
+          )}
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2">待{directOperationDialog.operation === 'move' ? '移动' : '复制'}文件：</Typography>
+            <TableContainer component={Paper} sx={{ mt: 1 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>文件名</TableCell>
+                    <TableCell>原路径</TableCell>
+                    <TableCell align="right">大小</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {directOperationDialog.files.map((f, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{f.name}</TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{f.path}</TableCell>
+                      <TableCell align="right">{formatFileSize(f.size || 0)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDirectOperationDialog}>取消</Button>
+          <Button variant="contained" onClick={confirmDirectOperation}>{directOperationDialog.operation === 'move' ? '移动到此目录' : '复制到此目录'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 删除确认对话框 */}
+      <Dialog open={deleteDialog.open} onClose={closeDeleteConfirmDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>删除确认</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            此操作不可撤销。你可以选择将项目移动到回收站，或彻底删除。
+          </Alert>
+          <TableContainer component={Paper} sx={{ mt: 1 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>名称</TableCell>
+                  <TableCell>路径</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {deleteDialog.files.map((f, i) => (
+                  <TableRow key={i}>
+                    <TableCell>{f.name}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{f.path}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteConfirmDialog}>取消</Button>
+          <Button variant="outlined" color="warning" startIcon={<DeleteIcon />} onClick={() => doDeleteFiles('trash')}>移动至回收站</Button>
+          <Button variant="contained" color="error" startIcon={<DeleteIcon />} onClick={() => doDeleteFiles('permanent')}>彻底删除</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 重命名对话框 */}
+      <Dialog open={renameDialog.open} onClose={closeRenameDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>重命名</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            仅修改显示名称，标签保持不变（文件）。
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            label="新名称"
+            value={renameDialog.inputName}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRenameDialog(prev => ({ ...prev, inputName: e.target.value }))}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeRenameDialog}>取消</Button>
+          <Button onClick={confirmRename} variant="contained">确定</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 添加标签对话框 */}
+      <Dialog open={addTagDialog.open} onClose={closeAddTagDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>添加标签</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="标签（空格分隔）"
+            placeholder="例如：工作 设计 方案"
+            value={addTagDialog.input}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddTagDialog(prev => ({ ...prev, input: e.target.value }))}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeAddTagDialog}>取消</Button>
+          <Button onClick={confirmAddTags} variant="contained">添加</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 删除标签对话框 */}
+      <Dialog open={deleteTagDialog.open} onClose={closeDeleteTagDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>删除标签</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {deleteTagDialog.file && getFileTags(deleteTagDialog.file).map(tag => (
+              <Chip
+                key={tag.id}
+                label={tag.name}
+                variant={deleteTagDialog.selectedTagIds.includes(tag.id) ? 'filled' : 'outlined'}
+                color={deleteTagDialog.selectedTagIds.includes(tag.id) ? 'primary' : 'default'}
+                onClick={() => toggleDeleteSelection(tag.id)}
+              />
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteTagDialog}>取消</Button>
+          <Button onClick={confirmDeleteTags} variant="contained" color="error">删除所选</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 文件详情对话框 */}
+      <Dialog open={detailsDialog.open} onClose={closeDetailsDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>文件详情</DialogTitle>
+        <DialogContent>
+          {detailsDialog.file && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: '120px 1fr', rowGap: 1, columnGap: 2 }}>
+              <Typography color="text.secondary">名称</Typography>
+              <Typography>{detailsDialog.file.name}</Typography>
+              <Typography color="text.secondary">路径</Typography>
+              <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{detailsDialog.file.path}</Typography>
+              <Typography color="text.secondary">类型</Typography>
+              <Typography>{detailsDialog.file.isDirectory ? '文件夹' : '文件'}</Typography>
+              {!detailsDialog.file.isDirectory && (
+                <>
+                  <Typography color="text.secondary">大小</Typography>
+                  <Typography>{formatFileSize(detailsDialog.file.size || 0)}</Typography>
+                </>
+              )}
+              <Typography color="text.secondary">修改时间</Typography>
+              <Typography>{new Date(detailsDialog.file.modified).toLocaleString()}</Typography>
+              {!detailsDialog.file.isDirectory && (
+                <>
+                  <Typography color="text.secondary">标签</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {getFileTags(detailsDialog.file).map(tag => (
+                      <Chip key={tag.id} label={tag.name} />
+                    ))}
+                  </Box>
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDetailsDialog}>关闭</Button>
         </DialogActions>
       </Dialog>
 

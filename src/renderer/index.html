@@ -9,6 +9,15 @@
     <title>TagAnything</title>
   </head>
   <body>
+    <script>
+      // 让浏览器预览具备 Node 风格的 global 引用
+      // Electron 渲染进程不受影响（global 已存在）
+      (function() {
+        if (typeof window !== 'undefined' && !window.global) {
+          window.global = window;
+        }
+      })();
+    </script>
     <div id="root"></div>
   </body>
 </html>

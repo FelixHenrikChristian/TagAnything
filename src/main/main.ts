@@ -525,6 +525,19 @@ ipcMain.handle('open-external', async (event, url: string) => {
   }
 });
 
+// 在文件资源管理器中显示并选中文件
+ipcMain.handle('show-item-in-folder', async (event, filePath: string) => {
+  try {
+    shell.showItemInFolder(filePath);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '在资源管理器中打开失败'
+    };
+  }
+});
+
 // 获取应用版本号
 ipcMain.handle('get-version', async () => {
   try {
@@ -647,5 +660,60 @@ autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info);
   if (mainWindow) {
     mainWindow.webContents.send('update-downloaded', info);
+  }
+});
+
+// 删除文件/目录：支持移动至回收站或永久删除
+ipcMain.handle('delete-files', async (event, request: {
+  mode: 'trash' | 'permanent';
+  files: string[];
+}) => {
+  const { mode, files } = request;
+  const processedFiles: string[] = [];
+  const failedFiles: { path: string; error: string }[] = [];
+
+  try {
+    for (const filePath of files) {
+      try {
+        // 检查文件是否存在
+        try {
+          await fsPromises.access(filePath);
+        } catch {
+          failedFiles.push({ path: filePath, error: '文件不存在' });
+          continue;
+        }
+
+        if (mode === 'trash') {
+          // 移动到系统回收站
+          await shell.trashItem(filePath);
+        } else {
+          // 永久删除（文件或目录）
+          const stats = await fsPromises.stat(filePath);
+          if (stats.isDirectory()) {
+            await fsPromises.rm(filePath, { recursive: true, force: true });
+          } else {
+            await fsPromises.unlink(filePath);
+          }
+        }
+
+        processedFiles.push(filePath);
+      } catch (error) {
+        failedFiles.push({
+          path: filePath,
+          error: error instanceof Error ? error.message : '未知错误'
+        });
+      }
+    }
+
+    return {
+      success: failedFiles.length === 0,
+      processedFiles,
+      failedFiles
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '删除操作失败'
+    };
   }
 });

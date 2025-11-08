@@ -56,10 +56,17 @@ declare global {
       getFiles: (folderPath: string) => Promise<FileItem[]>;
       getAllFiles: (folderPath: string) => Promise<FileItem[]>;
       openFile: (filePath: string) => Promise<void>;
+      showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       generateVideoThumbnail: (videoPath: string) => Promise<string>;
       isVideoFile: (filePath: string) => Promise<boolean>;
       resetWindowSize: () => Promise<{ width: number; height: number } | null>;
       performFileOperation: (request: FileOperationRequest) => Promise<FileOperationResult>;
+      deleteFiles: (request: { mode: 'trash' | 'permanent'; files: string[] }) => Promise<{
+        success: boolean;
+        processedFiles?: string[];
+        failedFiles?: { path: string; error: string }[];
+        error?: string;
+      }>;
       renameFile: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
