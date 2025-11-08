@@ -429,14 +429,12 @@ const TagManager: React.FC = () => {
         </Typography>
         <IconButton
           onClick={(e) => setMainMenuAnchorEl(e.currentTarget)}
-          sx={{ 
-            bgcolor: 'action.hover',
-            '&:hover': {
-              bgcolor: 'action.selected',
-            },
+          sx={{
+            bgcolor: 'transparent',
+            '&:hover': { bgcolor: 'transparent' },
           }}
         >
-          <MoreVertIcon />
+          <MoreVertIcon sx={{ fontSize: 26 }} />
         </IconButton>
       </Box>
 

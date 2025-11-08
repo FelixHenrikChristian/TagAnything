@@ -1205,6 +1205,26 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         console.warn('⚠️ 为搜索结果生成缩略图失败:', e);
       }
 
+      // 根据搜索结果更新文件标签缓存，确保搜索后立即显示标签
+      try {
+        const effectiveGroups = getEffectiveTagGroups();
+        const updatedFileTags = new Map(fileTags);
+        for (const file of foundFiles) {
+          if (!file.isDirectory) {
+            const tagNames = parseTagsFromFilename(file.name);
+            if (tagNames.length > 0) {
+              const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, effectiveGroups);
+              const temporaryTags = createTemporaryTags(unmatchedTags);
+              const allTags = [...matchedTags, ...temporaryTags];
+              updatedFileTags.set(file.path, allTags);
+            }
+          }
+        }
+        setFileTags(updatedFileTags);
+      } catch (e) {
+        console.warn('⚠️ 更新搜索结果标签缓存失败:', e);
+      }
+
       setFilteredFiles(foundFiles);
       setIsFiltering(true);
       console.log(`🔎 文件名搜索完成，找到 ${foundFiles.length} 个匹配文件`);
