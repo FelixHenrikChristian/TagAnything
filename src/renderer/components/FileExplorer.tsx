@@ -155,11 +155,11 @@ interface RenameDialogState {
 }
 
 // 添加标签对话框状态
-interface AddTagDialogState {
-  open: boolean;
-  file: FileItem | null;
-  input: string; // 空格分隔的标签名
-}
+  interface AddTagDialogState {
+    open: boolean;
+    file: FileItem | null;
+    selectedTagIds: string[];
+  }
 
 // 删除标签对话框状态
 interface DeleteTagDialogState {
@@ -299,7 +299,7 @@ interface DeleteTagDialogState {
 
   // 各类对话框状态
   const [renameDialog, setRenameDialog] = useState<RenameDialogState>({ open: false, file: null, inputName: '' });
-  const [addTagDialog, setAddTagDialog] = useState<AddTagDialogState>({ open: false, file: null, input: '' });
+  const [addTagDialog, setAddTagDialog] = useState<AddTagDialogState>({ open: false, file: null, selectedTagIds: [] });
   const [deleteTagDialog, setDeleteTagDialog] = useState<DeleteTagDialogState>({ open: false, file: null, selectedTagIds: [] });
   const [detailsDialog, setDetailsDialog] = useState<DetailsDialogState>({ open: false, file: null });
   const [directOperationDialog, setDirectOperationDialog] = useState<DirectOperationDialog>({
@@ -1552,21 +1552,30 @@ interface DeleteTagDialogState {
   // 打开添加标签对话框
   const openAddTagDialog = (file: FileItem) => {
     if (file.isDirectory) return; // 仅文件支持标签
-    setAddTagDialog({ open: true, file, input: '' });
+    setAddTagDialog({ open: true, file, selectedTagIds: [] });
   };
-  const closeAddTagDialog = () => setAddTagDialog({ open: false, file: null, input: '' });
+  const closeAddTagDialog = () => setAddTagDialog({ open: false, file: null, selectedTagIds: [] });
+  const toggleAddSelection = (id: string) => {
+    setAddTagDialog(prev => {
+      const set = new Set(prev.selectedTagIds);
+      if (set.has(id)) set.delete(id); else set.add(id);
+      return { ...prev, selectedTagIds: Array.from(set) };
+    });
+  };
   const confirmAddTags = async () => {
     const file = addTagDialog.file;
-    const input = addTagDialog.input.trim();
-    if (!file || !input) { closeAddTagDialog(); return; }
+    const selectedIds = addTagDialog.selectedTagIds;
+    if (!file || selectedIds.length === 0) { closeAddTagDialog(); return; }
     try {
-      const names = input.split(/\s+/).filter(Boolean);
       const effectiveGroups = getEffectiveTagGroups();
-      const { matchedTags, unmatchedTags } = createTagsFromNames(names, effectiveGroups);
-      const temporaryTags = createTemporaryTags(unmatchedTags);
-      const toAdd = [...matchedTags, ...temporaryTags];
+      const idToTag = new Map<string, Tag>();
+      for (const group of effectiveGroups) {
+        for (const t of group.tags) {
+          idToTag.set(t.id, t);
+        }
+      }
+      const toAdd = selectedIds.map(id => idToTag.get(id)).filter(Boolean) as Tag[];
       const current = getFileTags(file);
-      // 去重（按名称）
       const existingNames = new Set(current.map(t => t.name.toLowerCase()));
       const newTags = [...current, ...toAdd.filter(t => !existingNames.has(t.name.toLowerCase()))];
       await updateFileWithTags(file, newTags);
@@ -3546,22 +3555,46 @@ interface DeleteTagDialogState {
         </DialogActions>
       </Dialog>
 
-      {/* 添加标签对话框 */}
+      {/* 添加标签对话框（从标签库多选） */}
       <Dialog open={addTagDialog.open} onClose={closeAddTagDialog} maxWidth="sm" fullWidth>
         <DialogTitle>添加标签</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="标签（空格分隔）"
-            placeholder="例如：工作 设计 方案"
-            value={addTagDialog.input}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddTagDialog(prev => ({ ...prev, input: e.target.value }))}
-          />
+          {addTagDialog.file ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                从标签库中选择要添加到文件的标签（可多选）。已存在的标签不可选。
+              </Typography>
+              {getEffectiveTagGroups().length === 0 ? (
+                <Alert severity="info">尚未创建任何标签。请到标签管理中添加标签组与标签。</Alert>
+              ) : (
+                getEffectiveTagGroups().map(group => (
+                  <Box key={group.id}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>{group.name}</Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {group.tags.map(tag => {
+                        const alreadyHas = getFileTags(addTagDialog.file!).some(t => t.name.toLowerCase() === tag.name.toLowerCase());
+                        const selected = addTagDialog.selectedTagIds.includes(tag.id);
+                        return (
+                          <Chip
+                            key={tag.id}
+                            label={tag.name}
+                            variant={selected ? 'filled' : 'outlined'}
+                            color={selected ? 'primary' : 'default'}
+                            disabled={alreadyHas}
+                            onClick={() => !alreadyHas && toggleAddSelection(tag.id)}
+                          />
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                ))
+              )}
+            </Box>
+          ) : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={closeAddTagDialog}>取消</Button>
-          <Button onClick={confirmAddTags} variant="contained">添加</Button>
+          <Button onClick={confirmAddTags} variant="contained" disabled={addTagDialog.selectedTagIds.length === 0}>添加所选</Button>
         </DialogActions>
       </Dialog>
 
