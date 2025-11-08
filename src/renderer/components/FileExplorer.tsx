@@ -223,11 +223,19 @@ interface DeleteTagDialogState {
       window.removeEventListener('ta:reset-grid-zoom', resetHandler);
     };
   }, []);
-  const [contextMenu, setContextMenu] = useState<{
+  // 文件/文件夹右键菜单分别独立管理，避免相互干扰
+  const [fileContextMenu, setFileContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
-    file: FileItem | null;
+    file: FileItem;
   } | null>(null);
+  const [folderContextMenu, setFolderContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    file: FileItem;
+  } | null>(null);
+  // 关闭保护：在菜单关闭后的极短时间内，忽略新的右键事件，避免出现瞬时切换到另一个菜单的闪现
+  const [ignoreContextMenuUntil, setIgnoreContextMenuUntil] = useState<number>(0);
   
   // 标签菜单相关状态
   const [tagContextMenu, setTagContextMenu] = useState<{
@@ -1634,15 +1642,26 @@ interface DeleteTagDialogState {
 
   const handleContextMenu = (event: React.MouseEvent, file: FileItem) => {
     event.preventDefault();
-    setContextMenu({
-      mouseX: event.clientX - 2,
-      mouseY: event.clientY - 4,
-      file,
-    });
+    // 关闭保护：在菜单刚关闭时，不立即响应新的右键，避免出现文件/文件夹菜单瞬时切换的视觉闪现
+    if (Date.now() < ignoreContextMenuUntil) return;
+
+    // 打开对应类型的菜单，同时确保另一个类型的菜单关闭
+    const pos = { mouseX: event.clientX - 2, mouseY: event.clientY - 4 };
+    setTagContextMenu(null);
+    if (file.isDirectory) {
+      setFileContextMenu(null);
+      setFolderContextMenu({ ...pos, file });
+    } else {
+      setFolderContextMenu(null);
+      setFileContextMenu({ ...pos, file });
+    }
   };
 
   const handleCloseContextMenu = () => {
-    setContextMenu(null);
+    setFileContextMenu(null);
+    setFolderContextMenu(null);
+    // 在200ms内忽略新的右键事件，避免由于关闭导致的事件传播触发另一个菜单
+    setIgnoreContextMenuUntil(Date.now() + 200);
   };
 
   // 标签菜单处理函数
@@ -3204,43 +3223,46 @@ interface DeleteTagDialogState {
         )}
       </Box>
 
-      {/* Context Menu - 四栏布局 */}
+      {/* File Context Menu */}
       <Menu
-        open={contextMenu !== null}
+        open={fileContextMenu !== null}
         onClose={handleCloseContextMenu}
         anchorReference="anchorPosition"
         anchorPosition={
-          contextMenu !== null
-            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+          fileContextMenu !== null
+            ? { top: fileContextMenu.mouseY, left: fileContextMenu.mouseX }
             : undefined
         }
       >
-        {/* 栏 1：打开相关 */}
-        {!contextMenu?.file?.isDirectory && (
-          <MenuItem onClick={() => contextMenu?.file && handleFileOpen(contextMenu.file)}>
+        {/* 打开文件 */}
+        {fileContextMenu?.file && (
+          <MenuItem onClick={() => handleFileOpen(fileContextMenu.file)}>
             <ListItemIcon>
               <PlayIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>打开</ListItemText>
           </MenuItem>
         )}
-        <MenuItem onClick={() => contextMenu?.file && handleOpenInExplorer(contextMenu.file)}>
-          <ListItemIcon>
-            <FolderOpenIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>在资源管理器中打开</ListItemText>
-        </MenuItem>
+        {/* 资源管理器中打开 */}
+        {fileContextMenu?.file && (
+          <MenuItem onClick={() => handleOpenInExplorer(fileContextMenu.file)}>
+            <ListItemIcon>
+              <FolderOpenIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>在资源管理器中打开</ListItemText>
+          </MenuItem>
+        )}
         <Divider />
-        {/* 栏 2：标签相关（仅文件） */}
-        {!contextMenu?.file?.isDirectory && (
+        {/* 标签相关（文件）*/}
+        {fileContextMenu?.file && (
           <>
-            <MenuItem onClick={() => contextMenu?.file && openAddTagDialog(contextMenu.file)}>
+            <MenuItem onClick={() => openAddTagDialog(fileContextMenu.file)}>
               <ListItemIcon>
                 <LabelIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>添加标签</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => contextMenu?.file && openDeleteTagDialog(contextMenu.file)}>
+            <MenuItem onClick={() => openDeleteTagDialog(fileContextMenu.file)}>
               <ListItemIcon>
                 <DeleteIcon fontSize="small" color="error" />
               </ListItemIcon>
@@ -3249,51 +3271,125 @@ interface DeleteTagDialogState {
             <Divider />
           </>
         )}
-        {/* 栏 3：文件操作 */}
-        <MenuItem onClick={() => contextMenu?.file && openRenameDialog(contextMenu.file)}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>重命名</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => {
-          if (!contextMenu?.file) return;
-          const f = contextMenu.file;
-          openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]);
-        }}>
-          <ListItemIcon>
-            <ArrowUpwardIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>移动</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => {
-          if (!contextMenu?.file) return;
-          const f = contextMenu.file;
-          openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]);
-        }}>
-          <ListItemIcon>
-            <CopyIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>复制</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => {
-          if (!contextMenu?.file) return;
-          const f = contextMenu.file;
-          openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]);
-        }}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          <ListItemText>删除</ListItemText>
-        </MenuItem>
+        {/* 文件操作 */}
+        {fileContextMenu?.file && (
+          <>
+            <MenuItem onClick={() => openRenameDialog(fileContextMenu.file)}>
+              <ListItemIcon>
+                <EditIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>重命名</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => {
+              const f = fileContextMenu.file;
+              openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]);
+            }}>
+              <ListItemIcon>
+                <ArrowUpwardIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>移动</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => {
+              const f = fileContextMenu.file;
+              openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]);
+            }}>
+              <ListItemIcon>
+                <CopyIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>复制</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => {
+              const f = fileContextMenu.file;
+              openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]);
+            }}>
+              <ListItemIcon>
+                <DeleteIcon fontSize="small" color="error" />
+              </ListItemIcon>
+              <ListItemText>删除</ListItemText>
+            </MenuItem>
+            <Divider />
+          </>
+        )}
+        {/* 详情 */}
+        {fileContextMenu?.file && (
+          <MenuItem onClick={() => openDetailsDialog(fileContextMenu.file)}>
+            <ListItemIcon>
+              <InfoIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>文件详情</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Folder Context Menu */}
+      <Menu
+        open={folderContextMenu !== null}
+        onClose={handleCloseContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          folderContextMenu !== null
+            ? { top: folderContextMenu.mouseY, left: folderContextMenu.mouseX }
+            : undefined
+        }
+      >
+        {/* 资源管理器中打开 */}
+        {folderContextMenu?.file && (
+          <MenuItem onClick={() => handleOpenInExplorer(folderContextMenu.file)}>
+            <ListItemIcon>
+              <FolderOpenIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>在资源管理器中打开</ListItemText>
+          </MenuItem>
+        )}
         <Divider />
-        {/* 栏 4：详情 */}
-        <MenuItem onClick={() => contextMenu?.file && openDetailsDialog(contextMenu.file)}>
-          <ListItemIcon>
-            <InfoIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>文件详情</ListItemText>
-        </MenuItem>
+        {/* 文件夹操作 */}
+        {folderContextMenu?.file && (
+          <>
+            <MenuItem onClick={() => openRenameDialog(folderContextMenu.file)}>
+              <ListItemIcon>
+                <EditIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>重命名</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => {
+              const f = folderContextMenu.file;
+              openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]);
+            }}>
+              <ListItemIcon>
+                <ArrowUpwardIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>移动</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => {
+              const f = folderContextMenu.file;
+              openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]);
+            }}>
+              <ListItemIcon>
+                <CopyIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>复制</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => {
+              const f = folderContextMenu.file;
+              openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]);
+            }}>
+              <ListItemIcon>
+                <DeleteIcon fontSize="small" color="error" />
+              </ListItemIcon>
+              <ListItemText>删除</ListItemText>
+            </MenuItem>
+            <Divider />
+          </>
+        )}
+        {/* 详情 */}
+        {folderContextMenu?.file && (
+          <MenuItem onClick={() => openDetailsDialog(folderContextMenu.file)}>
+            <ListItemIcon>
+              <InfoIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>文件夹详情</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Tag Context Menu */}
