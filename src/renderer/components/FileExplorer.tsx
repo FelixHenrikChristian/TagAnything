@@ -66,6 +66,7 @@ import {
   Close as CloseIcon,
   PlayArrow as PlayIcon,
   FolderOpen as FolderOpenIcon,
+  CreateNewFolder as CreateNewFolderIcon,
   Info as InfoIcon,
   Image as ImageIcon,
   PictureAsPdf as PdfIcon,
@@ -234,6 +235,10 @@ interface DeleteTagDialogState {
     mouseY: number;
     file: FileItem;
   } | null>(null);
+  const [blankContextMenu, setBlankContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+  } | null>(null);
   // 关闭保护：在菜单关闭后的极短时间内，忽略新的右键事件，避免出现瞬时切换到另一个菜单的闪现
   const [ignoreContextMenuUntil, setIgnoreContextMenuUntil] = useState<number>(0);
   
@@ -317,6 +322,12 @@ interface DeleteTagDialogState {
     rootPath: '',
     browsePath: ''
   });
+  // 新建文件夹对话框状态
+  interface NewFolderDialogState {
+    open: boolean;
+    inputName: string;
+  }
+  const [newFolderDialog, setNewFolderDialog] = useState<NewFolderDialogState>({ open: false, inputName: '新建文件夹' });
   const [pickerDirectories, setPickerDirectories] = useState<FileItem[]>([]);
   const [pickerLoading, setPickerLoading] = useState<boolean>(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
@@ -1527,6 +1538,49 @@ interface DeleteTagDialogState {
     }
   };
 
+  const handleOpenCurrentFolderInExplorer = async () => {
+    try {
+      if (currentPath) {
+        await window.electron.openFile(currentPath);
+      }
+    } catch (e) {
+      setNotification({ open: true, message: `打开资源管理器失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    } finally {
+      handleCloseBlankContextMenu();
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    // 改为弹窗输入名称
+    setNewFolderDialog({ open: true, inputName: '新建文件夹' });
+    handleCloseBlankContextMenu();
+  };
+
+  const closeNewFolderDialog = () => setNewFolderDialog({ open: false, inputName: '新建文件夹' });
+
+  const confirmCreateFolder = async () => {
+    try {
+      if (!currentPath) { closeNewFolderDialog(); return; }
+      const name = (newFolderDialog.inputName || '').trim();
+      // 简单校验非法字符
+      if (!name || /[<>:"\/\\|?*]/.test(name)) {
+        setNotification({ open: true, message: '文件夹名称无效，不能包含特殊字符：<>:"/\\|?*', severity: 'error' });
+        return;
+      }
+      const res = await window.electron.createFolder(currentPath, name);
+      if (!res.success) {
+        setNotification({ open: true, message: `创建文件夹失败：${res.error || '未知错误'}`, severity: 'error' });
+      } else {
+        setNotification({ open: true, message: `已创建：${res.path}`, severity: 'success' });
+        await handleRefresh();
+      }
+    } catch (e) {
+      setNotification({ open: true, message: `创建文件夹失败：${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    } finally {
+      closeNewFolderDialog();
+    }
+  };
+
   // 打开重命名对话框
   const openRenameDialog = (file: FileItem) => {
     const defaultName = getDisplayName(file.name);
@@ -1663,10 +1717,25 @@ interface DeleteTagDialogState {
     }
   };
 
+  const handleBlankContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (Date.now() < ignoreContextMenuUntil) return;
+    setTagContextMenu(null);
+    setFileContextMenu(null);
+    setFolderContextMenu(null);
+    setBlankContextMenu({ mouseX: event.clientX - 2, mouseY: event.clientY - 4 });
+  };
+
   const handleCloseContextMenu = () => {
     setFileContextMenu(null);
     setFolderContextMenu(null);
+    setBlankContextMenu(null);
     // 在200ms内忽略新的右键事件，避免由于关闭导致的事件传播触发另一个菜单
+    setIgnoreContextMenuUntil(Date.now() + 200);
+  };
+
+  const handleCloseBlankContextMenu = () => {
+    setBlankContextMenu(null);
     setIgnoreContextMenuUntil(Date.now() + 200);
   };
 
@@ -2406,7 +2475,7 @@ interface DeleteTagDialogState {
                 handleFileOpen(file);
               }
             }}
-            onContextMenu={(e) => handleContextMenu(e, file)}
+            onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, file); }}
             onDragStart={(e) => {
               // 仅阻止卡片自身的拖拽，不影响子元素（如标签芯片）的拖拽
               const target = e.target as HTMLElement | null;
@@ -2924,7 +2993,7 @@ interface DeleteTagDialogState {
               handleFileOpen(file);
             }
           }}
-          onContextMenu={(e) => handleContextMenu(e, file)}
+          onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, file); }}
           onDragStart={(e) => e.preventDefault()} // 阻止任何拖拽开始事件
           sx={{
             borderRadius: 1,
@@ -3206,7 +3275,7 @@ interface DeleteTagDialogState {
       </Box>
 
       {/* File Content */}
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, overflow: 'auto' }} onContextMenu={handleBlankContextMenu}>
         {(isFiltering ? filteredFiles : files).length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body1" color="text.secondary">
@@ -3242,7 +3311,7 @@ interface DeleteTagDialogState {
       >
         {/* 打开文件 */}
         {fileContextMenu?.file && (
-          <MenuItem onClick={() => handleFileOpen(fileContextMenu.file)}>
+          <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); handleFileOpen(f); }}>
             <ListItemIcon>
               <PlayIcon fontSize="small" />
             </ListItemIcon>
@@ -3262,13 +3331,13 @@ interface DeleteTagDialogState {
         {/* 标签相关（文件）*/}
         {fileContextMenu?.file && (
           <>
-            <MenuItem onClick={() => openAddTagDialog(fileContextMenu.file)}>
+            <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openAddTagDialog(f); }}>
               <ListItemIcon>
                 <LabelIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>添加标签</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => openDeleteTagDialog(fileContextMenu.file)}>
+            <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDeleteTagDialog(f); }}>
               <ListItemIcon>
                 <DeleteIcon fontSize="small" color="error" />
               </ListItemIcon>
@@ -3280,34 +3349,25 @@ interface DeleteTagDialogState {
         {/* 文件操作 */}
         {fileContextMenu?.file && (
           <>
-            <MenuItem onClick={() => openRenameDialog(fileContextMenu.file)}>
+            <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openRenameDialog(f); }}>
               <ListItemIcon>
                 <EditIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>重命名</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => {
-              const f = fileContextMenu.file;
-              openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]);
-            }}>
+            <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
               <ListItemIcon>
                 <ArrowUpwardIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>移动</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => {
-              const f = fileContextMenu.file;
-              openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]);
-            }}>
+            <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
               <ListItemIcon>
                 <CopyIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>复制</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => {
-              const f = fileContextMenu.file;
-              openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]);
-            }}>
+            <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
               <ListItemIcon>
                 <DeleteIcon fontSize="small" color="error" />
               </ListItemIcon>
@@ -3318,7 +3378,7 @@ interface DeleteTagDialogState {
         )}
         {/* 详情 */}
         {fileContextMenu?.file && (
-          <MenuItem onClick={() => openDetailsDialog(fileContextMenu.file)}>
+          <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDetailsDialog(f); }}>
             <ListItemIcon>
               <InfoIcon fontSize="small" />
             </ListItemIcon>
@@ -3351,34 +3411,25 @@ interface DeleteTagDialogState {
         {/* 文件夹操作 */}
         {folderContextMenu?.file && (
           <>
-            <MenuItem onClick={() => openRenameDialog(folderContextMenu.file)}>
+            <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openRenameDialog(f); }}>
               <ListItemIcon>
                 <EditIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>重命名</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => {
-              const f = folderContextMenu.file;
-              openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]);
-            }}>
+            <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
               <ListItemIcon>
                 <ArrowUpwardIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>移动</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => {
-              const f = folderContextMenu.file;
-              openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]);
-            }}>
+            <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
               <ListItemIcon>
                 <CopyIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>复制</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => {
-              const f = folderContextMenu.file;
-              openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]);
-            }}>
+            <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
               <ListItemIcon>
                 <DeleteIcon fontSize="small" color="error" />
               </ListItemIcon>
@@ -3389,13 +3440,38 @@ interface DeleteTagDialogState {
         )}
         {/* 详情 */}
         {folderContextMenu?.file && (
-          <MenuItem onClick={() => openDetailsDialog(folderContextMenu.file)}>
+          <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDetailsDialog(f); }}>
             <ListItemIcon>
               <InfoIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>文件夹详情</ListItemText>
           </MenuItem>
         )}
+      </Menu>
+
+      {/* Blank Context Menu */}
+      <Menu
+        open={blankContextMenu !== null}
+        onClose={handleCloseBlankContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          blankContextMenu !== null
+            ? { top: blankContextMenu.mouseY, left: blankContextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem onClick={handleOpenCurrentFolderInExplorer}>
+          <ListItemIcon>
+            <FolderOpenIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>在文件资源管理器中打开</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleCreateFolder}>
+          <ListItemIcon>
+            <CreateNewFolderIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>新建文件夹</ListItemText>
+        </MenuItem>
       </Menu>
 
       {/* Tag Context Menu */}
@@ -3531,6 +3607,30 @@ interface DeleteTagDialogState {
           >
             移动
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 新建文件夹对话框 */}
+      <Dialog open={newFolderDialog.open} onClose={closeNewFolderDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>新建文件夹</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="文件夹名称"
+            margin="dense"
+            size="small"
+            value={newFolderDialog.inputName}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFolderDialog(prev => ({ ...prev, inputName: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmCreateFolder(); } }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            名称不能包含以下字符：&lt;&gt;:"/\|?*
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeNewFolderDialog}>取消</Button>
+          <Button onClick={confirmCreateFolder} variant="contained">创建</Button>
         </DialogActions>
       </Dialog>
 

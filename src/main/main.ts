@@ -284,6 +284,24 @@ ipcMain.handle('open-file', async (event, filePath: string) => {
   shell.openPath(filePath);
 });
 
+// 创建新文件夹（避免重名，使用“新建文件夹 (n)”命名）
+ipcMain.handle('create-folder', async (event, parentPath: string, name: string) => {
+  try {
+    const baseName = name || '新建文件夹';
+    let targetPath = path.join(parentPath, baseName);
+    let counter = 1;
+    // 如果已存在，则追加递增编号
+    while (fs.existsSync(targetPath)) {
+      targetPath = path.join(parentPath, `${baseName} (${counter})`);
+      counter += 1;
+    }
+    await fsPromises.mkdir(targetPath, { recursive: false });
+    return { success: true, path: targetPath };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '创建文件夹失败' };
+  }
+});
+
 // 生成视频缩略图 - 使用FFmpeg
 ipcMain.handle('generate-video-thumbnail', async (event, videoPath: string) => {
   try {

@@ -56,6 +56,7 @@ declare global {
       getFiles: (folderPath: string) => Promise<FileItem[]>;
       getAllFiles: (folderPath: string) => Promise<FileItem[]>;
       openFile: (filePath: string) => Promise<void>;
+      createFolder: (parentPath: string, name: string) => Promise<{ success: boolean; path?: string; error?: string }>;
       showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       generateVideoThumbnail: (videoPath: string) => Promise<string>;
       isVideoFile: (filePath: string) => Promise<boolean>;
