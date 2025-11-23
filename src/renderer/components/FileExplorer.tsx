@@ -2379,7 +2379,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
 
     const thumbnailHeight = Math.floor(gridItemWidth * 0.6);
     const fileInfoHeight = 52; // 进一步缩短文件信息区域高度
-    const tagOverlayHeight = 24;
+    const tagOverlayHeight = 'calc(100% - 8px)';
 
     // 固定纵向间距，单位px
     const rowGapPx = '6px';
