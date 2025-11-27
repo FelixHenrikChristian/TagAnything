@@ -188,7 +188,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         sx={{
           flex: 1,
           overflowY: 'auto',
-          p: 2,
+          px: 2,
+          pb: 2,
+          pt: 0,
           backgroundColor: 'transparent',
           position: 'relative' // For absolute positioning of overlays if needed
         }}

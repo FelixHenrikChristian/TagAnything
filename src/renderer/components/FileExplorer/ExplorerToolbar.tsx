@@ -79,7 +79,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2, p: 1, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1, borderBottom: 1, borderColor: 'divider' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                 {/* Left Side: Active Filters */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', flex: 1 }}>

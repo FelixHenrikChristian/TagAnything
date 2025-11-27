@@ -1,6 +1,6 @@
 import React from 'react';
-import { Breadcrumbs, Link, Typography } from '@mui/material';
-import { Home as HomeIcon } from '@mui/icons-material';
+import { Breadcrumbs, Link, Typography, Box } from '@mui/material';
+import { NavigateNext as NavigateNextIcon, Home as HomeIcon } from '@mui/icons-material';
 import { Location } from '../../types';
 
 interface FileBreadcrumbsProps {
@@ -14,71 +14,110 @@ export const FileBreadcrumbs: React.FC<FileBreadcrumbsProps> = ({
     locations,
     handleNavigate,
 }) => {
-    const getPathParts = (path: string) => {
-        const normalizedPath = path.replace(/\\/g, '/');
-        const parts = normalizedPath.split('/').filter(Boolean);
-        // If windows drive letter, keep it
-        if (path.includes(':')) {
-            // Handle windows paths specifically if needed, but split usually works
-            // e.g. "C:/Users/Name" -> ["C:", "Users", "Name"]
-        }
-        return parts;
-    };
+    // Helper to normalize paths for comparison (handling Windows backslashes)
+    const normalizePath = (path: string) => path.replace(/\\/g, '/').toLowerCase();
 
-    const pathParts = getPathParts(currentPath);
+    // Find the location that matches the start of the current path
+    // We sort by length descending to match the most specific location (e.g., if we have C:/ and C:/Users, and path is C:/Users/me, we want C:/Users)
+    const matchedLocation = locations
+        .sort((a, b) => b.path.length - a.path.length)
+        .find(loc => normalizePath(currentPath).startsWith(normalizePath(loc.path)));
+
+    if (!matchedLocation) {
+        // Fallback: just show the full path if no location matches
+        return (
+            <Box sx={{ mb: 2, px: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                    {currentPath}
+                </Typography>
+            </Box>
+        );
+    }
+
+    // Calculate relative path
+    // e.g. Location: C:/Users/Video, Current: C:/Users/Video/Folder/Sub
+    // Relative: /Folder/Sub
+    const locationPathNormalized = normalizePath(matchedLocation.path);
+    const currentPathNormalized = normalizePath(currentPath);
+
+    // Get the part of the path after the location path
+    // We use the original currentPath to preserve case for display, but use lengths from normalized
+    let relativePart = currentPath.slice(matchedLocation.path.length);
+
+    // Remove leading slash/backslash if present
+    if (relativePart.startsWith('\\') || relativePart.startsWith('/')) {
+        relativePart = relativePart.slice(1);
+    }
+
+    // Split into segments
+    const segments = relativePart ? relativePart.split(/[/\\]/) : [];
 
     return (
-        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-            <Link
-                underline="hover"
-                color="inherit"
-                onClick={() => handleNavigate(locations[0]?.path || '')}
-                sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        <Box sx={{ mb: 2, px: 1 }}>
+            <Breadcrumbs
+                separator={<NavigateNextIcon fontSize="small" />}
+                aria-label="breadcrumb"
             >
-                <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-                首页
-            </Link>
-            {pathParts.map((part, index) => {
-                const isLast = index === pathParts.length - 1;
-                const path = pathParts.slice(0, index + 1).join('/');
-                // We need to reconstruct the path correctly.
-                // If original path had backslashes, we should probably respect that or normalize.
-                // But `handleNavigate` expects a path.
-                // Let's assume `currentPath` format.
-
-                // Actually, constructing path from parts might be tricky with drive letters on Windows.
-                // "C:", "Users" -> "C:/Users" works.
-
-                // Let's use a simpler approach:
-                // We can't easily reconstruct the absolute path just from parts without knowing the root.
-                // But `currentPath` is absolute.
-                // We can find the index of the part in the string? No, duplicates.
-
-                // Better approach:
-                // Accumulate parts.
-
-                // Wait, if I split "C:\Users\Name", I get ["C:", "Users", "Name"].
-                // Join with "/" -> "C:/Users/Name". This is valid in Electron usually.
-
-                const fullPath = pathParts.slice(0, index + 1).join('/');
-                // On Windows, we might need to append "/" if it's just drive letter? No.
-
-                return isLast ? (
-                    <Typography key={index} color="text.primary">
-                        {part}
-                    </Typography>
+                {/* Root Location Node */}
+                {segments.length === 0 ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <HomeIcon fontSize="small" color="action" />
+                        <Typography color="text.primary" fontWeight="bold">
+                            {matchedLocation.name}
+                        </Typography>
+                    </Box>
                 ) : (
                     <Link
-                        key={index}
                         underline="hover"
                         color="inherit"
-                        onClick={() => handleNavigate(fullPath)}
-                        sx={{ cursor: 'pointer' }}
+                        href="#"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            handleNavigate(matchedLocation.path);
+                        }}
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                     >
-                        {part}
+                        <HomeIcon fontSize="small" sx={{ mr: 0.5 }} />
+                        {matchedLocation.name}
                     </Link>
-                );
-            })}
-        </Breadcrumbs>
+                )}
+
+                {/* Path Segments */}
+                {segments.map((segment, index) => {
+                    const isLast = index === segments.length - 1;
+
+                    // Reconstruct the path for this segment
+                    // We need to be careful to use the correct separator or just append to the location path
+                    // A safer way is to take the substring of currentPath up to the end of this segment
+                    // But we need to find the correct index in the original string.
+
+                    // Alternative: Accumulate segments.
+                    // Since we split by / or \, we can just join them back with the system separator (or just / for now as it usually works)
+                    // But to be safe with Windows, let's try to grab the substring.
+
+                    // Let's use the accumulated path approach
+                    const segmentPath = matchedLocation.path + (matchedLocation.path.endsWith('\\') || matchedLocation.path.endsWith('/') ? '' : '\\') + segments.slice(0, index + 1).join('\\');
+
+                    return isLast ? (
+                        <Typography key={index} color="text.primary">
+                            {segment}
+                        </Typography>
+                    ) : (
+                        <Link
+                            key={index}
+                            underline="hover"
+                            color="inherit"
+                            href="#"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleNavigate(segmentPath);
+                            }}
+                        >
+                            {segment}
+                        </Link>
+                    );
+                })}
+            </Breadcrumbs>
+        </Box>
     );
 };
