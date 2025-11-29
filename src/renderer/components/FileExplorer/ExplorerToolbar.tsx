@@ -23,8 +23,7 @@ import {
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
-    ArrowUpward as ArrowUpwardIcon,
-    ArrowDownward as ArrowDownwardIcon,
+    Sort as SortIcon,
     ZoomIn as ZoomInIcon,
     ZoomOut as ZoomOutIcon,
     GridView as GridViewIcon,
@@ -35,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { Location, TagGroup } from '../../types';
 import { SortType, SortDirection, FilterState, MultiTagFilter } from './types';
+import { SortMenu } from './SortMenu';
 
 interface ExplorerToolbarProps {
     locations: Location[];
@@ -81,6 +81,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null);
+    const [sortAnchorEl, setSortAnchorEl] = useState<HTMLButtonElement | null>(null);
     const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
     const [isComposing, setIsComposing] = useState(false);
 
@@ -155,6 +156,21 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
     };
 
     const filterPopoverOpen = Boolean(filterAnchorEl);
+    const sortMenuOpen = Boolean(sortAnchorEl);
+
+    const handleOpenSortMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+        setSortAnchorEl(event.currentTarget);
+    };
+
+    const handleCloseSortMenu = () => {
+        setSortAnchorEl(null);
+    };
+
+    const handleSortChange = (type: SortType, direction: SortDirection) => {
+        setSortType(type);
+        setSortDirection(direction);
+        handleCloseSortMenu();
+    };
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1, borderBottom: 1, borderColor: 'divider' }}>
@@ -229,26 +245,11 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                     </IconButton>
 
                     {/* Sort */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
-                            <Select
-                                value={sortType}
-                                onChange={(e) => setSortType(e.target.value as SortType)}
-                                sx={{ fontSize: '0.875rem' }}
-                            >
-                                <MenuItem value="name">名称</MenuItem>
-                                <MenuItem value="modified">修改时间</MenuItem>
-                                <MenuItem value="size">大小</MenuItem>
-                                <MenuItem value="type">类型</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <IconButton
-                            size="small"
-                            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-                        >
-                            {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                    <Tooltip title="排序">
+                        <IconButton onClick={handleOpenSortMenu} size="small">
+                            <SortIcon fontSize="small" />
                         </IconButton>
-                    </Box>
+                    </Tooltip>
 
                     {/* Grid Size */}
                     {viewMode === 'grid' && (
@@ -370,6 +371,16 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                     </Box>
                 </Box>
             </Popover>
+
+            {/* Sort Menu */}
+            <SortMenu
+                anchorEl={sortAnchorEl}
+                open={sortMenuOpen}
+                onClose={handleCloseSortMenu}
+                sortType={sortType}
+                sortDirection={sortDirection}
+                onSortChange={handleSortChange}
+            />
         </Box>
     );
 };

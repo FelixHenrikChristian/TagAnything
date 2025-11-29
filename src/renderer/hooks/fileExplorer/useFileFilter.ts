@@ -55,6 +55,16 @@ export const useFileFilter = (
     const isProcessing = useRef(false);
 
     /**
+     * Extract filename without tags for sorting
+     * Example: "[A B] name.png" -> "name.png"
+     */
+    const getNameWithoutTags = useCallback((filename: string): string => {
+        // Match pattern: [tags] filename or filename
+        const match = filename.match(/^(?:\[.*?\]\s*)*(.+)$/);
+        return match ? match[1] : filename;
+    }, []);
+
+    /**
      * Sort files based on current sort type and direction
      */
     const sortFiles = useCallback((filesToSort: FileItem[]): FileItem[] => {
@@ -70,7 +80,10 @@ export const useFileFilter = (
 
             switch (sortType) {
                 case 'name':
-                    comparison = a.name.localeCompare(b.name, 'zh-CN');
+                    // Sort by filename without tags
+                    const nameA = getNameWithoutTags(a.name);
+                    const nameB = getNameWithoutTags(b.name);
+                    comparison = nameA.localeCompare(nameB, 'zh-CN');
                     break;
                 case 'modified':
                     const aTime = a.modified ? new Date(a.modified).getTime() : 0;
@@ -91,7 +104,7 @@ export const useFileFilter = (
         });
 
         return sorted;
-    }, [sortType, sortDirection]);
+    }, [sortType, sortDirection, getNameWithoutTags]);
 
     /**
      * Filter files by filename search query
@@ -485,7 +498,18 @@ export const useFileFilter = (
             const sorted = sortFiles(files);
             setFilteredFiles(sorted);
         }
-    }, [files, sortType, sortDirection, isFiltering, filterState, sortFiles]);
+    }, [files, isFiltering, filterState, sortFiles]);
+
+    /**
+     * Re-apply sorting when sort type or direction changes
+     * This ensures sorting works even when filters are active
+     */
+    useEffect(() => {
+        // Re-sort the current filtered files
+        const sorted = sortFiles(filteredFiles);
+        setFilteredFiles(sorted);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sortType, sortDirection]);
 
     /**
      * Cleanup on unmount

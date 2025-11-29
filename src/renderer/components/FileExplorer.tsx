@@ -214,7 +214,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         {/* File View */}
         {viewMode === 'list' ? (
           <FileList
-            files={isFiltering ? filteredFiles : files}
+            files={filteredFiles}
             handleNavigate={onNavigate}
             handleFileOpen={handleFileOpen}
             handleContextMenu={handleFileContextMenu}
@@ -225,7 +225,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
           />
         ) : (
           <FileGrid
-            files={isFiltering ? filteredFiles : files}
+            files={filteredFiles}
             handleNavigate={onNavigate}
             handleFileOpen={handleFileOpen}
             handleContextMenu={handleFileContextMenu}
