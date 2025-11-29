@@ -45,7 +45,7 @@ interface ExplorerContextMenusProps {
     handleOpenCurrentFolderInExplorer: () => void;
     handleCreateFolder: () => void;
 
-    handleFilterByTag: (tag: Tag) => void;
+    handleFilterByTag: (tag: Tag, origin?: 'tagManager' | 'fileExplorer') => void;
     handleRemoveTagFromFile: (tag: Tag, file: FileItem) => void;
 }
 
@@ -71,18 +71,42 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
     handleFilterByTag,
     handleRemoveTagFromFile,
 }) => {
+    // Local state to control tag menu visibility without clearing tagContextMenu immediately
+    const [tagMenuOpen, setTagMenuOpen] = React.useState(false);
+    // Local state to control file menu visibility
+    const [fileMenuOpen, setFileMenuOpen] = React.useState(false);
+    // Local state to control folder menu visibility
+    const [folderMenuOpen, setFolderMenuOpen] = React.useState(false);
+
+    // Update local state when tagContextMenu changes
+    React.useEffect(() => {
+        setTagMenuOpen(tagContextMenu !== null);
+    }, [tagContextMenu]);
+
+    // Update local state when fileContextMenu changes
+    React.useEffect(() => {
+        setFileMenuOpen(fileContextMenu !== null);
+    }, [fileContextMenu]);
+
+    // Update local state when folderContextMenu changes
+    React.useEffect(() => {
+        setFolderMenuOpen(folderContextMenu !== null);
+    }, [folderContextMenu]);
     return (
         <>
             {/* File Context Menu */}
             <Menu
-                open={fileContextMenu !== null}
-                onClose={handleCloseContextMenu}
+                open={fileMenuOpen}
+                onClose={() => setFileMenuOpen(false)}
                 anchorReference="anchorPosition"
                 anchorPosition={
                     fileContextMenu !== null
                         ? { top: fileContextMenu.mouseY, left: fileContextMenu.mouseX }
                         : undefined
                 }
+                TransitionProps={{
+                    onExited: handleCloseContextMenu
+                }}
             >
                 {/* Open in Explorer */}
                 {fileContextMenu?.file && (
@@ -137,14 +161,17 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
 
             {/* Folder Context Menu */}
             <Menu
-                open={folderContextMenu !== null}
-                onClose={handleCloseContextMenu}
+                open={folderMenuOpen}
+                onClose={() => setFolderMenuOpen(false)}
                 anchorReference="anchorPosition"
                 anchorPosition={
                     folderContextMenu !== null
                         ? { top: folderContextMenu.mouseY, left: folderContextMenu.mouseX }
                         : undefined
                 }
+                TransitionProps={{
+                    onExited: handleCloseContextMenu
+                }}
             >
                 {/* Open in Explorer */}
                 {folderContextMenu?.file && (
@@ -224,22 +251,38 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
 
             {/* Tag Context Menu */}
             <Menu
-                open={tagContextMenu !== null}
-                onClose={handleCloseTagContextMenu}
+                open={tagMenuOpen}
+                onClose={() => setTagMenuOpen(false)}
                 anchorReference="anchorPosition"
                 anchorPosition={
                     tagContextMenu !== null
                         ? { top: tagContextMenu.mouseY, left: tagContextMenu.mouseX }
                         : undefined
                 }
+                TransitionProps={{
+                    onExited: handleCloseTagContextMenu
+                }}
             >
-                <MenuItem onClick={() => tagContextMenu?.tag && handleFilterByTag(tagContextMenu.tag)}>
+                <MenuItem onClick={() => {
+                    if (tagContextMenu?.tag) {
+                        // If file is present, it's from a file card (current directory only)
+                        // If file is null, it's from the tag library (recursive search)
+                        const origin = tagContextMenu.file ? 'fileExplorer' : 'tagManager';
+                        handleFilterByTag(tagContextMenu.tag, origin);
+                        setTagMenuOpen(false);
+                    }
+                }}>
                     <ListItemIcon>
                         <FilterListIcon fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText>显示此标签的文件</ListItemText>
+                    <ListItemText>{tagContextMenu?.file ? '显示此标签文件' : '显示所有此标签文件'}</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={() => tagContextMenu?.tag && tagContextMenu?.file && handleRemoveTagFromFile(tagContextMenu.tag, tagContextMenu.file)}>
+                <MenuItem onClick={() => {
+                    if (tagContextMenu?.tag && tagContextMenu?.file) {
+                        handleRemoveTagFromFile(tagContextMenu.tag, tagContextMenu.file);
+                        setTagMenuOpen(false);
+                    }
+                }}>
                     <ListItemIcon>
                         <DeleteIcon fontSize="small" color="error" />
                     </ListItemIcon>

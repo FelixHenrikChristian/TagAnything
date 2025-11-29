@@ -62,7 +62,7 @@ const DRAWER_WIDTH = 280;
 // TagSpaces inspired themes
 const createAppTheme = (mode: 'light' | 'dark') => {
   const isLight = mode === 'light';
-  
+
   return createTheme({
     palette: {
       mode,
@@ -222,7 +222,7 @@ const App: React.FC = () => {
       const ce = e as CustomEvent<any>;
       const detail = ce.detail || {};
       if (detail?.clearAll) {
-        try { localStorage.removeItem('tagAnything_filter'); } catch {}
+        try { localStorage.removeItem('tagAnything_filter'); } catch { }
         setActiveTagFilter(null);
         setSearchQuery('');
         setIsComposing(false);
@@ -231,12 +231,12 @@ const App: React.FC = () => {
     window.addEventListener('filenameSearch', handleGlobalFilenameSearch as EventListener);
     return () => window.removeEventListener('filenameSearch', handleGlobalFilenameSearch as EventListener);
   }, []);
-  
+
   const handleClearSearchAndFilter = () => {
     try {
       localStorage.removeItem('tagAnything_filter');
       localStorage.removeItem('tagAnything_multiFilter');
-    } catch {}
+    } catch { }
     setActiveTagFilter(null);
     setActiveMultiTagIds([]);
     setSearchQuery('');
@@ -251,7 +251,7 @@ const App: React.FC = () => {
     } as any;
     window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
   };
-  
+
   // 自动更新相关状态
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -266,9 +266,9 @@ const App: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const [appVersion, setAppVersion] = useState<string>('1.0.1');
-  
+
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-  
+
   useEffect(() => {
     setDarkMode(prefersDarkMode);
   }, [prefersDarkMode]);
@@ -323,7 +323,7 @@ const App: React.FC = () => {
         setActiveTagFilter({ tagId: d.tagId, tagName: d.tagName });
         // 与多标签筛选互斥：清除多标签状态与存储
         setActiveMultiTagIds([]);
-        try { localStorage.removeItem('tagAnything_multiFilter'); } catch {}
+        try { localStorage.removeItem('tagAnything_multiFilter'); } catch { }
       }
     };
     const onMultiTagFilter = (e: Event) => {
@@ -331,10 +331,10 @@ const App: React.FC = () => {
       const d: any = ce.detail;
       if (Array.isArray(d?.tagIds)) {
         setActiveMultiTagIds(d.tagIds);
-        try { localStorage.setItem('tagAnything_multiFilter', JSON.stringify({ tagIds: d.tagIds })); } catch {}
+        try { localStorage.setItem('tagAnything_multiFilter', JSON.stringify({ tagIds: d.tagIds })); } catch { }
         // 与单标签筛选互斥：清除单标签状态与存储
         setActiveTagFilter(null);
-        try { localStorage.removeItem('tagAnything_filter'); } catch {}
+        try { localStorage.removeItem('tagAnything_filter'); } catch { }
       }
     };
     const onFilenameSearch = () => {
@@ -403,10 +403,10 @@ const App: React.FC = () => {
   const handleConfirmMultiTagFilter = () => {
     const tagIds = [...multiTagSelectedIds];
     setActiveMultiTagIds(tagIds);
-    try { localStorage.setItem('tagAnything_multiFilter', JSON.stringify({ tagIds })); } catch {}
+    try { localStorage.setItem('tagAnything_multiFilter', JSON.stringify({ tagIds })); } catch { }
     // 应用多标签时清除单标签状态（互斥）
     setActiveTagFilter(null);
-    try { localStorage.removeItem('tagAnything_filter'); } catch {}
+    try { localStorage.removeItem('tagAnything_filter'); } catch { }
     const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
     const detail = { tagIds, timestamp: Date.now(), origin: 'appBar' as const, currentPath } as any;
     window.dispatchEvent(new CustomEvent('multiTagFilter', { detail }));
@@ -486,7 +486,7 @@ const App: React.FC = () => {
         // 优先从 electron-store 读取设置
         const storedSetting = await window.electron.getSetting('autoUpdateEnabled', false);
         setAutoUpdateEnabled(storedSetting);
-        
+
         // 同步到 localStorage 以保持一致性
         localStorage.setItem('autoUpdateEnabled', JSON.stringify(storedSetting));
       } catch (error) {
@@ -496,7 +496,7 @@ const App: React.FC = () => {
         const autoUpdateEnabledValue = savedAutoUpdate !== null ? JSON.parse(savedAutoUpdate) : false;
         setAutoUpdateEnabled(autoUpdateEnabledValue);
       }
-      
+
     };
 
     initializeAutoUpdate();
@@ -515,7 +515,7 @@ const App: React.FC = () => {
   const handleCheckForUpdates = async () => {
     setCheckingForUpdates(true);
     setUpdateError(null);
-    
+
     try {
       const result = await window.electron.checkForUpdates();
       if (!result.success) {
@@ -538,7 +538,7 @@ const App: React.FC = () => {
   const handleDownloadUpdate = async () => {
     setUpdateDownloading(true);
     setUpdateProgress(0);
-    
+
     try {
       const result = await window.electron.downloadUpdate();
       if (!result.success) {
@@ -596,27 +596,27 @@ const App: React.FC = () => {
       // 清除所有 localStorage 中的应用数据
       const keysToRemove = [
         'tagAnything_locations',
-        'tagAnything_selectedLocation', 
+        'tagAnything_selectedLocation',
         'tagAnything_tagGroups',
         'tagAnything_videoThumbnails',
         'tagAnything_filter',
         '·w'
       ];
-      
+
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
       });
-      
+
       // 清除 sessionStorage
       sessionStorage.clear();
-      
+
       // 显示成功消息并关闭对话框
       setSnackbarMessage('缓存已成功清除！应用将在下次启动时重置为默认状态。');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       setClearCacheConfirmOpen(false);
       setSettingsOpen(false);
-      
+
       // 延迟重新加载页面，让用户看到成功消息
       setTimeout(() => {
         window.location.reload();
@@ -692,7 +692,7 @@ const App: React.FC = () => {
             }),
           }}
         >
-  <Toolbar>
+          <Toolbar>
             <IconButton
               color="inherit"
               aria-label="toggle drawer"
@@ -702,120 +702,19 @@ const App: React.FC = () => {
             >
               <MenuIcon />
             </IconButton>
-            
-            <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 0, mr: 3 }}>
+
+            <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, mr: 3 }}>
               TagAnything
             </Typography>
 
-            {/* Search Bar */}
-            <TextField
-              size="small"
-              placeholder="搜索文件..."
-              value={searchQuery}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSearchQuery(value);
-                if (isComposing) return; // 输入法组合态中不触发搜索
-                const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
-                const detail = {
-                  query: value,
-                  timestamp: Date.now(),
-                  origin: 'appBar' as const,
-                  currentPath,
-                } as any;
-                window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
-              }}
-              onCompositionStart={() => setIsComposing(true)}
-              onCompositionEnd={() => {
-                setIsComposing(false);
-                const value = searchQuery;
-                const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
-                const detail = {
-                  query: value,
-                  timestamp: Date.now(),
-                  origin: 'appBar' as const,
-                  currentPath,
-                  immediate: true,
-                } as any;
-                window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
-              }}
-              sx={{
-                flexGrow: 1,
-                maxWidth: 400,
-                mr: 2,
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.08)',
-                  '&:hover': {
-                    backgroundColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)',
-                  },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <SearchIcon sx={{ color: 'text.secondary' }} />
-                      {activeMultiTagIds.length > 0 && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, overflowX: 'auto', maxWidth: 360, '::-webkit-scrollbar': { display: 'none' } }}>
-                          {activeMultiTagIds.map((id) => {
-                            const t = getTagMetaById(id);
-                            const bg = t.color || 'secondary.light';
-                            const fg = t.textcolor || (t.color ? '#fff' : 'secondary.contrastText');
-                            return (
-                              <Box key={id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.25, bgcolor: bg, borderRadius: 1 }}>
-                                <Typography variant="caption" sx={{ color: fg }}>
-                                  {t.name}
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Box>
-                      )}
-                      {activeTagFilter && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.25, bgcolor: 'primary.light', borderRadius: 1 }}>
-                          <FilterListIcon fontSize="small" sx={{ color: 'primary.contrastText' }} />
-                          <Typography variant="caption" sx={{ color: 'primary.contrastText' }}>
-                            {activeTagFilter.tagName}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      edge="end"
-                      aria-label="打开多标签筛选"
-                      title="选择多个标签进行筛选"
-                      onClick={handleOpenMultiTagDialog}
-                    >
-                      <FilterListIcon />
-                    </IconButton>
-                    {(searchQuery.trim().length > 0 || !!activeTagFilter || activeMultiTagIds.length > 0) && (
-                      <IconButton
-                        size="small"
-                        edge="end"
-                        aria-label="清除搜索与筛选"
-                        onClick={handleClearSearchAndFilter}
-                      >
-                        <ClearIcon />
-                      </IconButton>
-                    )}
-                  </InputAdornment>
-                ),
-              }}
-            />
 
-            <Box sx={{ flexGrow: 1 }} />
 
             <IconButton color="inherit" onClick={handleThemeToggle}>
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
 
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               onClick={handleTagDisplayStyleToggle}
               title={`标签样式: ${tagDisplayStyle === 'original' ? '原始' : '标签库'}`}
             >
@@ -855,7 +754,7 @@ const App: React.FC = () => {
                   <ListItemIcon sx={{ color: 'inherit' }}>
                     {item.icon}
                   </ListItemIcon>
-                  <ListItemText 
+                  <ListItemText
                     primary={item.label}
                     primaryTypographyProps={{
                       fontWeight: sidebarView === item.view ? 600 : 400,
@@ -916,17 +815,17 @@ const App: React.FC = () => {
             <Grid container spacing={3} sx={{ mt: 1 }}>
               {/* Window Settings */}
               <Grid item xs={12}>
-                <Box sx={{ 
-                  p: 3, 
-                  border: '1px solid', 
-                  borderColor: 'divider', 
-                  borderRadius: 2, 
+                <Box sx={{
+                  p: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
                   bgcolor: 'background.paper',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                 }}>
-                  <Typography variant="h6" sx={{ 
-                    mb: 2, 
-                    color: 'primary.main', 
+                  <Typography variant="h6" sx={{
+                    mb: 2,
+                    color: 'primary.main',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
@@ -953,17 +852,17 @@ const App: React.FC = () => {
 
               {/* Cache Management */}
               <Grid item xs={12}>
-                <Box sx={{ 
-                  p: 3, 
-                  border: '1px solid', 
-                  borderColor: 'divider', 
-                  borderRadius: 2, 
+                <Box sx={{
+                  p: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
                   bgcolor: 'background.paper',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                 }}>
-                  <Typography variant="h6" sx={{ 
-                    mb: 2, 
-                    color: 'warning.main', 
+                  <Typography variant="h6" sx={{
+                    mb: 2,
+                    color: 'warning.main',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
@@ -987,17 +886,17 @@ const App: React.FC = () => {
 
               {/* Auto Update Settings */}
               <Grid item xs={12}>
-                <Box sx={{ 
-                  p: 3, 
-                  border: '1px solid', 
-                  borderColor: 'divider', 
-                  borderRadius: 2, 
+                <Box sx={{
+                  p: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
                   bgcolor: 'background.paper',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                 }}>
-                  <Typography variant="h6" sx={{ 
-                    mb: 2, 
-                    color: 'success.main', 
+                  <Typography variant="h6" sx={{
+                    mb: 2,
+                    color: 'success.main',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
@@ -1020,7 +919,7 @@ const App: React.FC = () => {
                       color="primary"
                     />
                   </Box>
-                  
+
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Button
                       variant="outlined"
@@ -1031,7 +930,7 @@ const App: React.FC = () => {
                     >
                       {checkingForUpdates ? '检查中...' : '手动检查更新'}
                     </Button>
-                    
+
                     {updateAvailable && !updateDownloaded && (
                       <Button
                         variant="contained"
@@ -1044,7 +943,7 @@ const App: React.FC = () => {
                         {updateDownloading ? `下载中 ${Math.round(updateProgress)}%` : '下载更新'}
                       </Button>
                     )}
-                    
+
                     {updateDownloaded && (
                       <Button
                         variant="contained"
@@ -1057,7 +956,7 @@ const App: React.FC = () => {
                       </Button>
                     )}
                   </Box>
-                  
+
                   {updateDownloading && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -1066,7 +965,7 @@ const App: React.FC = () => {
                       <LinearProgress variant="determinate" value={updateProgress} />
                     </Box>
                   )}
-                  
+
                   {updateError && (
                     <Typography variant="body2" color="error" sx={{ mt: 1 }}>
                       {updateError}
@@ -1077,17 +976,17 @@ const App: React.FC = () => {
 
               {/* About */}
               <Grid item xs={12}>
-                <Box sx={{ 
-                  p: 3, 
-                  border: '1px solid', 
-                  borderColor: 'divider', 
-                  borderRadius: 2, 
+                <Box sx={{
+                  p: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
                   bgcolor: 'background.paper',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                 }}>
-                  <Typography variant="h6" sx={{ 
-                    mb: 2, 
-                    color: 'info.main', 
+                  <Typography variant="h6" sx={{
+                    mb: 2,
+                    color: 'info.main',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
@@ -1100,8 +999,8 @@ const App: React.FC = () => {
                       <strong>TagAnything</strong>
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                       版本: {appVersion}
-                     </Typography>
+                      版本: {appVersion}
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
                       一个功能强大的标签管理工具
                     </Typography>
@@ -1228,13 +1127,13 @@ const App: React.FC = () => {
                 <Typography variant="body1" sx={{ mb: 2 }}>
                   有新版本可用，是否要下载并安装？
                 </Typography>
-                <Box sx={{ 
-                  bgcolor: 'background.default', 
+                <Box sx={{
+                  bgcolor: 'background.default',
                   border: '1px solid',
                   borderColor: 'divider',
-                  p: 2, 
-                  borderRadius: 1, 
-                  mb: 2 
+                  p: 2,
+                  borderRadius: 1,
+                  mb: 2
                 }}>
                   <Typography variant="body2" color="text.primary">
                     <strong>当前版本:</strong> {updateInfo.currentVersion}
@@ -1253,8 +1152,8 @@ const App: React.FC = () => {
                     <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
                       更新内容:
                     </Typography>
-                    <Box 
-                      sx={{ 
+                    <Box
+                      sx={{
                         bgcolor: 'background.paper',
                         border: '1px solid',
                         borderColor: 'divider',
@@ -1308,24 +1207,24 @@ const App: React.FC = () => {
             <Button onClick={() => setUpdateDialogOpen(false)} color="inherit">
               稍后提醒
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 setUpdateDialogOpen(false);
                 // 打开外部链接到GitHub releases页面
                 if (updateInfo?.downloadUrl) {
                   window.electron.openExternal(updateInfo.downloadUrl);
                 }
-              }} 
+              }}
               color="primary"
             >
               手动下载
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 setUpdateDialogOpen(false);
                 handleDownloadUpdate();
-              }} 
-              color="primary" 
+              }}
+              color="primary"
               variant="contained"
             >
               立即更新

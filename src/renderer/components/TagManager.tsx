@@ -82,14 +82,14 @@ const TagManager: React.FC = () => {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [currentTab, setCurrentTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // 标签组相关状态
   const [openGroupDialog, setOpenGroupDialog] = useState(false);
   const [editingGroup, setEditingGroup] = useState<TagGroup | null>(null);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [groupDefaultColor, setGroupDefaultColor] = useState('#2196f3');
-  
+
   // 标签相关状态
   const [openTagDialog, setOpenTagDialog] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
@@ -100,13 +100,21 @@ const TagManager: React.FC = () => {
   const [openImportDialog, setOpenImportDialog] = useState(false); // 导入对话框状态
   const [importSuccess, setImportSuccess] = useState(false); // 导入成功状态
   const [importMessage, setImportMessage] = useState(''); // 导入成功消息
-  
+
   // 菜单状态
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedGroup, setSelectedGroup] = useState<TagGroup | null>(null);
-  const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
-  const [menuType, setMenuType] = useState<'group' | 'tag' | 'main'>('group');
-  const [mainMenuAnchorEl, setMainMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [selectedGroup, setSelectedGroup] = React.useState<TagGroup | null>(null);
+  const [selectedTag, setSelectedTag] = React.useState<Tag | null>(null);
+  const [menuType, setMenuType] = React.useState<'group' | 'tag' | 'main'>('group');
+  const [mainMenuAnchorEl, setMainMenuAnchorEl] = React.useState<null | HTMLElement>(null);
+
+  // Local state to control menu visibility without clearing menu data immediately
+  const [menuOpen, setMenuOpen] = React.useState(false);
+
+  // Update local state when anchorEl changes
+  React.useEffect(() => {
+    setMenuOpen(anchorEl !== null);
+  }, [anchorEl]);
 
   // 加载保存的数据
   useEffect(() => {
@@ -160,12 +168,12 @@ const TagManager: React.FC = () => {
       setTagGroups(prev =>
         prev.map(group =>
           group.id === editingGroup.id
-            ? { 
-                ...group, 
-                name: groupName.trim(), 
-                defaultColor: groupDefaultColor,
-                description: groupDescription.trim()
-              }
+            ? {
+              ...group,
+              name: groupName.trim(),
+              defaultColor: groupDefaultColor,
+              description: groupDescription.trim()
+            }
             : group
         )
       );
@@ -200,7 +208,7 @@ const TagManager: React.FC = () => {
         textcolor: tagTextColor, // 添加文字颜色
         groupId: selectedGroupId,
       };
-      
+
       setTagGroups(prev =>
         prev.map(group =>
           group.id === selectedGroupId
@@ -208,7 +216,7 @@ const TagManager: React.FC = () => {
             : group
         )
       );
-      
+
       setOpenTagDialog(false);
       resetTagForm();
     }
@@ -231,20 +239,20 @@ const TagManager: React.FC = () => {
           ...group,
           tags: group.tags.filter(tag => tag.id !== editingTag.id)
         }));
-        
+
         // 然后将更新后的标签添加到新的标签组中
         return groupsWithoutTag.map(group =>
           group.id === selectedGroupId
             ? {
-                ...group,
-                tags: [...group.tags, {
-                  ...editingTag,
-                  name: tagName.trim(),
-                  color: tagColor,
-                  textcolor: tagTextColor, // 更新文字颜色
-                  groupId: selectedGroupId
-                }]
-              }
+              ...group,
+              tags: [...group.tags, {
+                ...editingTag,
+                name: tagName.trim(),
+                color: tagColor,
+                textcolor: tagTextColor, // 更新文字颜色
+                groupId: selectedGroupId
+              }]
+            }
             : group
         );
       });
@@ -296,7 +304,7 @@ const TagManager: React.FC = () => {
     // 读取当前文件浏览器路径
     const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
     console.log('🏷️ 读取到当前路径(currentPath):', currentPath);
-    
+
     // 通过localStorage传递筛选信息给FileExplorer
     const filterInfo = {
       type: 'tag' as const,
@@ -308,13 +316,13 @@ const TagManager: React.FC = () => {
     };
     localStorage.setItem('tagAnything_filter', JSON.stringify(filterInfo));
     console.log('🏷️ 存储到localStorage的筛选信息:', filterInfo);
-    
+
     // 触发自定义事件通知FileExplorer
     const customEvent = new CustomEvent('tagFilter', { detail: filterInfo });
     console.log('🏷️ 发送CustomEvent:', customEvent);
     console.log('🏷️ CustomEvent detail:', customEvent.detail);
     window.dispatchEvent(customEvent);
-    
+
     handleCloseMenu();
   };
 
@@ -327,15 +335,15 @@ const TagManager: React.FC = () => {
     const { convertToTagSpaces } = require('../utils/tagSpacesConverter');
     const tagSpacesData = convertToTagSpaces(tagGroups);
     const dataStr = JSON.stringify(tagSpacesData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
     const exportFileDefaultName = `TagAnything_标签库_${new Date().toISOString().split('T')[0]}.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
-    
+
     handleCloseMainMenu();
   };
 
@@ -350,7 +358,7 @@ const TagManager: React.FC = () => {
       try {
         const importedData = JSON.parse(e.target?.result as string);
         const { validateTagSpacesFormat, convertFromTagSpaces } = require('../utils/tagSpacesConverter');
-        
+
         // 检查是否为TagSpaces格式
         if (validateTagSpacesFormat(importedData)) {
           const convertedGroups = convertFromTagSpaces(importedData);
@@ -358,13 +366,13 @@ const TagManager: React.FC = () => {
           const message = `成功导入TagSpaces标签库！导入了 ${convertedGroups.length} 个标签组，共 ${convertedGroups.reduce((sum: number, g: TagGroup) => sum + g.tags.length, 0)} 个标签。`;
           setImportMessage(message);
           setImportSuccess(true);
-        } 
+        }
         // 检查是否为原有格式
         else if (Array.isArray(importedData)) {
           setTagGroups(importedData);
           setImportMessage('标签库导入成功！');
           setImportSuccess(true);
-        } 
+        }
         else {
           alert('文件格式不正确。\n支持的格式：\n1. TagSpaces导出格式\n2. TagAnything原生格式');
         }
@@ -468,7 +476,7 @@ const TagManager: React.FC = () => {
               {searchTerm ? '没有找到匹配的标签组' : '还没有创建任何标签组'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              {searchTerm 
+              {searchTerm
                 ? '尝试使用不同的关键词搜索'
                 : '点击右上角的三个点按钮来创建您的第一个标签组'
               }
@@ -486,7 +494,7 @@ const TagManager: React.FC = () => {
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {filteredGroups.map((group) => (
-              <Accordion key={group.id} defaultExpanded sx={{ 
+              <Accordion key={group.id} defaultExpanded sx={{
                 '&:before': { display: 'none' },
                 boxShadow: 'none',
                 border: '1px solid',
@@ -549,7 +557,7 @@ const TagManager: React.FC = () => {
                                 tag: tag
                               }));
                               e.dataTransfer.effectAllowed = 'copy';
-                              
+
                               // 创建拖拽预览
                               const dragImage = document.createElement('div');
                               dragImage.style.cssText = `
@@ -567,14 +575,14 @@ const TagManager: React.FC = () => {
                               `;
                               dragImage.textContent = tag.name;
                               document.body.appendChild(dragImage);
-                              
+
                               e.dataTransfer.setDragImage(dragImage, 0, 0);
-                              
+
                               // 发送全局拖拽开始事件
                               window.dispatchEvent(new CustomEvent('tagDragStart', {
                                 detail: { tag }
                               }));
-                              
+
                               // 清理拖拽预览元素
                               setTimeout(() => {
                                 document.body.removeChild(dragImage);
@@ -609,10 +617,10 @@ const TagManager: React.FC = () => {
                     )}
                   </Box>
                 </AccordionDetails>
-                </Accordion>
-              ))}
-            </Box>
-          )}
+              </Accordion>
+            ))}
+          </Box>
+        )}
       </Box>
 
       {/* 标签组对话框 */}
@@ -843,8 +851,11 @@ const TagManager: React.FC = () => {
       {/* Context Menu */}
       <Menu
         anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleCloseMenu}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        TransitionProps={{
+          onExited: handleCloseMenu
+        }}
         sx={{
           '& .MuiPaper-root': {
             minWidth: 140,
@@ -867,7 +878,7 @@ const TagManager: React.FC = () => {
           [
             <MenuItem key="addTag" onClick={() => {
               handleOpenTagDialog(selectedGroup.id);
-              handleCloseMenu();
+              setMenuOpen(false);
             }}>
               <ListItemIcon>
                 <AddIcon />
@@ -876,7 +887,7 @@ const TagManager: React.FC = () => {
             </MenuItem>,
             <MenuItem key="edit" onClick={() => {
               handleEditGroup(selectedGroup);
-              handleCloseMenu();
+              setMenuOpen(false);
             }}>
               <ListItemIcon>
                 <EditIcon />
@@ -901,7 +912,7 @@ const TagManager: React.FC = () => {
             </MenuItem>,
             <MenuItem key="edit" onClick={() => {
               handleEditTag(selectedTag);
-              handleCloseMenu();
+              setMenuOpen(false);
             }}>
               <ListItemIcon>
                 <EditIcon />
@@ -960,8 +971,8 @@ const TagManager: React.FC = () => {
           },
         }}
       >
-        <DialogTitle sx={{ 
-          textAlign: 'center', 
+        <DialogTitle sx={{
+          textAlign: 'center',
           fontWeight: 600,
           pb: 1,
           display: 'flex',
@@ -1020,7 +1031,7 @@ const TagManager: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button 
+          <Button
             onClick={() => setOpenImportDialog(false)}
             sx={{ borderRadius: 2 }}
           >
@@ -1035,7 +1046,7 @@ const TagManager: React.FC = () => {
         autoHideDuration={4000}
         onClose={() => setImportSuccess(false)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        sx={{ 
+        sx={{
           mt: 8, // 添加顶部边距，避免被标题栏遮挡
         }}
       >
