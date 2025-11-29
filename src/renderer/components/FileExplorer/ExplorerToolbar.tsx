@@ -264,8 +264,15 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
 
                     {/* Grid Size */}
                     {viewMode === 'grid' && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 120 }}>
-                            <ZoomOutIcon fontSize="small" color="action" />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, width: 200 }}>
+                            <IconButton
+                                size="small"
+                                onClick={() => setGridSize(Math.min(GRID_CONFIG.MAX_GRID_SIZE, gridSize + 1))}
+                                title="缩小"
+                                sx={{ p: 0.5 }}
+                            >
+                                <ZoomOutIcon fontSize="small" />
+                            </IconButton>
                             <Slider
                                 value={GRID_CONFIG.MAX_GRID_SIZE + 1 - gridSize}
                                 onChange={(_, v) => setGridSize(GRID_CONFIG.MAX_GRID_SIZE + 1 - (v as number))}
@@ -273,8 +280,23 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                                 max={GRID_CONFIG.MAX_GRID_SIZE}
                                 step={1}
                                 size="small"
+                                sx={{
+                                    '& .MuiSlider-thumb': {
+                                        transition: 'left 0.1s',
+                                    },
+                                    '& .MuiSlider-track': {
+                                        transition: 'width 0.1s',
+                                    }
+                                }}
                             />
-                            <ZoomInIcon fontSize="small" color="action" />
+                            <IconButton
+                                size="small"
+                                onClick={() => setGridSize(Math.max(1, gridSize - 1))}
+                                title="放大"
+                                sx={{ p: 0.5 }}
+                            >
+                                <ZoomInIcon fontSize="small" />
+                            </IconButton>
                         </Box>
                     )}
 

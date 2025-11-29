@@ -25,7 +25,7 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
     useEffect(() => {
         const savedGridSize = localStorage.getItem('tagAnything_gridSize');
         if (savedGridSize) {
-            const parsed = parseInt(savedGridSize, 10);
+            const parsed = parseFloat(savedGridSize);
             if (!Number.isNaN(parsed)) {
                 setGridSize(parsed);
             }

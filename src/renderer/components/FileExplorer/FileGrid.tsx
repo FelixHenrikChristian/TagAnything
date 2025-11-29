@@ -48,20 +48,6 @@ export const FileGrid: React.FC<FileGridProps> = ({
     handleTagDropWithPosition,
     reorderTagWithinFile,
 }) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [containerWidth, setContainerWidth] = useState<number>(0);
-
-    useEffect(() => {
-        if (!containerRef.current) return;
-        const observer = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                setContainerWidth(entry.contentRect.width);
-            }
-        });
-        observer.observe(containerRef.current);
-        return () => observer.disconnect();
-    }, []);
-
     const toFileUrl = (p: string) => 'file:///' + p.replace(/\\/g, '/');
 
     const getTagStyle = (tag: Tag) => {
@@ -102,6 +88,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     const getGridItemSize = () => {
         const { MAX_GRID_SIZE, MIN_WIDTH, MAX_WIDTH } = GRID_CONFIG;
         const step = (MAX_WIDTH - MIN_WIDTH) / (MAX_GRID_SIZE - 1);
+        // Allow float gridSize
         const clamped = Math.min(MAX_GRID_SIZE, Math.max(1, gridSize));
         return Math.round(MAX_WIDTH - (clamped - 1) * step);
     };
@@ -116,16 +103,6 @@ export const FileGrid: React.FC<FileGridProps> = ({
     const thumbnailHeight = Math.floor(gridItemWidth * 0.6);
     const fileInfoHeight = 52;
     const tagOverlayHeight = 'calc(100% - 8px)';
-    const rowGapPx = '6px';
-    const MIN_GAP = 8;
-
-    const availableWidth = Math.max(0, containerWidth);
-    const maxItemsWithMinGap = Math.floor((availableWidth + MIN_GAP) / (gridItemWidth + MIN_GAP));
-    const itemsPerRow = Math.max(1, maxItemsWithMinGap);
-    const totalItemWidth = itemsPerRow * gridItemWidth;
-    const remainingSpace = availableWidth - totalItemWidth;
-    const gapFit = itemsPerRow > 1 ? Math.floor(remainingSpace / (itemsPerRow - 1)) : 0;
-    const calculatedGap = itemsPerRow > 1 ? Math.max(MIN_GAP, gapFit) : 0;
 
     const getFileExtension = (fileName: string): string => {
         const ext = fileName.split('.').pop()?.toLowerCase();
@@ -149,15 +126,12 @@ export const FileGrid: React.FC<FileGridProps> = ({
 
     return (
         <Box
-            ref={containerRef}
             sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'flex-start',
-                alignItems: 'flex-start',
-                rowGap: rowGapPx,
-                columnGap: `${calculatedGap}px`,
+                display: 'grid',
+                gridTemplateColumns: `repeat(auto-fill, minmax(${gridItemWidth}px, 1fr))`,
+                gap: 1,
                 width: '100%',
+                p: 1,
             }}
         >
             {files.map((file) => (
@@ -165,14 +139,13 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     key={file.path}
                     draggable={false}
                     sx={{
-                        width: gridItemWidth,
                         height: thumbnailHeight + fileInfoHeight + 8,
                         cursor: 'pointer',
-                        transition: 'all 0.2s',
                         display: 'flex',
                         flexDirection: 'column',
                         position: 'relative',
                         overflow: 'hidden',
+                        transition: 'transform 0.1s, box-shadow 0.1s', // Restore hover animation
                         '&:hover': {
                             transform: 'translateY(-2px)',
                             boxShadow: 4,
@@ -243,6 +216,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                                 maxHeight: tagOverlayHeight,
                                 overflow: 'hidden',
                                 minHeight: dragState.targetFile?.path === file.path && dragState.isDragging ? '18px' : 'auto',
+                                justifyContent: 'center',
                             }}
                             onDragOver={(e) => {
                                 e.preventDefault();
@@ -535,6 +509,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                             justifyContent: 'center',
                             backgroundColor: file.isDirectory ? 'transparent' : 'grey.50',
                             position: 'relative',
+                            mb: 1,
                         }}
                     >
                         {file.isDirectory ? (
@@ -549,6 +524,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                                         width: '100%',
                                         height: '100%',
                                         objectFit: 'cover',
+                                        borderRadius: 1,
                                     }}
                                 />
                             ) : (
