@@ -51,6 +51,9 @@ export const useFileFilter = (
     const searchDebounceTimer = useRef<NodeJS.Timeout | null>(null);
     const filterDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
+    // Ref to track the latest filter request ID to prevent race conditions
+    const filterRequestRef = useRef<number>(0);
+
     // Ref to track if we're currently processing
     const isProcessing = useRef(false);
 
@@ -150,15 +153,28 @@ export const useFileFilter = (
     /**
      * Perform recursive file search with tag filtering
      */
-    const performRecursiveSearch = useCallback(async (tagIds: string[], rootPath: string) => {
+    const performRecursiveSearch = useCallback(async (tagIds: string[], rootPath: string, requestId: number) => {
         try {
+            // Check if this request is still valid
+            if (requestId !== filterRequestRef.current) {
+                console.log('🚫 忽略过期的搜索请求:', requestId);
+                return;
+            }
+
             isProcessing.current = true;
             setIsFiltering(true);
 
-            console.log('🔍 开始递归搜索:', { tagIds, rootPath });
+            console.log('🔍 开始递归搜索:', { tagIds, rootPath, requestId });
 
             // Get all files recursively
             const allFiles = await window.electron.getAllFiles(rootPath);
+
+            // Check again after await
+            if (requestId !== filterRequestRef.current) {
+                console.log('🚫 忽略过期的搜索请求 (await后):', requestId);
+                return;
+            }
+
             console.log(`📁 递归扫描到 ${allFiles.length} 个文件`);
 
             // Parse tags for all files
@@ -191,6 +207,11 @@ export const useFileFilter = (
             // Wait a bit for fileTags state to update
             await new Promise(resolve => setTimeout(resolve, 50));
 
+            // Check again after await
+            if (requestId !== filterRequestRef.current) {
+                return;
+            }
+
             // Filter by tags using the new map
             const tagFilteredFiles = allFiles.filter(file => {
                 if (file.isDirectory) return false;
@@ -216,18 +237,24 @@ export const useFileFilter = (
             await generateVideoThumbnails(sorted);
 
         } catch (error) {
-            console.error('❌ 递归搜索失败:', error);
-            setFilteredFiles([]);
+            if (requestId === filterRequestRef.current) {
+                console.error('❌ 递归搜索失败:', error);
+                setFilteredFiles([]);
+            }
         } finally {
-            isProcessing.current = false;
+            if (requestId === filterRequestRef.current) {
+                isProcessing.current = false;
+            }
         }
     }, [filterState.nameFilterQuery, getEffectiveTagGroups, setFileTags, sortFiles, filterByFilename, generateVideoThumbnails]);
 
     /**
      * Perform current directory only search
      */
-    const performCurrentDirectorySearch = useCallback((tagIds: string[]) => {
+    const performCurrentDirectorySearch = useCallback((tagIds: string[], requestId: number) => {
         try {
+            if (requestId !== filterRequestRef.current) return;
+
             isProcessing.current = true;
             setIsFiltering(true);
 
@@ -284,6 +311,10 @@ export const useFileFilter = (
         // Dispatch event for AppBar sync
         window.dispatchEvent(new CustomEvent('tagFilter', { detail: filter }));
 
+        // Generate new request ID
+        const requestId = Date.now();
+        filterRequestRef.current = requestId;
+
         // Perform search based on origin
         if (origin === 'tagManager') {
             // Recursive search from location root
@@ -300,10 +331,10 @@ export const useFileFilter = (
                     console.warn('Failed to parse location:', e);
                 }
             }
-            performRecursiveSearch([tag.id], searchRoot);
+            performRecursiveSearch([tag.id], searchRoot, requestId);
         } else {
             // Current directory only
-            performCurrentDirectorySearch([tag.id]);
+            performCurrentDirectorySearch([tag.id], requestId);
         }
     }, [currentPath, performRecursiveSearch, performCurrentDirectorySearch]);
 
@@ -338,7 +369,11 @@ export const useFileFilter = (
             }
         }
 
-        performRecursiveSearch(filter.tagIds, searchRoot);
+        // Generate new request ID
+        const requestId = Date.now();
+        filterRequestRef.current = requestId;
+
+        performRecursiveSearch(filter.tagIds, searchRoot, requestId);
     }, [currentPath, performRecursiveSearch]);
 
     /**
@@ -370,6 +405,10 @@ export const useFileFilter = (
             // Dispatch event for AppBar sync
             window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
 
+            // Generate new request ID
+            const requestId = Date.now();
+            filterRequestRef.current = requestId;
+
             // If there's an active tag filter, re-apply it with new search query
             if (filterState.tagFilter) {
                 const origin = filterState.tagFilter.origin || 'fileExplorer';
@@ -382,9 +421,9 @@ export const useFileFilter = (
                             searchRoot = location.path;
                         } catch (e) { }
                     }
-                    performRecursiveSearch([filterState.tagFilter.tagId], searchRoot);
+                    performRecursiveSearch([filterState.tagFilter.tagId], searchRoot, requestId);
                 } else {
-                    performCurrentDirectorySearch([filterState.tagFilter.tagId]);
+                    performCurrentDirectorySearch([filterState.tagFilter.tagId], requestId);
                 }
             } else if (filterState.multiTagFilter) {
                 const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
@@ -395,7 +434,7 @@ export const useFileFilter = (
                         searchRoot = location.path;
                     } catch (e) { }
                 }
-                performRecursiveSearch(filterState.multiTagFilter.tagIds, searchRoot);
+                performRecursiveSearch(filterState.multiTagFilter.tagIds, searchRoot, requestId);
             } else {
                 // Just filename search, no tags
                 setIsFiltering(query.trim().length > 0);
@@ -419,6 +458,9 @@ export const useFileFilter = (
         if (filterDebounceTimer.current) {
             clearTimeout(filterDebounceTimer.current);
         }
+
+        // Invalidate any pending requests
+        filterRequestRef.current = Date.now();
 
         setFilterState({
             tagFilter: null,

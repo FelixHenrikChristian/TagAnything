@@ -11,15 +11,9 @@ import {
     ToggleButtonGroup,
     Chip,
     Tooltip,
-    Divider,
     TextField,
     InputAdornment,
     Popover,
-    List,
-    ListItem,
-    ListItemText,
-    Checkbox,
-    Button,
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -146,33 +140,6 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
 
     const handleCloseFilterPopover = () => {
         setFilterAnchorEl(null);
-    };
-
-    const handleToggleTag = (tagId: string) => {
-        setSelectedTagIds(prev =>
-            prev.includes(tagId)
-                ? prev.filter(id => id !== tagId)
-                : [...prev, tagId]
-        );
-    };
-
-    const handleApplyFilter = () => {
-        if (selectedTagIds.length > 0) {
-            const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
-            const filter: MultiTagFilter = {
-                type: 'multiTag',
-                tagIds: selectedTagIds,
-                timestamp: Date.now(),
-                origin: 'fileExplorer',
-                currentPath,
-            };
-            handleMultiTagFilter(filter);
-        }
-        handleCloseFilterPopover();
-    };
-
-    const handleClearFilterSelection = () => {
-        setSelectedTagIds([]);
     };
 
     const filterPopoverOpen = Boolean(filterAnchorEl);
@@ -343,75 +310,60 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                 }}
             >
                 <Box sx={{ p: 2, width: 300, maxHeight: 400, display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                        选择标签进行筛选
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ mb: 2 }}>
-                        选中的标签将使用AND逻辑筛选文件
-                    </Typography>
-
-                    <Box sx={{ flex: 1, overflowY: 'auto', mb: 2 }}>
+                    <Box sx={{ flex: 1, overflowY: 'auto' }}>
                         {tagGroups.map(group => (
                             <Box key={group.id} sx={{ mb: 2 }}>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
                                     {group.name}
                                 </Typography>
-                                <List dense disablePadding>
-                                    {group.tags.map(tag => (
-                                        <ListItem
-                                            key={tag.id}
-                                            dense
-                                            disablePadding
-                                            sx={{
-                                                cursor: 'pointer',
-                                                '&:hover': { bgcolor: 'action.hover' },
-                                                borderRadius: 1,
-                                            }}
-                                            onClick={() => handleToggleTag(tag.id)}
-                                        >
-                                            <Checkbox
-                                                edge="start"
-                                                checked={selectedTagIds.includes(tag.id)}
-                                                tabIndex={-1}
-                                                disableRipple
-                                                size="small"
-                                            />
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                    {group.tags.map(tag => {
+                                        const isSelected = selectedTagIds.includes(tag.id);
+                                        return (
                                             <Chip
+                                                key={tag.id}
                                                 label={tag.name}
                                                 size="small"
+                                                onClick={() => {
+                                                    const newSelectedIds = isSelected
+                                                        ? selectedTagIds.filter(id => id !== tag.id)
+                                                        : [...selectedTagIds, tag.id];
+
+                                                    setSelectedTagIds(newSelectedIds);
+
+                                                    if (newSelectedIds.length > 0) {
+                                                        const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
+                                                        const filter: MultiTagFilter = {
+                                                            type: 'multiTag',
+                                                            tagIds: newSelectedIds,
+                                                            timestamp: Date.now(),
+                                                            origin: 'fileExplorer',
+                                                            currentPath,
+                                                        };
+                                                        handleMultiTagFilter(filter);
+                                                    } else {
+                                                        clearFilter();
+                                                    }
+                                                }}
                                                 sx={{
                                                     bgcolor: tag.color,
                                                     color: tag.textcolor || 'white',
-                                                    height: 20,
+                                                    height: 24,
                                                     fontSize: '0.75rem',
+                                                    opacity: isSelected ? 1 : 0.3,
+                                                    filter: isSelected ? 'none' : 'grayscale(50%)',
+                                                    transition: 'all 0.2s',
+                                                    '&:hover': {
+                                                        opacity: isSelected ? 1 : 0.7,
+                                                        filter: isSelected ? 'none' : 'grayscale(0%)',
+                                                    }
                                                 }}
                                             />
-                                        </ListItem>
-                                    ))}
-                                </List>
+                                        );
+                                    })}
+                                </Box>
                             </Box>
                         ))}
-                    </Box>
-
-                    <Divider sx={{ mb: 1 }} />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-                        <Button size="small" onClick={handleClearFilterSelection}>
-                            清除
-                        </Button>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button size="small" onClick={handleCloseFilterPopover}>
-                                取消
-                            </Button>
-                            <Button
-                                size="small"
-                                variant="contained"
-                                onClick={handleApplyFilter}
-                                disabled={selectedTagIds.length === 0}
-                            >
-                                应用 ({selectedTagIds.length})
-                            </Button>
-                        </Box>
                     </Box>
                 </Box>
             </Popover>
