@@ -225,7 +225,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
             {/* Row 2: Search, Filter, Sort, View */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
                 {/* Left Side: Search and Active Filters */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 300 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {/* Search Input */}
                     <TextField
                         size="small"
@@ -237,7 +237,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                             setIsComposing(false);
                             handleFilenameSearch((e.target as HTMLInputElement).value);
                         }}
-                        sx={{ flex: 1, minWidth: 200 }}
+                        sx={{ width: 300 }}
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
