@@ -7,7 +7,6 @@ import { useFileContextMenu } from '../hooks/fileExplorer/useFileContextMenu';
 import { useFileDrag } from '../hooks/fileExplorer/useFileDrag';
 
 import { ExplorerToolbar } from './FileExplorer/ExplorerToolbar';
-import { FileBreadcrumbs } from './FileExplorer/FileBreadcrumbs';
 import { ExplorerStats } from './FileExplorer/ExplorerStats';
 import { FileList } from './FileExplorer/FileList';
 import { FileGrid } from './FileExplorer/FileGrid';
@@ -39,6 +38,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     getEffectiveTagGroups,
     setFileTags,
     generateVideoThumbnails,
+    goBack,
+    goForward,
+    goUp,
+    canGoBack,
+    canGoForward,
+    canGoUp,
   } = useFileExplorerState(tagDisplayStyle);
 
   // 2. Filter Logic
@@ -165,8 +170,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       <ExplorerToolbar
         locations={locations}
         currentLocation={currentLocation}
+        currentPath={currentPath}
         handleLocationSelect={onLocationSelect}
         handleRefresh={onRefresh}
+        handleNavigate={onNavigate}
+        goBack={goBack}
+        goForward={goForward}
+        goUp={goUp}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
+        canGoUp={canGoUp}
         viewMode={viewMode}
         setViewMode={setViewMode}
         gridSize={gridSize}
@@ -197,13 +210,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         onContextMenu={handleBlankContextMenu}
         onClick={handleCloseContextMenu}
       >
-        {/* Breadcrumbs */}
-        <FileBreadcrumbs
-          currentPath={currentPath}
-          locations={locations}
-          handleNavigate={onNavigate}
-        />
-
         {/* Stats */}
         <ExplorerStats
           files={files}

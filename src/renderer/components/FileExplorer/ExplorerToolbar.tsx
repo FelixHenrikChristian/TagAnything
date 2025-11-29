@@ -31,16 +31,28 @@ import {
     FilterList as FilterListIcon,
     Search as SearchIcon,
     Clear as ClearIcon,
+    ArrowBack as ArrowBackIcon,
+    ArrowForward as ArrowForwardIcon,
+    ArrowUpward as ArrowUpwardIcon,
 } from '@mui/icons-material';
 import { Location, TagGroup } from '../../types';
 import { SortType, SortDirection, FilterState, MultiTagFilter } from './types';
 import { SortMenu } from './SortMenu';
+import { FileBreadcrumbs } from './FileBreadcrumbs';
 
 interface ExplorerToolbarProps {
     locations: Location[];
     currentLocation: Location | null;
+    currentPath: string;
     handleLocationSelect: (location: Location) => void;
     handleRefresh: () => void;
+    handleNavigate: (path: string) => void;
+    goBack: () => void;
+    goForward: () => void;
+    goUp: () => void;
+    canGoBack: boolean;
+    canGoForward: boolean;
+    canGoUp: boolean;
     viewMode: 'list' | 'grid';
     setViewMode: (mode: 'list' | 'grid') => void;
     gridSize: number;
@@ -63,8 +75,16 @@ const GRID_CONFIG = {
 export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
     locations,
     currentLocation,
+    currentPath,
     handleLocationSelect,
     handleRefresh,
+    handleNavigate,
+    goBack,
+    goForward,
+    goUp,
+    canGoBack,
+    canGoForward,
+    canGoUp,
     viewMode,
     setViewMode,
     gridSize,
@@ -173,7 +193,36 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1, borderBottom: 1, borderColor: 'divider' }}>
+            {/* Row 1: Navigation & Address Bar */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* Navigation Controls */}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <IconButton size="small" onClick={goBack} disabled={!canGoBack} title="后退">
+                        <ArrowBackIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={goForward} disabled={!canGoForward} title="前进">
+                        <ArrowForwardIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={goUp} disabled={!canGoUp} title="上级目录">
+                        <ArrowUpwardIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={handleRefresh} title="刷新">
+                        <RefreshIcon fontSize="small" />
+                    </IconButton>
+                </Box>
+
+                {/* Address Bar (Breadcrumbs) */}
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', bgcolor: 'action.hover', borderRadius: 1, px: 1, height: 32 }}>
+                    <FileBreadcrumbs
+                        currentPath={currentPath}
+                        locations={locations}
+                        handleNavigate={handleNavigate}
+                    />
+                </Box>
+            </Box>
+
+            {/* Row 2: Search, Filter, Sort, View */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
                 {/* Left Side: Search and Active Filters */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 300 }}>
@@ -237,13 +286,8 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                     )}
                 </Box>
 
-                {/* Right Side: View Controls & Refresh */}
+                {/* Right Side: View Controls */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {/* Refresh */}
-                    <IconButton onClick={handleRefresh} title="刷新" size="small">
-                        <RefreshIcon fontSize="small" />
-                    </IconButton>
-
                     {/* Sort */}
                     <Tooltip title="排序">
                         <IconButton onClick={handleOpenSortMenu} size="small">

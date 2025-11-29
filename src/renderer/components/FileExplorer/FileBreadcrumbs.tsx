@@ -53,7 +53,7 @@ export const FileBreadcrumbs: React.FC<FileBreadcrumbsProps> = ({
     const segments = relativePart ? relativePart.split(/[/\\]/) : [];
 
     return (
-        <Box sx={{ mb: 2, px: 1 }}>
+        <Box>
             <Breadcrumbs
                 separator={<NavigateNextIcon fontSize="small" />}
                 aria-label="breadcrumb"

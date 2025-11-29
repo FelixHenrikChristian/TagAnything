@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Location, FileItem, Tag, TagGroup } from '../../types';
 import {
     parseTagsFromFilename,
@@ -16,6 +16,10 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
     const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
     const [fileTags, setFileTags] = useState<Map<string, Tag[]>>(new Map());
     const [videoThumbnails, setVideoThumbnails] = useState<Map<string, string>>(new Map());
+
+    // History State
+    const [history, setHistory] = useState<string[]>([]);
+    const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
     // Load/Save Grid Size
     useEffect(() => {
@@ -258,11 +262,73 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         await scanAllFilesForTags(location.path, effectiveGroups);
     }, [getEffectiveTagGroups, loadFiles, scanAllFilesForTags]);
 
-    const handleNavigate = useCallback(async (path: string) => {
+    const handleHistoryNavigate = useCallback(async (path: string) => {
         setCurrentPath(path);
-        // Note: clearFilter is not here
         await loadFiles(path);
     }, [loadFiles]);
+
+    const handleNavigate = useCallback(async (path: string) => {
+        // If path is same as current, do nothing
+        if (path === currentPath) return;
+
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(path);
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+
+        setCurrentPath(path);
+        await loadFiles(path);
+    }, [currentPath, history, historyIndex, loadFiles]);
+
+    const goBack = useCallback(() => {
+        if (historyIndex > 0) {
+            const newIndex = historyIndex - 1;
+            setHistoryIndex(newIndex);
+            handleHistoryNavigate(history[newIndex]);
+        }
+    }, [history, historyIndex, handleHistoryNavigate]);
+
+    const goForward = useCallback(() => {
+        if (historyIndex < history.length - 1) {
+            const newIndex = historyIndex + 1;
+            setHistoryIndex(newIndex);
+            handleHistoryNavigate(history[newIndex]);
+        }
+    }, [history, historyIndex, handleHistoryNavigate]);
+
+    const canGoUp = useMemo(() => {
+        if (!currentPath) return false;
+
+        // Check if current path is a root of any defined location
+        const normalize = (p: string) => p.replace(/[/\\]/g, '/').replace(/\/$/, '').toLowerCase();
+        const normalizedCurrent = normalize(currentPath);
+
+        const isLocationRoot = locations.some(loc => normalize(loc.path) === normalizedCurrent);
+        if (isLocationRoot) return false;
+
+        // Check if it's a drive root
+        const isDriveRoot = /^[a-zA-Z]:[\\/]?$/.test(currentPath);
+        if (isDriveRoot) return false;
+
+        return true;
+    }, [currentPath, locations]);
+
+    const goUp = useCallback(() => {
+        if (canGoUp && currentPath) {
+            const parts = currentPath.split(/[/\\]/);
+            // If ends with slash, pop it first
+            if (parts[parts.length - 1] === '') parts.pop();
+
+            parts.pop(); // Remove current folder
+
+            let parentPath = parts.join('\\');
+            if (parentPath.endsWith(':')) parentPath += '\\'; // Fix drive root C: -> C:\
+
+            if (parentPath && parentPath !== currentPath) {
+                handleNavigate(parentPath);
+            }
+        }
+    }, [currentPath, handleNavigate, canGoUp]);
 
     const handleRefresh = useCallback(async (isFiltering: boolean, filteredFiles: FileItem[]) => {
         if (currentLocation) {
@@ -328,11 +394,15 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         return () => {
             window.removeEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
         };
-    }, []); // Empty deps to run once, but handleLocationSelect is a dep? 
-    // If we add handleLocationSelect to deps, it might run multiple times.
-    // But handleLocationSelect is stable due to useCallback.
-    // However, we only want this to run ONCE on mount.
-    // The original code had empty deps.
+    }, []);
+
+    // Initialize history with first path
+    useEffect(() => {
+        if (currentPath && history.length === 0) {
+            setHistory([currentPath]);
+            setHistoryIndex(0);
+        }
+    }, [currentPath]);
 
     const getFileTags = useCallback((file: FileItem): Tag[] => {
         return fileTags.get(file.path) || [];
@@ -363,5 +433,12 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         getFileTags,
         getEffectiveTagGroups,
         generateVideoThumbnails: generateVideoThumbnailsImpl,
+        // History exports
+        goBack,
+        goForward,
+        goUp,
+        canGoBack: historyIndex > 0,
+        canGoForward: historyIndex < history.length - 1,
+        canGoUp,
     };
 };
