@@ -7,7 +7,7 @@ import { useFileContextMenu } from '../hooks/fileExplorer/useFileContextMenu';
 import { useFileDrag } from '../hooks/fileExplorer/useFileDrag';
 
 import { ExplorerToolbar } from './FileExplorer/ExplorerToolbar';
-import { ExplorerStats } from './FileExplorer/ExplorerStats';
+import { ExplorerStatusBar } from './FileExplorer/ExplorerStatusBar';
 import { FileList } from './FileExplorer/FileList';
 import { FileGrid } from './FileExplorer/FileGrid';
 import { ExplorerDialogs } from './FileExplorer/ExplorerDialogs';
@@ -210,13 +210,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
         onContextMenu={handleBlankContextMenu}
         onClick={handleCloseContextMenu}
       >
-        {/* Stats */}
-        <ExplorerStats
-          files={files}
-          filteredFiles={filteredFiles}
-          isFiltering={isFiltering}
-        />
-
         {/* File View */}
         {viewMode === 'list' ? (
           <FileList
@@ -248,6 +241,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
           />
         )}
       </Box>
+
+      {/* Status Bar */}
+      <ExplorerStatusBar count={isFiltering ? filteredFiles.length : files.length} />
 
       {/* Dialogs */}
       <ExplorerDialogs
