@@ -101,7 +101,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     const gridItemWidth = getGridItemSize();
     const iconSize = getIconSize();
     const thumbnailHeight = Math.floor(gridItemWidth * 0.6);
-    const fileInfoHeight = 52;
+    const fileInfoHeight = 40;
     const tagOverlayHeight = 'calc(100% - 8px)';
 
     const getFileExtension = (fileName: string): string => {
@@ -139,7 +139,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     key={file.path}
                     draggable={false}
                     sx={{
-                        height: thumbnailHeight + fileInfoHeight + 8,
+                        height: thumbnailHeight + fileInfoHeight,
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
@@ -172,6 +172,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
 
                         const isTagDragging = e.dataTransfer.types.includes('application/json') || (!!dragState.isDragging && !!dragState.draggedTag);
                         if (isTagDragging) {
+                            if (file.isDirectory) return; // Disable tagging for folders
                             e.dataTransfer.dropEffect = 'copy';
                             setDragState(prev => ({
                                 ...prev,
@@ -185,6 +186,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                         e.stopPropagation();
 
                         try {
+                            if (file.isDirectory) return; // Disable tagging for folders
                             const data = e.dataTransfer.getData('application/json');
                             if (data) {
                                 const draggedData = JSON.parse(data);
@@ -202,7 +204,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     }}
                 >
                     {/* Tag Overlay */}
-                    {(getFileTags(file).length > 0 || (dragState.targetFile?.path === file.path && dragState.isDragging)) && (
+                    {!file.isDirectory && (getFileTags(file).length > 0 || (dragState.targetFile?.path === file.path && dragState.isDragging)) && (
                         <Box
                             sx={{
                                 position: 'absolute',
@@ -216,7 +218,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                                 maxHeight: tagOverlayHeight,
                                 overflow: 'hidden',
                                 minHeight: dragState.targetFile?.path === file.path && dragState.isDragging ? '18px' : 'auto',
-                                justifyContent: 'center',
+                                justifyContent: 'flex-start',
                             }}
                             onDragOver={(e) => {
                                 e.preventDefault();
@@ -509,7 +511,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                             justifyContent: 'center',
                             backgroundColor: file.isDirectory ? 'transparent' : 'grey.50',
                             position: 'relative',
-                            mb: 1,
+                            mb: 0,
                         }}
                     >
                         {file.isDirectory ? (
@@ -524,7 +526,6 @@ export const FileGrid: React.FC<FileGridProps> = ({
                                         width: '100%',
                                         height: '100%',
                                         objectFit: 'cover',
-                                        borderRadius: 1,
                                     }}
                                 />
                             ) : (
@@ -540,26 +541,12 @@ export const FileGrid: React.FC<FileGridProps> = ({
                             p: 0.5,
                             display: 'flex',
                             flexDirection: 'column',
-                            justifyContent: 'flex-start',
+                            justifyContent: 'space-between',
                             '&:last-child': { pb: 0.5 }
                         }}
                     >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0 }}>
-                            {!file.isDirectory && getFileExtension(file.name) && (
-                                <Chip
-                                    size="small"
-                                    label={getFileExtension(file.name)}
-                                    sx={{
-                                        height: '16px',
-                                        fontSize: '0.6rem',
-                                        backgroundColor: 'primary.main',
-                                        color: 'primary.contrastText',
-                                        fontWeight: 'bold',
-                                        borderRadius: '4px',
-                                        '& .MuiChip-label': { px: 0.4 }
-                                    }}
-                                />
-                            )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0, width: '100%', mt: file.isDirectory ? 'auto' : 0 }}>
+
                             <Tooltip title={file.name} placement="top" arrow>
                                 <Typography
                                     variant="body2"
@@ -580,21 +567,42 @@ export const FileGrid: React.FC<FileGridProps> = ({
                         </Box>
 
                         {!file.isDirectory && (
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
+                            <Box sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                mt: 0,
+                                width: '100%',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
+                                    {getFileExtension(file.name) && (
+                                        <Chip
+                                            size="small"
+                                            label={getFileExtension(file.name)}
+                                            sx={{
+                                                height: '16px',
+                                                fontSize: '0.6rem',
+                                                backgroundColor: 'primary.main',
+                                                color: 'primary.contrastText',
+                                                fontWeight: 'bold',
+                                                borderRadius: '4px',
+                                                '& .MuiChip-label': { px: 0.4 }
+                                            }}
+                                        />
+                                    )}
+                                    <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
+                                        {formatFileSize(file.size || 0)}
+                                    </Typography>
+                                </Box>
+                                <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: '0.65rem', lineHeight: 1, ml: 1, flexShrink: 0 }}>
                                     {formatModifiedDate(new Date(file.modified))}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
-                                    {formatFileSize(file.size || 0)}
                                 </Typography>
                             </Box>
                         )}
 
-                        {file.isDirectory && (
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1, mt: 'auto' }}>
-                                {formatModifiedDate(new Date(file.modified))}
-                            </Typography>
-                        )}
+
                     </CardContent>
                 </Card>
             ))}
