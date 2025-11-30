@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Box } from '@mui/material';
+import { DragEndEvent } from '@dnd-kit/core';
 import { useFileExplorerState } from '../hooks/fileExplorer/useFileExplorerState';
 import { useFileFilter } from '../hooks/fileExplorer/useFileFilter';
 import { useFileOperations } from '../hooks/fileExplorer/useFileOperations';
@@ -17,7 +18,11 @@ interface FileExplorerProps {
   tagDisplayStyle?: 'original' | 'library';
 }
 
-const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original' }) => {
+export interface FileExplorerHandle {
+  handleDragEnd: (event: DragEndEvent) => void;
+}
+
+const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDisplayStyle = 'original' }, ref) => {
   // 1. Core State
   const {
     locations,
@@ -113,7 +118,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
     handleFileOperation,
     handleRemoveTagFromFile,
     handleTagDrop,
-    handleTagDropWithPosition,
     reorderTagWithinFile,
     closeNotification,
     closeAddTagDialog,
@@ -162,6 +166,41 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
   const onRefresh = async () => {
     await refreshCore(isFiltering, filteredFiles);
   };
+
+  useImperativeHandle(ref, () => ({
+    handleDragEnd: (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (!over) return;
+
+      // 1. Dragging from Library to File
+      if (active.data.current?.type === 'LIBRARY_TAG' && over.data.current?.type === 'FILE') {
+        const tag = active.data.current.tag;
+        const file = over.data.current.file;
+        handleTagDrop(file, tag);
+      }
+
+      // 2. Reordering within File
+      if (active.data.current?.type === 'FILE_TAG' && over.data.current?.type === 'FILE_TAG') {
+        const activeTag = active.data.current.tag;
+        const overTag = over.data.current.tag;
+        const activeFilePath = active.data.current.filePath;
+        const overFilePath = over.data.current.filePath;
+
+        if (activeFilePath === overFilePath) {
+          const file = files.find(f => f.path === activeFilePath);
+          if (file) {
+            const tags = getFileTags(file);
+            const oldIndex = tags.findIndex(t => t.id === activeTag.id);
+            const newIndex = tags.findIndex(t => t.id === overTag.id);
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+              reorderTagWithinFile(file, oldIndex, newIndex);
+            }
+          }
+        }
+      }
+    }
+  }));
 
   // 8. Render
   return (
@@ -233,10 +272,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
             getFileTags={getFileTags}
             tagDisplayStyle={tagDisplayStyle}
             gridSize={gridSize}
-            dragState={dragState}
-            setDragState={setDragState}
             handleTagDrop={handleTagDrop}
-            handleTagDropWithPosition={handleTagDropWithPosition}
             reorderTagWithinFile={reorderTagWithinFile}
           />
         )}
@@ -316,6 +352,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ tagDisplayStyle = 'original
       />
     </Box>
   );
-};
+});
 
 export default FileExplorer;

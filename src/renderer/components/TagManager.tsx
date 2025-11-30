@@ -44,6 +44,8 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { Tag, TagGroup } from '../types';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 
 const predefinedColors = [
   '#f44336', '#e91e63', '#9c27b0', '#673ab7',
@@ -77,6 +79,56 @@ function TabPanel(props: TabPanelProps) {
     </div>
   );
 }
+
+const DraggableTag = ({ tag, onClick }: { tag: Tag; onClick: (e: React.MouseEvent<HTMLElement>) => void }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: tag.id,
+    data: {
+      type: 'LIBRARY_TAG',
+      tag,
+    },
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+    display: 'inline-block',
+  };
+
+  return (
+    <Box
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      sx={{ display: 'inline-block' }}
+    >
+      <Chip
+        label={tag.name}
+        onClick={onClick}
+        size="small"
+        sx={{
+          bgcolor: tag.color,
+          color: tag.textcolor || 'white',
+          fontWeight: 500,
+          borderRadius: 0.8,
+          height: 24,
+          fontSize: '0.8rem',
+          cursor: 'grab',
+          transition: 'all 0.2s',
+          '&:hover': {
+            bgcolor: tag.color,
+            opacity: 0.8,
+            transform: 'scale(1.05)',
+          },
+          '&:active': {
+            cursor: 'grabbing',
+          },
+        }}
+      />
+    </Box>
+  );
+};
 
 const TagManager: React.FC = () => {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
@@ -541,75 +593,12 @@ const TagManager: React.FC = () => {
                     ) : (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {group.tags.map((tag) => (
-                          <Chip
+                          <DraggableTag
                             key={tag.id}
-                            label={tag.name}
-                            draggable={true}
+                            tag={tag}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenTagMenu(e, tag);
-                            }}
-                            onDragStart={(e) => {
-                              e.stopPropagation();
-                              // 设置拖拽数据
-                              e.dataTransfer.setData('application/json', JSON.stringify({
-                                type: 'tag',
-                                tag: tag
-                              }));
-                              e.dataTransfer.effectAllowed = 'copy';
-
-                              // 创建拖拽预览
-                              const dragImage = document.createElement('div');
-                              dragImage.style.cssText = `
-                                position: absolute;
-                                top: -1000px;
-                                left: -1000px;
-                                background: ${tag.color};
-                                color: ${tag.textcolor || 'white'};
-                                padding: 4px 8px;
-                                border-radius: 4px;
-                                font-size: 12px;
-                                font-weight: 500;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                                z-index: 9999;
-                              `;
-                              dragImage.textContent = tag.name;
-                              document.body.appendChild(dragImage);
-
-                              e.dataTransfer.setDragImage(dragImage, 0, 0);
-
-                              // 发送全局拖拽开始事件
-                              window.dispatchEvent(new CustomEvent('tagDragStart', {
-                                detail: { tag }
-                              }));
-
-                              // 清理拖拽预览元素
-                              setTimeout(() => {
-                                document.body.removeChild(dragImage);
-                              }, 0);
-                            }}
-                            onDragEnd={() => {
-                              // 发送全局拖拽结束事件
-                              window.dispatchEvent(new CustomEvent('tagDragEnd'));
-                            }}
-                            size="small"
-                            sx={{
-                              bgcolor: tag.color,
-                              color: tag.textcolor || 'white', // 使用标签的文字颜色
-                              fontWeight: 500,
-                              borderRadius: 0.8,
-                              height: 24,
-                              fontSize: '0.8rem',
-                              cursor: 'grab',
-                              transition: 'all 0.2s',
-                              '&:hover': {
-                                bgcolor: tag.color,
-                                opacity: 0.8,
-                                transform: 'scale(1.05)',
-                              },
-                              '&:active': {
-                                cursor: 'grabbing',
-                              },
                             }}
                           />
                         ))}

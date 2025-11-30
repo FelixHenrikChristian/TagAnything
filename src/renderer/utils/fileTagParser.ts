@@ -12,11 +12,11 @@ export function parseTagsFromFilename(filename: string): string[] {
   if (!tagMatch) {
     return [];
   }
-  
+
   // 提取标签字符串并按空格分割
   const tagString = tagMatch[1];
   const tags = tagString.split(/\s+/).filter(tag => tag.trim().length > 0);
-  
+
   return tags;
 }
 
@@ -32,17 +32,17 @@ export function createTagsFromNames(tagNames: string[], tagGroups: TagGroup[]): 
 } {
   const matchedTags: Tag[] = [];
   const unmatchedTags: string[] = [];
-  
+
   tagNames.forEach(tagName => {
     // 查找现有标签
     let existingTag: Tag | undefined;
     for (const group of tagGroups) {
-      existingTag = group.tags.find(tag => 
+      existingTag = group.tags.find(tag =>
         tag.name.toLowerCase() === tagName.toLowerCase()
       );
       if (existingTag) break;
     }
-    
+
     if (existingTag) {
       // 使用现有标签
       matchedTags.push(existingTag);
@@ -51,7 +51,7 @@ export function createTagsFromNames(tagNames: string[], tagGroups: TagGroup[]): 
       unmatchedTags.push(tagName);
     }
   });
-  
+
   return { matchedTags, unmatchedTags };
 }
 
@@ -82,13 +82,13 @@ function getDefaultTagColor(tagName: string): string {
     '#009688', '#4caf50', '#8bc34a', '#cddc39',
     '#ffeb3b', '#ffc107', '#ff9800', '#ff5722',
   ];
-  
+
   // 基于标签名称的哈希值选择颜色
   let hash = 0;
   for (let i = 0; i < tagName.length; i++) {
     hash = tagName.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   return colors[Math.abs(hash) % colors.length];
 }
 
@@ -100,7 +100,7 @@ function getDefaultTagColor(tagName: string): string {
  */
 export function addTagsToSystem(newTags: Tag[], tagGroups: TagGroup[]): TagGroup[] {
   const updatedGroups = [...tagGroups];
-  
+
   // 确保有默认标签组
   let defaultGroup = updatedGroups.find(g => g.id === 'default');
   if (!defaultGroup) {
@@ -113,19 +113,19 @@ export function addTagsToSystem(newTags: Tag[], tagGroups: TagGroup[]): TagGroup
     };
     updatedGroups.push(defaultGroup);
   }
-  
+
   // 添加新标签到默认组
   newTags.forEach(newTag => {
     // 检查标签是否已存在
-    const exists = updatedGroups.some(group => 
+    const exists = updatedGroups.some(group =>
       group.tags.some(tag => tag.name.toLowerCase() === newTag.name.toLowerCase())
     );
-    
+
     if (!exists) {
       defaultGroup!.tags.push(newTag);
     }
   });
-  
+
   return updatedGroups;
 }
 
@@ -146,7 +146,7 @@ export function getDisplayName(filename: string): string {
  */
 export function getFileTypeColor(extension?: string): string {
   if (!extension) return '#757575';
-  
+
   const colorMap: { [key: string]: string } = {
     // 图片
     'jpg': '#4caf50', 'jpeg': '#4caf50', 'png': '#4caf50', 'gif': '#4caf50', 'bmp': '#4caf50', 'svg': '#4caf50',
@@ -161,7 +161,7 @@ export function getFileTypeColor(extension?: string): string {
     // 代码
     'js': '#ffeb3b', 'ts': '#2196f3', 'html': '#ff5722', 'css': '#2196f3', 'py': '#4caf50', 'java': '#ff9800',
   };
-  
+
   return colorMap[extension.toLowerCase()] || '#757575';
 }
 
@@ -172,10 +172,10 @@ export function getFileTypeColor(extension?: string): string {
  */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
-  
+
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }

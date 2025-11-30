@@ -496,23 +496,9 @@ export const useFileOperations = (
             const tagToMove = currentTags[sourceIndex];
             if (!tagToMove) return;
 
-            const withoutTag = currentTags.filter((_, idx) => idx !== sourceIndex);
-
-            let adjustedIndex: number;
-            if (targetIndex === -1 || targetIndex >= currentTags.length) {
-                adjustedIndex = withoutTag.length;
-            } else {
-                adjustedIndex = targetIndex;
-                if (sourceIndex < targetIndex) {
-                    adjustedIndex = Math.max(0, targetIndex - 1);
-                }
-            }
-
-            const newTags = [
-                ...withoutTag.slice(0, adjustedIndex),
-                tagToMove,
-                ...withoutTag.slice(adjustedIndex),
-            ];
+            const newTags = [...currentTags];
+            const [removed] = newTags.splice(sourceIndex, 1);
+            newTags.splice(targetIndex, 0, removed);
 
             await updateFileWithTags(file, newTags);
             showNotification(`已重排文件 "${getDisplayName(file.name)}" 的标签`, 'success');

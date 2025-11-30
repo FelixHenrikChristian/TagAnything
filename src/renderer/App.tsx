@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ThemeProvider,
   createTheme,
@@ -53,9 +53,21 @@ import {
   SystemUpdate as UpdateIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  MouseSensor,
+  DragStartEvent,
+  DragEndEvent,
+  closestCenter,
+} from '@dnd-kit/core';
+
 import LocationManager from './components/LocationManager';
 import TagManager from './components/TagManager';
-import FileExplorer from './components/FileExplorer';
+import FileExplorer, { FileExplorerHandle } from './components/FileExplorer';
 
 const DRAWER_WIDTH = 280;
 
@@ -215,6 +227,31 @@ const App: React.FC = () => {
   const [tagDisplayStyle, setTagDisplayStyle] = useState<'original' | 'library'>('original');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+
+  // Drag and Drop State
+  const [activeDragItem, setActiveDragItem] = useState<any>(null);
+  const fileExplorerRef = useRef<FileExplorerHandle>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(MouseSensor)
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveDragItem(active.data.current);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragItem(null);
+    if (fileExplorerRef.current) {
+      fileExplorerRef.current.handleDragEnd(event);
+    }
+  };
 
   // 监听来自 FileExplorer 的全量清除事件，确保 AppBar 搜索框与筛选提示同步清空
   useEffect(() => {
@@ -680,574 +717,590 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', height: '100vh' }}>
-        {/* App Bar */}
-        <AppBar
-          position="fixed"
-          sx={{
-            zIndex: theme.zIndex.drawer + 1,
-            transition: theme.transitions.create(['width', 'margin'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.leavingScreen,
-            }),
-          }}
-        >
-          <Toolbar>
-            <IconButton
-              color="inherit"
-              aria-label="toggle drawer"
-              onClick={handleDrawerToggle}
-              edge="start"
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <Box sx={{ display: 'flex', height: '100vh' }}>
+          {/* App Bar */}
+          <AppBar
+            position="fixed"
+            sx={{
+              zIndex: theme.zIndex.drawer + 1,
+              transition: theme.transitions.create(['width', 'margin'], {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.leavingScreen,
+              }),
+            }}
+          >
+            <Toolbar>
+              <IconButton
+                color="inherit"
+                aria-label="toggle drawer"
+                onClick={handleDrawerToggle}
+                edge="start"
+                sx={{ mr: 2 }}
+              >
+                <MenuIcon />
+              </IconButton>
 
-            <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, mr: 3 }}>
-              TagAnything
-            </Typography>
+              <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, mr: 3 }}>
+                TagAnything
+              </Typography>
 
+              <IconButton color="inherit" onClick={handleThemeToggle}>
+                {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
 
+              <IconButton
+                color="inherit"
+                onClick={handleTagDisplayStyleToggle}
+                title={`标签样式: ${tagDisplayStyle === 'original' ? '原始' : '标签库'}`}
+              >
+                <StyleIcon />
+              </IconButton>
 
-            <IconButton color="inherit" onClick={handleThemeToggle}>
-              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
+              <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
+                <SettingsIcon />
+              </IconButton>
+            </Toolbar>
+          </AppBar>
 
-            <IconButton
-              color="inherit"
-              onClick={handleTagDisplayStyleToggle}
-              title={`标签样式: ${tagDisplayStyle === 'original' ? '原始' : '标签库'}`}
-            >
-              <StyleIcon />
-            </IconButton>
-
-            <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
-              <SettingsIcon />
-            </IconButton>
-          </Toolbar>
-        </AppBar>
-
-        {/* Sidebar Drawer */}
-        <Drawer
-          variant="persistent"
-          anchor="left"
-          open={drawerOpen}
-          sx={{
-            width: DRAWER_WIDTH,
-            flexShrink: 0,
-            '& .MuiDrawer-paper': {
+          {/* Sidebar Drawer */}
+          <Drawer
+            variant="persistent"
+            anchor="left"
+            open={drawerOpen}
+            sx={{
               width: DRAWER_WIDTH,
-              boxSizing: 'border-box',
-            },
-          }}
-        >
-          <Toolbar />
-          <Box sx={{ overflow: 'auto', p: 1 }}>
-            <List>
-              {menuItems.map((item) => (
-                <ListItem
-                  key={item.id}
-                  button
-                  selected={sidebarView === item.view}
-                  onClick={() => setSidebarView(sidebarView === item.view ? null : item.view)}
-                >
-                  <ListItemIcon sx={{ color: 'inherit' }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.label}
-                    primaryTypographyProps={{
-                      fontWeight: sidebarView === item.view ? 600 : 400,
-                    }}
-                  />
-                </ListItem>
-              ))}
-            </List>
+              flexShrink: 0,
+              '& .MuiDrawer-paper': {
+                width: DRAWER_WIDTH,
+                boxSizing: 'border-box',
+              },
+            }}
+          >
+            <Toolbar />
+            <Box sx={{ overflow: 'auto', p: 1 }}>
+              <List>
+                {menuItems.map((item) => (
+                  <ListItem
+                    key={item.id}
+                    button
+                    selected={sidebarView === item.view}
+                    onClick={() => setSidebarView(sidebarView === item.view ? null : item.view)}
+                  >
+                    <ListItemIcon sx={{ color: 'inherit' }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.label}
+                      primaryTypographyProps={{
+                        fontWeight: sidebarView === item.view ? 600 : 400,
+                      }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
 
-            <Divider sx={{ my: 2 }} />
+              <Divider sx={{ my: 2 }} />
 
-            {/* Sidebar Content */}
-            <Box sx={{ p: 1 }}>
-              {renderSidebarContent()}
+              {/* Sidebar Content */}
+              <Box sx={{ p: 1 }}>
+                {renderSidebarContent()}
+              </Box>
+            </Box>
+          </Drawer>
+
+          {/* Main Content */}
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              transition: theme.transitions.create('margin', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.leavingScreen,
+              }),
+              marginLeft: drawerOpen ? 0 : `-${DRAWER_WIDTH}px`,
+            }}
+          >
+            <Toolbar />
+            <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
+              <Paper
+                elevation={1}
+                sx={{
+                  p: 3,
+                  height: '100%',
+                  borderRadius: 2,
+                  backgroundColor: theme.palette.background.paper,
+                }}
+              >
+                <FileExplorer ref={fileExplorerRef} tagDisplayStyle={tagDisplayStyle} />
+              </Paper>
             </Box>
           </Box>
-        </Drawer>
 
-        {/* Main Content */}
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            transition: theme.transitions.create('margin', {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.leavingScreen,
-            }),
-            marginLeft: drawerOpen ? 0 : `-${DRAWER_WIDTH}px`,
-          }}
-        >
-          <Toolbar />
-          <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
-            <Paper
-              elevation={1}
-              sx={{
-                p: 3,
-                height: '100%',
-                borderRadius: 2,
-                backgroundColor: theme.palette.background.paper,
-              }}
-            >
-              <FileExplorer tagDisplayStyle={tagDisplayStyle} />
-            </Paper>
-          </Box>
-        </Box>
-
-        {/* Removed unused floating action button to clean up UI */}
-
-        {/* Settings Dialog */}
-        <Dialog
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>设置</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-              {/* Window Settings */}
-              <Grid item xs={12}>
-                <Box sx={{
-                  p: 3,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  bgcolor: 'background.paper',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                }}>
-                  <Typography variant="h6" sx={{
-                    mb: 2,
-                    color: 'primary.main',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
+          {/* Settings Dialog */}
+          <Dialog
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>设置</DialogTitle>
+            <DialogContent>
+              <Grid container spacing={3} sx={{ mt: 1 }}>
+                {/* Window Settings */}
+                <Grid item xs={12}>
+                  <Box sx={{
+                    p: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                   }}>
-                    🪟 窗口设置
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    默认窗口大小: 1280 × 960 像素
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    窗口大小会自动保存，下次启动时恢复
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={handleResetWindowSize}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    重置窗口大小
-                  </Button>
-                </Box>
-              </Grid>
-
-              {/* Cache Management */}
-              <Grid item xs={12}>
-                <Box sx={{
-                  p: 3,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  bgcolor: 'background.paper',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                }}>
-                  <Typography variant="h6" sx={{
-                    mb: 2,
-                    color: 'warning.main',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    🗂️ 缓存管理
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    清除所有应用缓存数据，包括位置信息、标签组、视频缩略图等
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={() => setClearCacheConfirmOpen(true)}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    清除所有缓存
-                  </Button>
-                </Box>
-              </Grid>
-
-              {/* Auto Update Settings */}
-              <Grid item xs={12}>
-                <Box sx={{
-                  p: 3,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  bgcolor: 'background.paper',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                }}>
-                  <Typography variant="h6" sx={{
-                    mb: 2,
-                    color: 'success.main',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    🔄 自动更新
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Box>
-                      <Typography variant="body2" color="text.primary">
-                        启动时自动检查更新
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                        应用启动时自动检查是否有新版本可用
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={autoUpdateEnabled}
-                      onChange={(e) => handleAutoUpdateToggle(e.target.checked)}
-                      color="primary"
-                    />
-                  </Box>
-
-                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Typography variant="h6" sx={{
+                      mb: 2,
+                      color: 'primary.main',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      🪟 窗口设置
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      默认窗口大小: 1280 × 960 像素
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      窗口大小会自动保存，下次启动时恢复
+                    </Typography>
                     <Button
                       variant="outlined"
                       color="primary"
-                      onClick={handleCheckForUpdates}
-                      disabled={checkingForUpdates}
+                      onClick={handleResetWindowSize}
                       sx={{ textTransform: 'none' }}
                     >
-                      {checkingForUpdates ? '检查中...' : '手动检查更新'}
+                      重置窗口大小
                     </Button>
-
-                    {updateAvailable && !updateDownloaded && (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleDownloadUpdate}
-                        disabled={updateDownloading}
-                        startIcon={updateDownloading ? <CircularProgress size={16} /> : <DownloadIcon />}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        {updateDownloading ? `下载中 ${Math.round(updateProgress)}%` : '下载更新'}
-                      </Button>
-                    )}
-
-                    {updateDownloaded && (
-                      <Button
-                        variant="contained"
-                        color="success"
-                        onClick={handleInstallUpdate}
-                        startIcon={<UpdateIcon />}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        安装并重启
-                      </Button>
-                    )}
                   </Box>
+                </Grid>
 
-                  {updateDownloading && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        下载进度: {Math.round(updateProgress)}%
-                      </Typography>
-                      <LinearProgress variant="determinate" value={updateProgress} />
-                    </Box>
-                  )}
-
-                  {updateError && (
-                    <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-                      {updateError}
-                    </Typography>
-                  )}
-                </Box>
-              </Grid>
-
-              {/* About */}
-              <Grid item xs={12}>
-                <Box sx={{
-                  p: 3,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  bgcolor: 'background.paper',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                }}>
-                  <Typography variant="h6" sx={{
-                    mb: 2,
-                    color: 'info.main',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
+                {/* Cache Management */}
+                <Grid item xs={12}>
+                  <Box sx={{
+                    p: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                   }}>
-                    ℹ️ 关于
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Typography variant="body2" color="text.primary">
-                      <strong>TagAnything</strong>
+                    <Typography variant="h6" sx={{
+                      mb: 2,
+                      color: 'warning.main',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      🗂️ 缓存管理
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      版本: {appVersion}
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      清除所有应用缓存数据，包括位置信息、标签组、视频缩略图等
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      一个功能强大的标签管理工具
-                    </Typography>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      onClick={() => setClearCacheConfirmOpen(true)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      清除所有缓存
+                    </Button>
                   </Box>
-                </Box>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setSettingsOpen(false)} color="primary">
-              关闭
-            </Button>
-          </DialogActions>
-        </Dialog>
+                </Grid>
 
-        {/* Multi-Tag Filter Dialog */}
-        <Dialog
-          open={multiTagDialogOpen}
-          onClose={handleCloseMultiTagDialog}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            选择多个标签进行筛选
-          </DialogTitle>
-          <DialogContent>
-            {(() => {
-              const groups = getTagGroupsFromStorage();
-              if (!groups.length) {
-                return (
-                  <Typography variant="body2" color="text.secondary">
-                    暂无标签，请先在「标签管理」中创建标签。
-                  </Typography>
-                );
-              }
-              return (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {groups.map((g) => (
-                    <Box key={g.id}>
-                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                        {g.name}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {g.tags.map((t) => {
-                          const selected = multiTagSelectedIds.includes(t.id);
-                          return (
-                            <Chip
-                              key={t.id}
-                              label={t.name}
-                              onClick={() => toggleSelectMultiTag(t.id)}
-                              color={selected ? 'primary' : 'default'}
-                              variant={selected ? 'filled' : 'outlined'}
-                              sx={{ cursor: 'pointer' }}
-                            />
-                          );
-                        })}
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              );
-            })()}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseMultiTagDialog}>取消</Button>
-            <Button onClick={() => setMultiTagSelectedIds([])}>清空选择</Button>
-            <Button variant="contained" onClick={handleConfirmMultiTagFilter}>应用</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Clear Cache Confirmation Dialog */}
-        <Dialog
-          open={clearCacheConfirmOpen}
-          onClose={() => setClearCacheConfirmOpen(false)}
-          aria-labelledby="clear-cache-dialog-title"
-        >
-          <DialogTitle id="clear-cache-dialog-title">
-            确认清除缓存
-          </DialogTitle>
-          <DialogContent>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              您确定要清除所有缓存数据吗？
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              此操作将清除以下数据：
-            </Typography>
-            <Typography variant="body2" color="text.secondary" component="ul" sx={{ mt: 1, pl: 2 }}>
-              <li>所有位置信息</li>
-              <li>标签组设置</li>
-              <li>视频缩略图缓存</li>
-              <li>过滤器设置</li>
-              <li>其他应用设置</li>
-            </Typography>
-            <Typography variant="body2" color="warning.main" sx={{ mt: 2, fontWeight: 'bold' }}>
-              此操作无法撤销，应用将重新加载。
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setClearCacheConfirmOpen(false)} color="primary">
-              取消
-            </Button>
-            <Button onClick={handleClearCache} color="warning" variant="contained">
-              确认清除
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Update Notification Dialog */}
-        <Dialog
-          open={updateDialogOpen}
-          onClose={() => setUpdateDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <UpdateIcon color="primary" />
-              发现新版本
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            {updateInfo && (
-              <Box>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  有新版本可用，是否要下载并安装？
-                </Typography>
-                <Box sx={{
-                  bgcolor: 'background.default',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  p: 2,
-                  borderRadius: 1,
-                  mb: 2
-                }}>
-                  <Typography variant="body2" color="text.primary">
-                    <strong>当前版本:</strong> {updateInfo.currentVersion}
-                  </Typography>
-                  <Typography variant="body2" color="text.primary">
-                    <strong>最新版本:</strong> {updateInfo.version}
-                  </Typography>
-                  {updateInfo.releaseDate && (
-                    <Typography variant="body2" color="text.primary">
-                      <strong>发布日期:</strong> {new Date(updateInfo.releaseDate).toLocaleDateString('zh-CN')}
+                {/* Auto Update Settings */}
+                <Grid item xs={12}>
+                  <Box sx={{
+                    p: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}>
+                    <Typography variant="h6" sx={{
+                      mb: 2,
+                      color: 'success.main',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      🔄 自动更新
                     </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box>
+                        <Typography variant="body2" color="text.primary">
+                          启动时自动检查更新
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          应用启动时自动检查是否有新版本可用
+                        </Typography>
+                      </Box>
+                      <Switch
+                        checked={autoUpdateEnabled}
+                        onChange={(e) => handleAutoUpdateToggle(e.target.checked)}
+                        color="primary"
+                      />
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        onClick={handleCheckForUpdates}
+                        disabled={checkingForUpdates}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        {checkingForUpdates ? '检查中...' : '手动检查更新'}
+                      </Button>
+
+                      {updateAvailable && !updateDownloaded && (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={handleDownloadUpdate}
+                          disabled={updateDownloading}
+                          startIcon={updateDownloading ? <CircularProgress size={16} /> : <DownloadIcon />}
+                          sx={{ textTransform: 'none' }}
+                        >
+                          {updateDownloading ? `下载中 ${Math.round(updateProgress)}%` : '下载更新'}
+                        </Button>
+                      )}
+
+                      {updateDownloaded && (
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={handleInstallUpdate}
+                          startIcon={<UpdateIcon />}
+                          sx={{ textTransform: 'none' }}
+                        >
+                          安装并重启
+                        </Button>
+                      )}
+                    </Box>
+
+                    {updateDownloading && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          下载进度: {Math.round(updateProgress)}%
+                        </Typography>
+                        <LinearProgress variant="determinate" value={updateProgress} />
+                      </Box>
+                    )}
+
+                    {updateError && (
+                      <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                        {updateError}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+
+                {/* About */}
+                <Grid item xs={12}>
+                  <Box sx={{
+                    p: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}>
+                    <Typography variant="h6" sx={{
+                      mb: 2,
+                      color: 'info.main',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      ℹ️ 关于
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Typography variant="body2" color="text.primary">
+                        <strong>TagAnything</strong>
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        版本: {appVersion}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        一个功能强大的标签管理工具
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setSettingsOpen(false)} color="primary">
+                关闭
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Multi-Tag Filter Dialog */}
+          <Dialog
+            open={multiTagDialogOpen}
+            onClose={handleCloseMultiTagDialog}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>
+              选择多个标签进行筛选
+            </DialogTitle>
+            <DialogContent>
+              {(() => {
+                const groups = getTagGroupsFromStorage();
+                if (!groups.length) {
+                  return (
+                    <Typography variant="body2" color="text.secondary">
+                      暂无标签，请先在「标签管理」中创建标签。
+                    </Typography>
+                  );
+                }
+                return (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {groups.map((g) => (
+                      <Box key={g.id}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                          {g.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {g.tags.map((t) => {
+                            const selected = multiTagSelectedIds.includes(t.id);
+                            return (
+                              <Chip
+                                key={t.id}
+                                label={t.name}
+                                onClick={() => toggleSelectMultiTag(t.id)}
+                                color={selected ? 'primary' : 'default'}
+                                variant={selected ? 'filled' : 'outlined'}
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                );
+              })()}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseMultiTagDialog}>取消</Button>
+              <Button onClick={() => setMultiTagSelectedIds([])}>清空选择</Button>
+              <Button variant="contained" onClick={handleConfirmMultiTagFilter}>应用</Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Clear Cache Confirmation Dialog */}
+          <Dialog
+            open={clearCacheConfirmOpen}
+            onClose={() => setClearCacheConfirmOpen(false)}
+            aria-labelledby="clear-cache-dialog-title"
+          >
+            <DialogTitle id="clear-cache-dialog-title">
+              确认清除缓存
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                您确定要清除所有缓存数据吗？
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                此操作将清除以下数据：
+              </Typography>
+              <Typography variant="body2" color="text.secondary" component="ul" sx={{ mt: 1, pl: 2 }}>
+                <li>所有位置信息</li>
+                <li>标签组设置</li>
+                <li>视频缩略图缓存</li>
+                <li>过滤器设置</li>
+                <li>其他应用设置</li>
+              </Typography>
+              <Typography variant="body2" color="warning.main" sx={{ mt: 2, fontWeight: 'bold' }}>
+                此操作无法撤销，应用将重新加载。
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setClearCacheConfirmOpen(false)} color="primary">
+                取消
+              </Button>
+              <Button onClick={handleClearCache} color="warning" variant="contained">
+                确认清除
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Update Notification Dialog */}
+          <Dialog
+            open={updateDialogOpen}
+            onClose={() => setUpdateDialogOpen(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <UpdateIcon color="primary" />
+                发现新版本
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              {updateInfo && (
+                <Box>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    有新版本可用，是否要下载并安装？
+                  </Typography>
+                  <Box sx={{
+                    bgcolor: 'background.default',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    p: 2,
+                    borderRadius: 1,
+                    mb: 2
+                  }}>
+                    <Typography variant="body2" color="text.primary">
+                      <strong>当前版本:</strong> {updateInfo.currentVersion}
+                    </Typography>
+                    <Typography variant="body2" color="text.primary">
+                      <strong>最新版本:</strong> {updateInfo.version}
+                    </Typography>
+                    {updateInfo.releaseDate && (
+                      <Typography variant="body2" color="text.primary">
+                        <strong>发布日期:</strong> {new Date(updateInfo.releaseDate).toLocaleDateString('zh-CN')}
+                      </Typography>
+                    )}
+                  </Box>
+                  {updateInfo.releaseNotes && (
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        更新内容:
+                      </Typography>
+                      <Box
+                        sx={{
+                          bgcolor: 'background.paper',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          p: 2,
+                          maxHeight: 300,
+                          overflow: 'auto',
+                          '& h2': {
+                            fontSize: '1.1rem',
+                            fontWeight: 'bold',
+                            margin: '0.5rem 0',
+                            color: 'primary.main'
+                          },
+                          '& h3': {
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            margin: '0.4rem 0',
+                            color: 'text.primary'
+                          },
+                          '& ul': {
+                            margin: '0.5rem 0',
+                            paddingLeft: '1.5rem'
+                          },
+                          '& li': {
+                            margin: '0.2rem 0',
+                            color: 'text.secondary'
+                          },
+                          '& strong': {
+                            color: 'text.primary',
+                            fontWeight: 'bold'
+                          },
+                          '& p': {
+                            margin: '0.5rem 0',
+                            color: 'text.secondary'
+                          },
+                          '& hr': {
+                            margin: '1rem 0',
+                            border: 'none',
+                            borderTop: '1px solid',
+                            borderColor: 'divider'
+                          }
+                        }}
+                        dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
+                      />
+                    </Box>
                   )}
                 </Box>
-                {updateInfo.releaseNotes && (
-                  <Box>
-                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
-                      更新内容:
-                    </Typography>
-                    <Box
-                      sx={{
-                        bgcolor: 'background.paper',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        p: 2,
-                        maxHeight: 300,
-                        overflow: 'auto',
-                        '& h2': {
-                          fontSize: '1.1rem',
-                          fontWeight: 'bold',
-                          margin: '0.5rem 0',
-                          color: 'primary.main'
-                        },
-                        '& h3': {
-                          fontSize: '1rem',
-                          fontWeight: 'bold',
-                          margin: '0.4rem 0',
-                          color: 'text.primary'
-                        },
-                        '& ul': {
-                          margin: '0.5rem 0',
-                          paddingLeft: '1.5rem'
-                        },
-                        '& li': {
-                          margin: '0.2rem 0',
-                          color: 'text.secondary'
-                        },
-                        '& strong': {
-                          color: 'text.primary',
-                          fontWeight: 'bold'
-                        },
-                        '& p': {
-                          margin: '0.5rem 0',
-                          color: 'text.secondary'
-                        },
-                        '& hr': {
-                          margin: '1rem 0',
-                          border: 'none',
-                          borderTop: '1px solid',
-                          borderColor: 'divider'
-                        }
-                      }}
-                      dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
-                    />
-                  </Box>
-                )}
-              </Box>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setUpdateDialogOpen(false)} color="inherit">
-              稍后提醒
-            </Button>
-            <Button
-              onClick={() => {
-                setUpdateDialogOpen(false);
-                // 打开外部链接到GitHub releases页面
-                if (updateInfo?.downloadUrl) {
-                  window.electron.openExternal(updateInfo.downloadUrl);
-                }
-              }}
-              color="primary"
-            >
-              手动下载
-            </Button>
-            <Button
-              onClick={() => {
-                setUpdateDialogOpen(false);
-                handleDownloadUpdate();
-              }}
-              color="primary"
-              variant="contained"
-            >
-              立即更新
-            </Button>
-          </DialogActions>
-        </Dialog>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setUpdateDialogOpen(false)} color="inherit">
+                稍后提醒
+              </Button>
+              <Button
+                onClick={() => {
+                  setUpdateDialogOpen(false);
+                  // 打开外部链接到GitHub releases页面
+                  if (updateInfo?.downloadUrl) {
+                    window.electron.openExternal(updateInfo.downloadUrl);
+                  }
+                }}
+                color="primary"
+              >
+                手动下载
+              </Button>
+              <Button
+                onClick={() => {
+                  setUpdateDialogOpen(false);
+                  handleDownloadUpdate();
+                }}
+                color="primary"
+                variant="contained"
+              >
+                立即更新
+              </Button>
+            </DialogActions>
+          </Dialog>
 
-        {/* Snackbar for notifications */}
-        <Snackbar
-          open={snackbarOpen}
-          autoHideDuration={6000}
-          onClose={handleSnackbarClose}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert
-            severity={snackbarSeverity}
-            variant="filled"
-            sx={{ width: '100%' }}
+          {/* Snackbar for notifications */}
+          <Snackbar
+            open={snackbarOpen}
+            autoHideDuration={6000}
+            onClose={handleSnackbarClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           >
-            {snackbarMessage}
-          </Alert>
-        </Snackbar>
-      </Box>
+            <Alert
+              severity={snackbarSeverity}
+              variant="filled"
+              sx={{ width: '100%' }}
+            >
+              {snackbarMessage}
+            </Alert>
+          </Snackbar>
+        </Box>
+        <DragOverlay>
+          {activeDragItem ? (
+            <Chip
+              label={activeDragItem.tag?.name || 'Tag'}
+              sx={{
+                backgroundColor: activeDragItem.tag?.color || '#e0e0e0',
+                color: activeDragItem.tag?.textcolor || '#000',
+                opacity: 0.8,
+                cursor: 'grabbing',
+              }}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </ThemeProvider>
   );
 };

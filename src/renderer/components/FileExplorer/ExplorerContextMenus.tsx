@@ -286,7 +286,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                     <ListItemIcon>
                         <DeleteIcon fontSize="small" color="error" />
                     </ListItemIcon>
-                    <ListItemText>从文件中删除标签</ListItemText>
+                    <ListItemText>删除文件中标签</ListItemText>
                 </MenuItem>
             </Menu>
         </>
