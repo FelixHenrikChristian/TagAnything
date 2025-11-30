@@ -1289,15 +1289,84 @@ const App: React.FC = () => {
         </Box>
         <DragOverlay>
           {activeDragItem ? (
-            <Chip
-              label={activeDragItem.tag?.name || 'Tag'}
-              sx={{
-                backgroundColor: activeDragItem.tag?.color || '#e0e0e0',
-                color: activeDragItem.tag?.textcolor || '#000',
-                opacity: 0.8,
-                cursor: 'grabbing',
-              }}
-            />
+            (() => {
+              const tag = activeDragItem.tag;
+              const isLibraryTag = activeDragItem.type === 'LIBRARY_TAG';
+
+              if (isLibraryTag) {
+                // Library Tag Style
+                return (
+                  <Chip
+                    label={tag.name}
+                    size="small"
+                    sx={{
+                      bgcolor: tag.color,
+                      color: tag.textcolor || 'white',
+                      fontWeight: 500,
+                      borderRadius: 0.8,
+                      height: 24,
+                      fontSize: '0.8rem',
+                      cursor: 'grabbing',
+                      opacity: 0.9,
+                      transform: 'scale(1.05)',
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                    }}
+                  />
+                );
+              } else {
+                // File Tag Style
+                const getTagStyle = (t: any, style: 'original' | 'library') => {
+                  if (t.groupId === 'temporary') {
+                    return {
+                      variant: 'filled' as const,
+                      backgroundColor: t.color + '40',
+                      borderColor: t.color,
+                      color: '#fff',
+                      border: '1px dashed ' + t.color,
+                    };
+                  }
+                  if (style === 'library') {
+                    return {
+                      variant: 'filled' as const,
+                      backgroundColor: t.color,
+                      color: t.textcolor || '#fff',
+                      borderColor: t.color,
+                    };
+                  } else {
+                    return {
+                      variant: 'outlined' as const,
+                      backgroundColor: t.color + '20',
+                      borderColor: t.color,
+                      color: t.color,
+                    };
+                  }
+                };
+
+                const style = getTagStyle(tag, tagDisplayStyle);
+
+                return (
+                  <Chip
+                    size="small"
+                    label={tag.name}
+                    variant={style.variant}
+                    sx={{
+                      backgroundColor: style.backgroundColor,
+                      borderColor: style.borderColor,
+                      color: style.color,
+                      fontSize: '0.6rem',
+                      height: '18px',
+                      border: style.border,
+                      opacity: 0.9,
+                      backdropFilter: 'blur(4px)',
+                      borderRadius: '4px',
+                      cursor: 'grabbing',
+                      '& .MuiChip-label': { px: 0.4 },
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    }}
+                  />
+                );
+              }
+            })()
           ) : null}
         </DragOverlay>
       </DndContext>
