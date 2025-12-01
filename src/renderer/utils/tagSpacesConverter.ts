@@ -34,7 +34,6 @@ export function convertFromTagSpaces(tagSpacesData: TagSpacesExport): TagGroup[]
       id: tsGroup.uuid,
       name: tsGroup.title,
       defaultColor: tsGroup.color,
-      description: `导入自TagSpaces，创建时间：${new Date(tsGroup.created_date).toLocaleString()}`,
       tags: tsGroup.children.map((tsTag, index) => ({
         id: `${tsGroup.uuid}_tag_${index}_${Date.now()}`,
         name: tsTag.title,
@@ -52,7 +51,7 @@ export function convertFromTagSpaces(tagSpacesData: TagSpacesExport): TagGroup[]
  */
 export function convertToTagSpaces(tagGroups: TagGroup[]): TagSpacesExport {
   const now = Date.now();
-  
+
   const tagSpacesGroups: TagSpacesTagGroup[] = tagGroups.map((group) => ({
     title: group.name,
     uuid: group.id,
@@ -82,21 +81,21 @@ export function convertToTagSpaces(tagGroups: TagGroup[]): TagSpacesExport {
 function getContrastColor(backgroundColor: string): string {
   // 移除 # 号
   const hex = backgroundColor.replace('#', '');
-  
+
   // 处理rgba格式
   if (backgroundColor.startsWith('rgba')) {
     // 简化处理，对于rgba格式默认返回白色
     return 'white';
   }
-  
+
   // 转换为RGB
   const r = parseInt(hex.substr(0, 2), 16);
   const g = parseInt(hex.substr(2, 2), 16);
   const b = parseInt(hex.substr(4, 2), 16);
-  
+
   // 计算亮度
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  
+
   // 根据亮度返回黑色或白色
   return brightness > 128 ? '#000000' : '#ffffff';
 }
@@ -108,18 +107,18 @@ export function validateTagSpacesFormat(data: any): data is TagSpacesExport {
   if (!data || typeof data !== 'object') {
     return false;
   }
-  
+
   // 检查必需字段
   if (!data.appName || !data.appVersion || !Array.isArray(data.tagGroups)) {
     return false;
   }
-  
+
   // 检查标签组格式
   for (const group of data.tagGroups) {
     if (!group.title || !group.uuid || !Array.isArray(group.children)) {
       return false;
     }
-    
+
     // 检查标签格式
     for (const tag of group.children) {
       if (!tag.title || !tag.color) {
@@ -127,7 +126,7 @@ export function validateTagSpacesFormat(data: any): data is TagSpacesExport {
       }
     }
   }
-  
+
   return true;
 }
 
@@ -136,15 +135,15 @@ export function validateTagSpacesFormat(data: any): data is TagSpacesExport {
  */
 export function mergeTagGroups(existing: TagGroup[], imported: TagGroup[]): TagGroup[] {
   const merged = [...existing];
-  
+
   imported.forEach((importedGroup) => {
     const existingIndex = merged.findIndex(g => g.name === importedGroup.name);
-    
+
     if (existingIndex >= 0) {
       // 如果标签组已存在，合并标签
       const existingGroup = merged[existingIndex];
       const mergedTags = [...existingGroup.tags];
-      
+
       importedGroup.tags.forEach((importedTag) => {
         const tagExists = mergedTags.some(t => t.name === importedTag.name);
         if (!tagExists) {
@@ -155,7 +154,7 @@ export function mergeTagGroups(existing: TagGroup[], imported: TagGroup[]): TagG
           });
         }
       });
-      
+
       merged[existingIndex] = {
         ...existingGroup,
         tags: mergedTags,
@@ -165,6 +164,6 @@ export function mergeTagGroups(existing: TagGroup[], imported: TagGroup[]): TagG
       merged.push(importedGroup);
     }
   });
-  
+
   return merged;
 }
