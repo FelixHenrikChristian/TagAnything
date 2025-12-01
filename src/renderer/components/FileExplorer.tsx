@@ -118,6 +118,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleFileOperation,
     handleRemoveTagFromFile,
     handleTagDrop,
+    handleTagDropWithPosition,
     reorderTagWithinFile,
     closeNotification,
     closeAddTagDialog,
@@ -176,17 +177,28 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
       // 1. Dragging from Library to File
       if (active.data.current?.type === 'LIBRARY_TAG') {
         let targetFile = null;
+        let insertIndex = -1;
+
         if (over.data.current?.type === 'FILE') {
           targetFile = over.data.current.file;
         } else if (over.data.current?.type === 'FILE_TAG') {
           // If dropped on a tag, find the file it belongs to
           const filePath = over.data.current.filePath;
           targetFile = files.find(f => f.path === filePath);
+
+          // Get insertion index if available
+          if (typeof over.data.current.index === 'number') {
+            insertIndex = over.data.current.index;
+          }
         }
 
         if (targetFile) {
           const tag = active.data.current.tag;
-          handleTagDrop(targetFile, tag);
+          if (insertIndex !== -1) {
+            handleTagDropWithPosition(targetFile, tag, insertIndex);
+          } else {
+            handleTagDrop(targetFile, tag);
+          }
         }
       }
 
