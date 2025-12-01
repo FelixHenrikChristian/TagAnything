@@ -49,6 +49,8 @@ const predefinedColors = [
   '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
   '#009688', '#4caf50', '#8bc34a', '#cddc39',
   '#ffeb3b', '#ffc107', '#ff9800', '#ff5722',
+  '#795548', '#607d8b', '#9e9e9e', '#000000',
+  '#ff80ab', '#b39ddb', '#81d4fa', '#a5d6a7',
 ];
 
 interface TabPanelProps {
@@ -137,6 +139,7 @@ const TagManager: React.FC = () => {
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [groupDefaultColor, setGroupDefaultColor] = useState('#2196f3');
+  const [groupDefaultTextColor, setGroupDefaultTextColor] = useState('#ffffff');
 
   // 标签相关状态
   const [openTagDialog, setOpenTagDialog] = useState(false);
@@ -194,6 +197,7 @@ const TagManager: React.FC = () => {
         id: Date.now().toString(),
         name: groupName.trim(),
         defaultColor: groupDefaultColor,
+        defaultTextColor: groupDefaultTextColor,
         description: groupDescription.trim(),
         tags: [],
       };
@@ -208,6 +212,7 @@ const TagManager: React.FC = () => {
     setGroupName(group.name);
     setGroupDescription(group.description || '');
     setGroupDefaultColor(group.defaultColor);
+    setGroupDefaultTextColor(group.defaultTextColor || '#ffffff');
     setOpenGroupDialog(true);
   };
 
@@ -220,6 +225,7 @@ const TagManager: React.FC = () => {
               ...group,
               name: groupName.trim(),
               defaultColor: groupDefaultColor,
+              defaultTextColor: groupDefaultTextColor,
               description: groupDescription.trim()
             }
             : group
@@ -244,6 +250,7 @@ const TagManager: React.FC = () => {
     setGroupName('');
     setGroupDescription('');
     setGroupDefaultColor('#2196f3');
+    setGroupDefaultTextColor('#ffffff');
   };
 
   // 标签管理函数
@@ -447,6 +454,7 @@ const TagManager: React.FC = () => {
       const group = tagGroups.find(g => g.id === groupId);
       if (group) {
         setTagColor(group.defaultColor);
+        setTagTextColor(group.defaultTextColor || '#ffffff');
       }
     }
     setOpenTagDialog(true);
@@ -647,7 +655,7 @@ const TagManager: React.FC = () => {
           />
 
           <Typography variant="subtitle2" gutterBottom>
-            选择默认颜色
+            选择标签默认颜色
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
             {predefinedColors.map((color) => (
@@ -668,8 +676,118 @@ const TagManager: React.FC = () => {
                 onClick={() => setGroupDefaultColor(color)}
               />
             ))}
+            <Box
+              component="label"
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                cursor: 'pointer',
+                border: '2px dashed #999',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'transparent',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  borderColor: '#000',
+                },
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <input
+                type="color"
+                value={groupDefaultColor}
+                onChange={(e) => setGroupDefaultColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                }}
+              />
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  bgcolor: groupDefaultColor,
+                  pointerEvents: 'none',
+                }}
+              />
+            </Box>
           </Box>
 
+
+          <Typography variant="subtitle2" gutterBottom>
+            选择文字默认颜色
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            {['#ffffff', '#000000', '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3'].map((color) => (
+              <Box
+                key={color}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  bgcolor: color,
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  border: groupDefaultTextColor === color ? '3px solid #ff9800' : '2px solid #ccc',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                  },
+                }}
+                onClick={() => setGroupDefaultTextColor(color)}
+              />
+            ))}
+            <Box
+              component="label"
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                cursor: 'pointer',
+                border: '2px dashed #999',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'transparent',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  borderColor: '#ff9800',
+                },
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <input
+                type="color"
+                value={groupDefaultTextColor}
+                onChange={(e) => setGroupDefaultTextColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                }}
+              />
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  bgcolor: groupDefaultTextColor,
+                  pointerEvents: 'none',
+                }}
+              />
+            </Box>
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
             <Typography variant="body2">预览:</Typography>
             <Chip
@@ -677,7 +795,7 @@ const TagManager: React.FC = () => {
               label={groupName || '标签组名称'}
               sx={{
                 bgcolor: groupDefaultColor,
-                color: 'white',
+                color: groupDefaultTextColor,
                 fontWeight: 600,
               }}
             />
@@ -760,7 +878,7 @@ const TagManager: React.FC = () => {
           <Typography variant="subtitle2" gutterBottom>
             选择标签颜色
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, alignItems: 'center' }}>
             {predefinedColors.map((color) => (
               <Box
                 key={color}
@@ -779,12 +897,55 @@ const TagManager: React.FC = () => {
                 onClick={() => setTagColor(color)}
               />
             ))}
+            <Box
+              component="label"
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                cursor: 'pointer',
+                border: '2px dashed #999',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'transparent',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  borderColor: '#000',
+                },
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <input
+                type="color"
+                value={tagColor}
+                onChange={(e) => setTagColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                }}
+              />
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  bgcolor: tagColor,
+                  pointerEvents: 'none',
+                }}
+              />
+            </Box>
           </Box>
 
           <Typography variant="subtitle2" gutterBottom>
             选择文字颜色
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, alignItems: 'center' }}>
             {['#ffffff', '#000000', '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3'].map((color) => (
               <Box
                 key={color}
@@ -803,6 +964,49 @@ const TagManager: React.FC = () => {
                 onClick={() => setTagTextColor(color)}
               />
             ))}
+            <Box
+              component="label"
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                cursor: 'pointer',
+                border: '2px dashed #999',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'transparent',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  borderColor: '#000',
+                },
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <input
+                type="color"
+                value={tagTextColor}
+                onChange={(e) => setTagTextColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                }}
+              />
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  bgcolor: tagTextColor,
+                  pointerEvents: 'none',
+                }}
+              />
+            </Box>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
