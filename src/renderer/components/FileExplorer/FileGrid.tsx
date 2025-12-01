@@ -90,6 +90,10 @@ const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag
                 label={tag.name}
                 size="small"
                 variant={chipStyle.variant}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onContextMenu(e, tag, file);
+                }}
                 onContextMenu={(e) => onContextMenu(e, tag, file)}
                 sx={{
                     backgroundColor: chipStyle.backgroundColor,
