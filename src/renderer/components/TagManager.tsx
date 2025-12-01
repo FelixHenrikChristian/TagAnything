@@ -22,8 +22,6 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Tabs,
-  Tab,
   Paper,
   Snackbar,
   Alert,
@@ -37,7 +35,6 @@ import {
   LocalOffer as LocalOfferIcon,
   ExpandMore as ExpandMoreIcon,
   Folder as FolderIcon,
-  FolderOpen as FolderOpenIcon,
   FileUpload as ImportIcon,
   FileDownload as ExportIcon,
   CheckCircle as CheckCircleIcon,
@@ -81,7 +78,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const DraggableTag = ({ tag, onClick }: { tag: Tag; onClick: (e: React.MouseEvent<HTMLElement>) => void }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: tag.id,
     data: {
       type: 'LIBRARY_TAG',
@@ -90,8 +87,7 @@ const DraggableTag = ({ tag, onClick }: { tag: Tag; onClick: (e: React.MouseEven
   });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.3 : 1,
     display: 'inline-block',
   };
 
@@ -353,13 +349,12 @@ const TagManager: React.FC = () => {
   // 处理标签筛选
   const handleFilterByTag = (tag: Tag) => {
     console.log('🏷️ TagManager发送筛选事件:', tag);
-    // 读取当前文件浏览器路径
-    const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
-    console.log('🏷️ 读取到当前路径(currentPath):', currentPath);
 
-    // 通过localStorage传递筛选信息给FileExplorer
+    // 获取当前路径
+    const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
+
+    // 构建筛选信息
     const filterInfo = {
-      type: 'tag' as const,
       tagId: tag.id,
       tagName: tag.name,
       timestamp: Date.now(),

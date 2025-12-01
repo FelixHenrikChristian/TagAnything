@@ -63,6 +63,7 @@ import {
   DragStartEvent,
   DragEndEvent,
   closestCenter,
+  pointerWithin,
 } from '@dnd-kit/core';
 
 import LocationManager from './components/LocationManager';
@@ -101,108 +102,31 @@ const createAppTheme = (mode: 'light' | 'dark') => {
         fontWeight: 600,
       },
     },
-    shape: {
-      borderRadius: 8,
-    },
     components: {
-      MuiDrawer: {
-        styleOverrides: {
-          paper: {
-            backgroundColor: isLight ? '#f8f9fa' : '#1a1a1a',
-            borderRight: `1px solid ${isLight ? '#e0e0e0' : '#333'}`,
-          },
-        },
-      },
-      MuiAppBar: {
-        styleOverrides: {
-          root: {
-            backgroundColor: isLight ? '#ffffff' : '#1e1e1e',
-            color: isLight ? '#333' : '#fff',
-            boxShadow: `0 1px 3px ${isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)'}`,
-          },
-        },
-      },
-      MuiListItem: {
-        styleOverrides: {
-          root: {
-            borderRadius: 8,
-            margin: '2px 8px',
-            '&:hover': {
-              backgroundColor: isLight ? 'rgba(29, 209, 159, 0.08)' : 'rgba(59, 200, 255, 0.08)',
-            },
-            '&.Mui-selected': {
-              backgroundColor: isLight ? 'rgba(29, 209, 159, 0.12)' : 'rgba(59, 200, 255, 0.12)',
-              '&:hover': {
-                backgroundColor: isLight ? 'rgba(29, 209, 159, 0.16)' : 'rgba(59, 200, 255, 0.16)',
-              },
-            },
-          },
-        },
-      },
-      MuiChip: {
-        styleOverrides: {
-          root: {
-            borderRadius: 16,
-          },
-        },
-      },
       MuiCssBaseline: {
         styleOverrides: {
-          '*': {
-            // 自定义滚动条样式
-            '&::-webkit-scrollbar': {
+          body: {
+            scrollbarColor: isLight ? '#ccc transparent' : '#555 transparent',
+            '&::-webkit-scrollbar, & *::-webkit-scrollbar': {
               width: '8px',
               height: '8px',
             },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: isLight ? '#f1f1f1' : '#2a2a2a',
-              borderRadius: '4px',
+            '&::-webkit-scrollbar-thumb, & *::-webkit-scrollbar-thumb': {
+              borderRadius: 8,
+              backgroundColor: isLight ? '#ccc' : '#555',
+              minHeight: 24,
             },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: isLight ? '#c1c1c1' : '#555',
-              borderRadius: '4px',
-              '&:hover': {
-                backgroundColor: isLight ? '#a8a8a8' : '#777',
-              },
-              '&:active': {
-                backgroundColor: isLight ? '#999' : '#888',
-              },
+            '&::-webkit-scrollbar-thumb:focus, & *::-webkit-scrollbar-thumb:focus': {
+              backgroundColor: isLight ? '#999' : '#777',
             },
-            '&::-webkit-scrollbar-corner': {
-              backgroundColor: isLight ? '#f1f1f1' : '#2a2a2a',
+            '&::-webkit-scrollbar-thumb:active, & *::-webkit-scrollbar-thumb:active': {
+              backgroundColor: isLight ? '#999' : '#777',
             },
-          },
-          // 为特定容器添加更精细的滚动条样式
-          '.MuiBox-root': {
-            '&::-webkit-scrollbar': {
-              width: '6px',
-              height: '6px',
+            '&::-webkit-scrollbar-thumb:hover, & *::-webkit-scrollbar-thumb:hover': {
+              backgroundColor: isLight ? '#999' : '#777',
             },
-            '&::-webkit-scrollbar-track': {
+            '&::-webkit-scrollbar-corner, & *::-webkit-scrollbar-corner': {
               backgroundColor: 'transparent',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)',
-              borderRadius: '3px',
-              '&:hover': {
-                backgroundColor: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)',
-              },
-            },
-          },
-          // 为Drawer添加特殊的滚动条样式
-          '.MuiDrawer-paper': {
-            '&::-webkit-scrollbar': {
-              width: '4px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'transparent',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: isLight ? 'rgba(29, 209, 159, 0.3)' : 'rgba(59, 200, 255, 0.3)',
-              borderRadius: '2px',
-              '&:hover': {
-                backgroundColor: isLight ? 'rgba(29, 209, 159, 0.5)' : 'rgba(59, 200, 255, 0.5)',
-              },
             },
           },
         },
@@ -509,7 +433,7 @@ const App: React.FC = () => {
       <CssBaseline />
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
@@ -707,6 +631,7 @@ const App: React.FC = () => {
             onInstall={handleInstallUpdate}
           />
 
+
           {/* Snackbar for notifications */}
           <Snackbar
             open={snackbarOpen}
@@ -727,81 +652,59 @@ const App: React.FC = () => {
           {activeDragItem ? (
             (() => {
               const tag = activeDragItem.tag;
-              const isLibraryTag = activeDragItem.type === 'LIBRARY_TAG';
+              // Unified Tag Style for both Library and File tags (Compact)
+              const getTagStyle = (t: any, style: 'original' | 'library') => {
+                if (t.groupId === 'temporary') {
+                  return {
+                    variant: 'filled' as const,
+                    backgroundColor: t.color + '40',
+                    borderColor: t.color,
+                    color: '#fff',
+                    border: '1px dashed ' + t.color,
+                  };
+                }
+                if (style === 'library') {
+                  return {
+                    variant: 'filled' as const,
+                    backgroundColor: t.color,
+                    color: t.textcolor || '#fff',
+                    borderColor: t.color,
+                  };
+                } else {
+                  return {
+                    variant: 'outlined' as const,
+                    backgroundColor: t.color + '20',
+                    borderColor: t.color,
+                    color: t.color,
+                  };
+                }
+              };
 
-              if (isLibraryTag) {
-                // Library Tag Style
-                return (
-                  <Chip
-                    label={tag.name}
-                    size="small"
-                    sx={{
-                      bgcolor: tag.color,
-                      color: tag.textcolor || 'white',
-                      fontWeight: 500,
-                      borderRadius: 0.8,
-                      height: 24,
-                      fontSize: '0.8rem',
-                      cursor: 'grabbing',
-                      opacity: 0.9,
-                      transform: 'scale(1.05)',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-                    }}
-                  />
-                );
-              } else {
-                // File Tag Style
-                const getTagStyle = (t: any, style: 'original' | 'library') => {
-                  if (t.groupId === 'temporary') {
-                    return {
-                      variant: 'filled' as const,
-                      backgroundColor: t.color + '40',
-                      borderColor: t.color,
-                      color: '#fff',
-                      border: '1px dashed ' + t.color,
-                    };
-                  }
-                  if (style === 'library') {
-                    return {
-                      variant: 'filled' as const,
-                      backgroundColor: t.color,
-                      color: t.textcolor || '#fff',
-                      borderColor: t.color,
-                    };
-                  } else {
-                    return {
-                      variant: 'outlined' as const,
-                      backgroundColor: t.color + '20',
-                      borderColor: t.color,
-                      color: t.color,
-                    };
-                  }
-                };
+              const style = getTagStyle(tag, tagDisplayStyle);
 
-                const style = getTagStyle(tag, tagDisplayStyle);
-
-                return (
-                  <Chip
-                    size="small"
-                    label={tag.name}
-                    variant={style.variant}
-                    sx={{
-                      backgroundColor: style.backgroundColor,
-                      borderColor: style.borderColor,
-                      color: style.color,
-                      fontSize: '0.6rem',
-                      height: '18px',
-                      border: style.border,
-                      opacity: 0.9,
-                      backdropFilter: 'blur(4px)',
-                      borderRadius: '4px',
-                      cursor: 'grabbing',
-                      '& .MuiChip-label': { px: 0.4 },
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    }}
-                  />
-                );
-              }
+              return (
+                <Chip
+                  size="small"
+                  label={tag.name}
+                  variant={style.variant}
+                  sx={{
+                    backgroundColor: style.backgroundColor,
+                    borderColor: style.borderColor,
+                    color: style.color,
+                    fontSize: '0.6rem',
+                    height: '18px',
+                    border: style.border,
+                    opacity: 0.9,
+                    backdropFilter: 'blur(4px)',
+                    borderRadius: '4px',
+                    cursor: 'grabbing',
+                    '& .MuiChip-label': { px: 0.4 },
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    transform: 'scale(1.05)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              );
             })()
           ) : null}
         </DragOverlay>

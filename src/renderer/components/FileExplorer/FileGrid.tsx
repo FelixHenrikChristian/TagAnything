@@ -12,10 +12,15 @@ import {
     InsertDriveFile as FileIcon,
 } from '@mui/icons-material';
 import { FileItem, Tag } from '../../types';
-import { getDisplayName, getFileTypeColor, formatFileSize } from '../../utils/fileTagParser';
-import { useDroppable } from '@dnd-kit/core';
-import { useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { getDisplayName, getFileTypeColor, formatFileSize, getFileExtension, formatModifiedDate } from '../../utils/fileTagParser';
+import { useDndContext, useDroppable } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// Helper function
+const toFileUrl = (path: string) => {
+    return 'file://' + path.replace(/\\/g, '/');
+};
 
 interface FileGridProps {
     files: FileItem[];
@@ -27,120 +32,71 @@ interface FileGridProps {
     getFileTags: (file: FileItem) => Tag[];
     tagDisplayStyle: 'original' | 'library';
     gridSize: number;
-    handleTagDrop: (file: FileItem, draggedTag: Tag) => void;
-    reorderTagWithinFile: (file: FileItem, sourceIndex: number, targetIndex: number) => void;
+    handleTagDrop: (file: FileItem, tag: Tag) => void;
+    reorderTagWithinFile: (file: FileItem, oldIndex: number, newIndex: number) => void;
 }
 
-const toFileUrl = (p: string) => 'file:///' + p.replace(/\\/g, '/');
-
-const getTagStyle = (tag: Tag, tagDisplayStyle: 'original' | 'library') => {
-    if (tag.groupId === 'temporary') {
-        return {
-            variant: 'filled' as const,
-            backgroundColor: tag.color + '40',
-            borderColor: tag.color,
-            color: '#fff',
-            border: '1px dashed ' + tag.color,
-        };
-    }
-
-    if (tagDisplayStyle === 'library') {
-        return {
-            variant: 'filled' as const,
-            backgroundColor: tag.color,
-            color: tag.textcolor || '#fff',
-            borderColor: tag.color,
-        };
-    } else {
-        return {
-            variant: 'outlined' as const,
-            backgroundColor: tag.color + '20',
-            borderColor: tag.color,
-            color: tag.color,
-        };
-    }
-};
-
-const getFileExtension = (fileName: string): string => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    return ext ? ext.toUpperCase() : '';
-};
-
-const formatModifiedDate = (date: Date): string => {
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) return '今天';
-    if (diffDays === 2) return '昨天';
-    if (diffDays <= 7) return `${diffDays}天前`;
-
-    return date.toLocaleDateString('zh-CN', {
-        month: 'short',
-        day: 'numeric'
-    });
-};
-
-const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu }: { tag: Tag; file: FileItem; tagDisplayStyle: 'original' | 'library'; onContextMenu: (e: React.MouseEvent, tag: Tag, file: FileItem) => void }) => {
+const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
     const {
         attributes,
         listeners,
         setNodeRef,
         transform,
         transition,
-        isDragging
-    } = useSortable({
-        id: `${file.path}-${tag.id}`,
-        data: {
-            type: 'FILE_TAG',
-            tag,
-            filePath: file.path,
-        }
-    });
+        isDragging,
+    } = useSortable({ id: `${file.path}-${tag.id}`, data: { type: 'FILE_TAG', tag, filePath: file.path, index } });
 
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
+        cursor: 'grab',
     };
 
-    const tagStyle = getTagStyle(tag, tagDisplayStyle);
+    const getTagStyle = (t: Tag, styleType: 'original' | 'library') => {
+        if (t.groupId === 'temporary') {
+            return {
+                variant: 'filled' as const,
+                backgroundColor: t.color + '40',
+                borderColor: t.color,
+                color: '#fff',
+                border: '1px dashed ' + t.color,
+            };
+        }
+        if (styleType === 'library') {
+            return {
+                variant: 'filled' as const,
+                backgroundColor: t.color,
+                color: t.textcolor || '#fff',
+                borderColor: t.color,
+            };
+        } else {
+            return {
+                variant: 'outlined' as const,
+                backgroundColor: t.color + '20',
+                borderColor: t.color,
+                color: t.color,
+            };
+        }
+    };
+
+    const chipStyle = getTagStyle(tag, tagDisplayStyle);
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
             <Chip
-                size="small"
                 label={tag.name}
-                variant={tagStyle.variant}
+                size="small"
+                variant={chipStyle.variant}
+                onContextMenu={(e) => onContextMenu(e, tag, file)}
                 sx={{
-                    backgroundColor: tagStyle.backgroundColor,
-                    borderColor: tagStyle.borderColor,
-                    color: tagStyle.color,
-                    fontSize: '0.6rem',
+                    backgroundColor: chipStyle.backgroundColor,
+                    borderColor: chipStyle.borderColor,
+                    color: chipStyle.color,
+                    border: chipStyle.border,
                     height: '18px',
-                    border: tagStyle.border,
-                    opacity: 0.9,
-                    backdropFilter: 'blur(4px)',
-                    borderRadius: '4px',
-                    cursor: 'grab',
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': {
-                        opacity: 1,
-                        transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                        cursor: 'grabbing',
-                    },
-                    '& .MuiChip-label': { px: 0.4 }
-                }}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    // Prevent context menu from triggering drag
-                }}
-                onContextMenu={(e) => {
-                    // Prevent drag start on right click
-                    e.stopPropagation();
-                    onContextMenu(e, tag, file);
+                    fontSize: '0.6rem',
+                    '& .MuiChip-label': { px: 0.5 },
                 }}
             />
         </div>
@@ -185,6 +141,56 @@ const FileCard = ({
         disabled: file.isDirectory,
     });
 
+    const { active, over } = useDndContext();
+
+    // Calculate optimistic tags for "Squeeze" effect
+    const optimisticTags = React.useMemo(() => {
+        if (!active || active.data.current?.type !== 'LIBRARY_TAG') {
+            return fileTags;
+        }
+
+        // Check if we are dragging over this file or one of its tags
+        const isOverFile = over?.id === file.path;
+        const isOverTag = over?.data.current?.type === 'FILE_TAG' && over?.data.current?.filePath === file.path;
+
+        if (!isOverFile && !isOverTag) {
+            return fileTags;
+        }
+
+        const draggedTag = active.data.current.tag;
+        // Avoid duplicates if the file already has this tag
+        if (fileTags.some(t => t.id === draggedTag.id)) {
+            return fileTags;
+        }
+
+        const newTags = [...fileTags];
+        let insertIndex = newTags.length; // Default to end
+
+        if (isOverTag) {
+            const overTagId = over?.data.current?.tag.id;
+
+            // Check if we are over the placeholder itself
+            if (overTagId === draggedTag.id) {
+                // Keep the placeholder where it was
+                if (typeof over?.data.current?.index === 'number') {
+                    insertIndex = over.data.current.index;
+                }
+            } else {
+                const overIndex = newTags.findIndex(t => t.id === overTagId);
+                if (overIndex !== -1) {
+                    insertIndex = overIndex;
+                }
+            }
+        }
+
+        // Create a temporary tag object for display
+        const tempTag = { ...draggedTag, id: draggedTag.id, groupId: 'temporary' };
+
+        newTags.splice(insertIndex, 0, tempTag);
+        return newTags;
+    }, [active, over, fileTags, file.path]);
+
+
     return (
         <Card
             ref={setNodeRef}
@@ -198,8 +204,8 @@ const FileCard = ({
                 position: 'relative',
                 overflow: 'hidden',
                 transition: 'transform 0.1s, box-shadow 0.1s',
-                border: isOver ? '2px solid #1dd19f' : 'none',
-                transform: isOver ? 'scale(1.02)' : 'none',
+                border: 'none',
+                transform: 'none',
                 '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: 4,
@@ -215,7 +221,7 @@ const FileCard = ({
             onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, file); }}
         >
             {/* Tag Overlay */}
-            {!file.isDirectory && fileTags.length > 0 && (
+            {!file.isDirectory && (optimisticTags.length > 0) && (
                 <Box
                     sx={{
                         position: 'absolute',
@@ -232,16 +238,17 @@ const FileCard = ({
                     }}
                 >
                     <SortableContext
-                        items={fileTags.map(t => `${file.path}-${t.id}`)}
+                        items={optimisticTags.map(t => `${file.path}-${t.id}`)}
                         strategy={rectSortingStrategy}
                     >
-                        {fileTags.map((tag) => (
+                        {optimisticTags.map((tag, index) => (
                             <SortableTag
                                 key={`${file.path}-${tag.id}`}
                                 tag={tag}
                                 file={file}
                                 tagDisplayStyle={tagDisplayStyle}
                                 onContextMenu={handleTagContextMenu}
+                                index={index}
                             />
                         ))}
                     </SortableContext>

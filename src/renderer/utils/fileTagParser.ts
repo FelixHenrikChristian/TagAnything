@@ -179,3 +179,21 @@ export function formatFileSize(bytes: number): string {
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
+
+/**
+ * 获取文件扩展名
+ * @param filename 文件名
+ * @returns 扩展名（不含点）
+ */
+export function getFileExtension(filename: string): string {
+  return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2);
+}
+
+/**
+ * 格式化修改日期
+ * @param date 日期对象
+ * @returns 格式化后的日期字符串
+ */
+export function formatModifiedDate(date: Date): string {
+  return date.toLocaleDateString();
+}
