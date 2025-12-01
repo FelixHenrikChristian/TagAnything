@@ -69,6 +69,7 @@ const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag
                 backgroundColor: t.color,
                 color: t.textcolor || '#fff',
                 borderColor: t.color,
+                border: '1px solid ' + t.color,
             };
         } else {
             return {
@@ -76,6 +77,7 @@ const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag
                 backgroundColor: t.color + '20',
                 borderColor: t.color,
                 color: t.color,
+                border: '1px solid ' + t.color,
             };
         }
     };
@@ -143,10 +145,15 @@ const FileCard = ({
 
     const { active, over } = useDndContext();
 
+    // Track previous optimistic tags to prevent flickering
+    const prevOptimisticTagsRef = React.useRef<Tag[]>(fileTags);
+
     // Calculate optimistic tags for "Squeeze" effect
     const optimisticTags = React.useMemo(() => {
         if (!active || active.data.current?.type !== 'LIBRARY_TAG') {
-            return fileTags;
+            const result = fileTags;
+            prevOptimisticTagsRef.current = result;
+            return result;
         }
 
         // Check if we are dragging over this file or one of its tags
@@ -154,13 +161,23 @@ const FileCard = ({
         const isOverTag = over?.data.current?.type === 'FILE_TAG' && over?.data.current?.filePath === file.path;
 
         if (!isOverFile && !isOverTag) {
-            return fileTags;
+            const result = fileTags;
+            prevOptimisticTagsRef.current = result;
+            return result;
         }
 
         const draggedTag = active.data.current.tag;
+
+        // If we're hovering over the placeholder itself, return previous state to prevent flickering
+        if (isOverTag && over?.data.current?.tag.groupId === 'temporary') {
+            return prevOptimisticTagsRef.current;
+        }
+
         // Avoid duplicates if the file already has this tag
         if (fileTags.some(t => t.id === draggedTag.id)) {
-            return fileTags;
+            const result = fileTags;
+            prevOptimisticTagsRef.current = result;
+            return result;
         }
 
         const newTags = [...fileTags];
@@ -168,18 +185,9 @@ const FileCard = ({
 
         if (isOverTag) {
             const overTagId = over?.data.current?.tag.id;
-
-            // Check if we are over the placeholder itself
-            if (overTagId === draggedTag.id) {
-                // Keep the placeholder where it was
-                if (typeof over?.data.current?.index === 'number') {
-                    insertIndex = over.data.current.index;
-                }
-            } else {
-                const overIndex = newTags.findIndex(t => t.id === overTagId);
-                if (overIndex !== -1) {
-                    insertIndex = overIndex;
-                }
+            const overIndex = newTags.findIndex(t => t.id === overTagId);
+            if (overIndex !== -1) {
+                insertIndex = overIndex;
             }
         }
 
@@ -187,6 +195,7 @@ const FileCard = ({
         const tempTag = { ...draggedTag, id: draggedTag.id, groupId: 'temporary' };
 
         newTags.splice(insertIndex, 0, tempTag);
+        prevOptimisticTagsRef.current = newTags;
         return newTags;
     }, [active, over, fileTags, file.path]);
 
@@ -396,7 +405,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     const iconSize = getIconSize();
     const thumbnailHeight = Math.floor(gridItemWidth * 0.6);
     const fileInfoHeight = 40;
-    const tagOverlayHeight = 'calc(100% - 8px)';
+    const tagOverlayHeight = `${thumbnailHeight - 8}px`;
 
     return (
         <Box
