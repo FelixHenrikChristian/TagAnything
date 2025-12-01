@@ -203,7 +203,6 @@ const TagManager: React.FC = () => {
       };
       setTagGroups(prev => [...prev, newGroup]);
       setOpenGroupDialog(false);
-      resetGroupForm();
     }
   };
 
@@ -231,9 +230,7 @@ const TagManager: React.FC = () => {
             : group
         )
       );
-      setEditingGroup(null);
       setOpenGroupDialog(false);
-      resetGroupForm();
     }
   };
 
@@ -273,7 +270,6 @@ const TagManager: React.FC = () => {
       );
 
       setOpenTagDialog(false);
-      resetTagForm();
     }
   };
 
@@ -311,9 +307,7 @@ const TagManager: React.FC = () => {
             : group
         );
       });
-      setEditingTag(null);
       setOpenTagDialog(false);
-      resetTagForm();
     }
   };
 
@@ -462,12 +456,18 @@ const TagManager: React.FC = () => {
 
   const handleCloseGroupDialog = () => {
     setOpenGroupDialog(false);
+  };
+
+  const handleGroupDialogExited = () => {
     setEditingGroup(null);
     resetGroupForm();
   };
 
   const handleCloseTagDialog = () => {
     setOpenTagDialog(false);
+  };
+
+  const handleTagDialogExited = () => {
     setEditingTag(null);
     resetTagForm();
   };
@@ -619,6 +619,9 @@ const TagManager: React.FC = () => {
       <Dialog
         open={openGroupDialog}
         onClose={handleCloseGroupDialog}
+        TransitionProps={{
+          onExited: handleGroupDialogExited
+        }}
         maxWidth="sm"
         fullWidth
         PaperProps={{
@@ -820,6 +823,9 @@ const TagManager: React.FC = () => {
       <Dialog
         open={openTagDialog}
         onClose={handleCloseTagDialog}
+        TransitionProps={{
+          onExited: handleTagDialogExited
+        }}
         maxWidth="sm"
         fullWidth
         PaperProps={{
