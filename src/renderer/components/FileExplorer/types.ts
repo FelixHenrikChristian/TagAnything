@@ -45,6 +45,9 @@ export interface FileOperationDialogState {
     open: boolean;
     files: DraggedFile[];
     targetPath: string;
+    pickerMode?: boolean;        // 是否显示内置目录选择器
+    pickerRoot?: string;         // 选择器根路径（位置根目录）
+    pickerBrowsePath?: string;   // 选择器当前浏览路径
 }
 
 // 添加文件操作状态接口

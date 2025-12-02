@@ -127,6 +127,13 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     closeDeleteTagDialog,
     confirmDeleteTags,
     toggleDeleteSelection,
+    handleSelectTargetPath,
+    handlePickerNavigateTo,
+    handlePickerNavigateUp,
+    handleConfirmPickerPath,
+    pickerDirs,
+    pickerDirsLoading,
+    pickerDirsError,
   } = useFileOperations(
     currentPath,
     currentLocation,
@@ -384,7 +391,10 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         deleteDialog={deleteDialog}
 
         handleFileOperation={handleFileOperation}
-        handleSelectTargetPath={() => console.log('Select target path clicked')}
+        handleSelectTargetPath={handleSelectTargetPath}
+        handlePickerNavigateTo={handlePickerNavigateTo}
+        handlePickerNavigateUp={handlePickerNavigateUp}
+        handleConfirmPickerPath={handleConfirmPickerPath}
         closeNewFolderDialog={closeNewFolderDialog}
         confirmCreateFolder={confirmCreateFolder}
         closeDirectOperationDialog={closeDirectOperationDialog}
@@ -407,6 +417,9 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         pickerDirectories={pickerDirectories}
         pickerLoading={pickerLoading}
         pickerError={pickerError}
+        pickerDirs={pickerDirs}
+        pickerDirsLoading={pickerDirsLoading}
+        pickerDirsError={pickerDirsError}
         getEffectiveTagGroups={getEffectiveTagGroups}
         getFileTags={getFileTags}
       />

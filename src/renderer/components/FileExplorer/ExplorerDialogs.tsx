@@ -72,6 +72,9 @@ interface ExplorerDialogsProps {
     // Handlers
     handleFileOperation: (operation: 'move' | 'copy', files: DraggedFile[], targetPath: string) => void;
     handleSelectTargetPath: () => void;
+    handlePickerNavigateTo: (path: string) => void;
+    handlePickerNavigateUp: () => void;
+    handleConfirmPickerPath: () => void;
     closeNewFolderDialog: () => void;
     confirmCreateFolder: () => void;
     closeDirectOperationDialog: () => void;
@@ -92,9 +95,12 @@ interface ExplorerDialogsProps {
     closeNotification: () => void;
 
     // Data
-    pickerDirectories: FileItem[];
-    pickerLoading: boolean;
-    pickerError: string | null;
+    pickerDirectories: FileItem[];  // For DirectOperationDialog
+    pickerLoading: boolean;         // For DirectOperationDialog
+    pickerError: string | null;     // For DirectOperationDialog
+    pickerDirs: FileItem[];         // For FileOperationDialog picker
+    pickerDirsLoading: boolean;     // For FileOperationDialog picker
+    pickerDirsError: string | null; // For FileOperationDialog picker
     getEffectiveTagGroups: () => TagGroup[];
     getFileTags: (file: FileItem) => Tag[];
 }
@@ -119,6 +125,9 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
 
     handleFileOperation,
     handleSelectTargetPath,
+    handlePickerNavigateTo,
+    handlePickerNavigateUp,
+    handleConfirmPickerPath,
     closeNewFolderDialog,
     confirmCreateFolder,
     closeDirectOperationDialog,
@@ -141,6 +150,9 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     pickerDirectories,
     pickerLoading,
     pickerError,
+    pickerDirs,
+    pickerDirsLoading,
+    pickerDirsError,
     getEffectiveTagGroups,
     getFileTags,
 }) => {
@@ -160,30 +172,84 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                     </Box>
                 </DialogTitle>
                 <DialogContent>
-                    <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle1" gutterBottom>
-                            目标路径：
-                        </Typography>
-                        <Typography
-                            variant="body2"
-                            sx={{
-                                backgroundColor: 'background.paper',
-                                border: 1,
-                                borderColor: 'divider',
-                                p: 1,
-                                borderRadius: 1,
-                                fontFamily: 'monospace',
-                                wordBreak: 'break-all'
-                            }}
-                        >
-                            {fileOperationDialog.targetPath}
-                        </Typography>
-                        <Box sx={{ mt: 1 }}>
-                            <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleSelectTargetPath}>
-                                选择目标目录
-                            </Button>
+                    {!fileOperationDialog.pickerMode ? (
+                        // Simple mode: Just show target path
+                        <Box sx={{ mb: 3 }}>
+                            <Typography variant="subtitle1" gutterBottom>
+                                目标路径：
+                            </Typography>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    backgroundColor: 'background.paper',
+                                    border: 1,
+                                    borderColor: 'divider',
+                                    p: 1,
+                                    borderRadius: 1,
+                                    fontFamily: 'monospace',
+                                    wordBreak: 'break-all'
+                                }}
+                            >
+                                {fileOperationDialog.targetPath}
+                            </Typography>
+                            <Box sx={{ mt: 1 }}>
+                                <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleSelectTargetPath}>
+                                    选择目标目录
+                                </Button>
+                            </Box>
                         </Box>
-                    </Box>
+                    ) : (
+                        // Picker mode: Show directory picker
+                        <Box sx={{ mb: 3 }}>
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="subtitle2" color="text.secondary">根目录：</Typography>
+                                <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{fileOperationDialog.pickerRoot}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<BackIcon />}
+                                    onClick={handlePickerNavigateUp}
+                                    disabled={fileOperationDialog.pickerBrowsePath === fileOperationDialog.pickerRoot}
+                                >
+                                    返回上级
+                                </Button>
+                                <Typography variant="subtitle2">当前目录：</Typography>
+                                <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{fileOperationDialog.pickerBrowsePath}</Typography>
+                            </Box>
+                            {pickerDirsError && (
+                                <Alert severity="error" sx={{ mb: 2 }}>{pickerDirsError}</Alert>
+                            )}
+                            {pickerDirsLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                    <CircularProgress />
+                                </Box>
+                            ) : (
+                                <List sx={{ height: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                                    {pickerDirs.length === 0 && (
+                                        <ListItem>
+                                            <ListItemText primary="此目录下没有子文件夹" secondary="你可以选择当前目录作为目标" />
+                                        </ListItem>
+                                    )}
+                                    {pickerDirs.map(dir => (
+                                        <ListItem key={dir.path} button onClick={() => handlePickerNavigateTo(dir.path)}>
+                                            <ListItemAvatar>
+                                                <Avatar>
+                                                    <FolderIcon />
+                                                </Avatar>
+                                            </ListItemAvatar>
+                                            <ListItemText primary={dir.name} secondary={dir.path} />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            )}
+                            <Box sx={{ mt: 2 }}>
+                                <Button variant="contained" onClick={handleConfirmPickerPath}>
+                                    选择此目录
+                                </Button>
+                            </Box>
+                        </Box>
+                    )}
 
                     <Typography variant="subtitle1" gutterBottom>
                         要操作的文件 ({fileOperationDialog.files.length} 个)：

@@ -313,6 +313,90 @@ export const useFileOperations = (
         }
     }, [handleRefresh, showNotification]);
 
+    // Picker functions for File Operation Dialog
+    const handleSelectTargetPath = useCallback(() => {
+        if (!currentLocation) return;
+
+        setFileOperationDialog(prev => ({
+            ...prev,
+            pickerMode: true,
+            pickerRoot: currentLocation.path,
+            pickerBrowsePath: prev.targetPath || currentLocation.path
+        }));
+    }, [currentLocation]);
+
+    const handlePickerNavigateTo = useCallback((path: string) => {
+        const normalize = (p: string) => p.replace(/\\/g, '/');
+        const root = normalize(fileOperationDialog.pickerRoot || '');
+        const next = normalize(path);
+
+        if (next.startsWith(root)) {
+            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: path }));
+        }
+    }, [fileOperationDialog.pickerRoot]);
+
+    const handlePickerNavigateUp = useCallback(() => {
+        const current = fileOperationDialog.pickerBrowsePath || '';
+        const root = fileOperationDialog.pickerRoot || '';
+        const normalize = (p: string) => p.replace(/\\/g, '/');
+        const curr = normalize(current);
+        const rt = normalize(root);
+
+        if (curr === rt) return;
+
+        const parent = current.replace(/[\\/][^\\/]+$/, '');
+        const parentNorm = normalize(parent);
+
+        if (parentNorm.startsWith(rt)) {
+            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: parent }));
+        } else {
+            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: prev.pickerRoot }));
+        }
+    }, [fileOperationDialog.pickerBrowsePath, fileOperationDialog.pickerRoot]);
+
+    const handleConfirmPickerPath = useCallback(() => {
+        setFileOperationDialog(prev => ({
+            ...prev,
+            targetPath: prev.pickerBrowsePath || prev.targetPath,
+            pickerMode: false
+        }));
+    }, []);
+
+    const [pickerDirs, setPickerDirs] = useState<FileItem[]>([]);
+    const [pickerDirsLoading, setPickerDirsLoading] = useState<boolean>(false);
+    const [pickerDirsError, setPickerDirsError] = useState<string | null>(null);
+
+    const loadPickerDirsForFileOp = useCallback(async (path: string) => {
+        try {
+            setPickerDirsLoading(true);
+            setPickerDirsError(null);
+            const list = await window.electron.getFiles(path);
+            setPickerDirs(list.filter(item => item.isDirectory));
+        } catch (e) {
+            setPickerDirsError(e instanceof Error ? e.message : String(e));
+            setPickerDirs([]);
+        } finally {
+            setPickerDirsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (fileOperationDialog.pickerMode && fileOperationDialog.pickerBrowsePath) {
+            const norm = (p: string) => p.replace(/\\/g, '/');
+            const root = norm(fileOperationDialog.pickerRoot || '');
+            const browse = norm(fileOperationDialog.pickerBrowsePath);
+
+            if (!browse.startsWith(root)) {
+                setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: prev.pickerRoot }));
+                if (fileOperationDialog.pickerRoot) {
+                    loadPickerDirsForFileOp(fileOperationDialog.pickerRoot);
+                }
+            } else {
+                loadPickerDirsForFileOp(fileOperationDialog.pickerBrowsePath);
+            }
+        }
+    }, [fileOperationDialog.pickerMode, fileOperationDialog.pickerBrowsePath, fileOperationDialog.pickerRoot, loadPickerDirsForFileOp]);
+
     const confirmDirectOperation = useCallback(async () => {
         const { operation, files, browsePath } = directOperationDialog;
         if (!browsePath || files.length === 0) { closeDirectOperationDialog(); return; }
@@ -562,5 +646,12 @@ export const useFileOperations = (
         handleTagDrop,
         handleTagDropWithPosition,
         reorderTagWithinFile,
+        handleSelectTargetPath,
+        handlePickerNavigateTo,
+        handlePickerNavigateUp,
+        handleConfirmPickerPath,
+        pickerDirs,
+        pickerDirsLoading,
+        pickerDirsError,
     };
 };
