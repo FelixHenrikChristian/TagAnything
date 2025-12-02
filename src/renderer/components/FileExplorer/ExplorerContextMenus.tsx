@@ -235,13 +235,13 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                         : undefined
                 }
             >
-                <MenuItem onClick={handleOpenCurrentFolderInExplorer}>
+                <MenuItem onClick={() => { handleCloseBlankContextMenu(); handleOpenCurrentFolderInExplorer(); }}>
                     <ListItemIcon>
                         <FolderOpenIcon fontSize="small" />
                     </ListItemIcon>
                     <ListItemText>在文件资源管理器中打开</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={handleCreateFolder}>
+                <MenuItem onClick={() => { handleCloseBlankContextMenu(); handleCreateFolder(); }}>
                     <ListItemIcon>
                         <CreateNewFolderIcon fontSize="small" />
                     </ListItemIcon>
