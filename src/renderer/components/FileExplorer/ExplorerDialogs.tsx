@@ -31,6 +31,9 @@ import {
     Folder as FolderIcon,
     ArrowBack as BackIcon,
     Delete as DeleteIcon,
+    InsertDriveFile as FileIcon,
+    FolderOpen as FolderOpenIcon,
+    ContentCopy as CopyIcon,
 } from '@mui/icons-material';
 import { FileItem, Tag, TagGroup, DraggedFile } from '../../types';
 import {
@@ -68,6 +71,7 @@ interface ExplorerDialogsProps {
 
     // Handlers
     handleFileOperation: (operation: 'move' | 'copy', files: DraggedFile[], targetPath: string) => void;
+    handleSelectTargetPath: () => void;
     closeNewFolderDialog: () => void;
     confirmCreateFolder: () => void;
     closeDirectOperationDialog: () => void;
@@ -114,6 +118,7 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     deleteDialog,
 
     handleFileOperation,
+    handleSelectTargetPath,
     closeNewFolderDialog,
     confirmCreateFolder,
     closeDirectOperationDialog,
@@ -142,18 +147,102 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     return (
         <>
             {/* File Operation Dialog (Drag & Drop) */}
-            <Dialog open={fileOperationDialog.open} onClose={() => setFileOperationDialog(prev => ({ ...prev, open: false }))}>
-                <DialogTitle>移动或复制</DialogTitle>
+            <Dialog
+                open={fileOperationDialog.open}
+                onClose={() => setFileOperationDialog(prev => ({ ...prev, open: false }))}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <FileIcon color="primary" />
+                        <Typography variant="h6">文件操作确认</Typography>
+                    </Box>
+                </DialogTitle>
                 <DialogContent>
-                    <Typography>
-                        将 {fileOperationDialog.files.length} 个项目移动或复制到 "{fileOperationDialog.targetPath}"?
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle1" gutterBottom>
+                            目标路径：
+                        </Typography>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                backgroundColor: 'background.paper',
+                                border: 1,
+                                borderColor: 'divider',
+                                p: 1,
+                                borderRadius: 1,
+                                fontFamily: 'monospace',
+                                wordBreak: 'break-all'
+                            }}
+                        >
+                            {fileOperationDialog.targetPath}
+                        </Typography>
+                        <Box sx={{ mt: 1 }}>
+                            <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleSelectTargetPath}>
+                                选择目标目录
+                            </Button>
+                        </Box>
+                    </Box>
+
+                    <Typography variant="subtitle1" gutterBottom>
+                        要操作的文件 ({fileOperationDialog.files.length} 个)：
                     </Typography>
+
+                    <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>文件名</TableCell>
+                                    <TableCell>大小</TableCell>
+                                    <TableCell>原路径</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {fileOperationDialog.files.map((file, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <FileIcon fontSize="small" />
+                                                <Typography variant="body2">{file.name}</Typography>
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {formatFileSize(file.size)}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography
+                                                variant="body2"
+                                                color="text.secondary"
+                                                sx={{
+                                                    fontFamily: 'monospace',
+                                                    fontSize: '0.75rem',
+                                                    wordBreak: 'break-all'
+                                                }}
+                                            >
+                                                {file.path}
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setFileOperationDialog(prev => ({ ...prev, open: false }))}>取消</Button>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button
+                        onClick={() => setFileOperationDialog(prev => ({ ...prev, open: false }))}
+                        variant="outlined"
+                    >
+                        取消
+                    </Button>
                     <Button
                         onClick={() => handleFileOperation('copy', fileOperationDialog.files, fileOperationDialog.targetPath)}
+                        variant="contained"
                         color="primary"
+                        startIcon={<CopyIcon />}
                     >
                         复制
                     </Button>

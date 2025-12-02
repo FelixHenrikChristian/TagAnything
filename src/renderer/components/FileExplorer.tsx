@@ -224,6 +224,59 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     }
   }));
 
+  // 9. Native Drag & Drop
+  const [isDraggingOver, setIsDraggingOver] = React.useState(false);
+  const dragCounter = useRef(0);
+
+  const handleNativeDragEnter = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      dragCounter.current += 1;
+      if (dragCounter.current === 1) {
+        setIsDraggingOver(true);
+      }
+    }
+  };
+
+  const handleNativeDragLeave = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      dragCounter.current -= 1;
+      if (dragCounter.current === 0) {
+        setIsDraggingOver(false);
+      }
+    }
+  };
+
+  const handleNativeDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handleNativeDrop = async (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      dragCounter.current = 0;
+      setIsDraggingOver(false);
+
+      const droppedFiles = Array.from(e.dataTransfer.files).map((f: any) => ({
+        name: f.name,
+        path: f.path,
+        size: f.size
+      }));
+
+      if (droppedFiles.length > 0 && currentPath) {
+        setFileOperationDialog({
+          open: true,
+          files: droppedFiles,
+          targetPath: currentPath
+        });
+      }
+    }
+  };
+
   // 8. Render
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -266,10 +319,18 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
           pb: 2,
           pt: 0,
           backgroundColor: 'transparent',
-          position: 'relative' // For absolute positioning of overlays if needed
+          position: 'relative', // For absolute positioning of overlays if needed
+          border: isDraggingOver ? '2px dashed #2196f3' : '2px solid transparent',
+          transition: 'border 0.2s ease-in-out',
+          borderRadius: 2,
+          margin: 1
         }}
         onContextMenu={handleBlankContextMenu}
         onClick={handleCloseContextMenu}
+        onDragEnter={handleNativeDragEnter}
+        onDragLeave={handleNativeDragLeave}
+        onDragOver={handleNativeDragOver}
+        onDrop={handleNativeDrop}
       >
         {/* File View */}
         {viewMode === 'list' ? (
@@ -323,6 +384,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         deleteDialog={deleteDialog}
 
         handleFileOperation={handleFileOperation}
+        handleSelectTargetPath={() => console.log('Select target path clicked')}
         closeNewFolderDialog={closeNewFolderDialog}
         confirmCreateFolder={confirmCreateFolder}
         closeDirectOperationDialog={closeDirectOperationDialog}
