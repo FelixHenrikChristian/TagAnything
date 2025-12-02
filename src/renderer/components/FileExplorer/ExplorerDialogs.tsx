@@ -220,13 +220,25 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                             {pickerDirsError && (
                                 <Alert severity="error" sx={{ mb: 2 }}>{pickerDirsError}</Alert>
                             )}
-                            {pickerDirsLoading ? (
-                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                                    <CircularProgress />
-                                </Box>
-                            ) : (
-                                <List sx={{ height: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                                    {pickerDirs.length === 0 && (
+                            <Box sx={{ position: 'relative', height: 300, border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                                {pickerDirsLoading && (
+                                    <Box sx={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: 'transparent',
+                                        zIndex: 1
+                                    }}>
+                                        <CircularProgress />
+                                    </Box>
+                                )}
+                                <List sx={{ height: '100%', overflowY: 'auto' }}>
+                                    {pickerDirs.length === 0 && !pickerDirsLoading && (
                                         <ListItem>
                                             <ListItemText primary="此目录下没有子文件夹" secondary="你可以选择当前目录作为目标" />
                                         </ListItem>
@@ -242,7 +254,7 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                         </ListItem>
                                     ))}
                                 </List>
-                            )}
+                            </Box>
                             <Box sx={{ mt: 2 }}>
                                 <Button variant="contained" onClick={handleConfirmPickerPath}>
                                     选择此目录

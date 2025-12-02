@@ -297,6 +297,7 @@ export const useFileOperations = (
                     if (result.success) {
                         await handleRefresh();
                         showNotification(`${files.length} 个文件${operation === 'move' ? '移动' : '复制'}成功！`, 'success');
+                        setFileOperationDialog(prev => ({ ...prev, open: false }));
                     } else {
                         showNotification(`文件${operation === 'move' ? '移动' : '复制'}失败: ${result.error}`, 'error');
                     }
