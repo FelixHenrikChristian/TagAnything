@@ -121,25 +121,25 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                 {/* File Operations */}
                 {fileContextMenu?.file && (
                     <>
-                        <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openRenameDialog(f); }}>
+                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openRenameDialog(f); }}>
                             <ListItemIcon>
                                 <EditIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>重命名</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
                             <ListItemIcon>
                                 <ArrowUpwardIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>移动</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
                             <ListItemIcon>
                                 <CopyIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>复制</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
                             <ListItemIcon>
                                 <DeleteIcon fontSize="small" color="error" />
                             </ListItemIcon>
@@ -150,7 +150,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                 )}
                 {/* Details */}
                 {fileContextMenu?.file && (
-                    <MenuItem onClick={() => { const f = fileContextMenu.file; handleCloseContextMenu(); openDetailsDialog(f); }}>
+                    <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDetailsDialog(f); }}>
                         <ListItemIcon>
                             <InfoIcon fontSize="small" />
                         </ListItemIcon>
@@ -186,25 +186,25 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                 {/* Folder Operations */}
                 {folderContextMenu?.file && (
                     <>
-                        <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openRenameDialog(f); }}>
+                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openRenameDialog(f); }}>
                             <ListItemIcon>
                                 <EditIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>重命名</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
                             <ListItemIcon>
                                 <ArrowUpwardIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>移动</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
                             <ListItemIcon>
                                 <CopyIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>复制</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
                             <ListItemIcon>
                                 <DeleteIcon fontSize="small" color="error" />
                             </ListItemIcon>
@@ -215,7 +215,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                 )}
                 {/* Details */}
                 {folderContextMenu?.file && (
-                    <MenuItem onClick={() => { const f = folderContextMenu.file; handleCloseContextMenu(); openDetailsDialog(f); }}>
+                    <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDetailsDialog(f); }}>
                         <ListItemIcon>
                             <InfoIcon fontSize="small" />
                         </ListItemIcon>
