@@ -65,11 +65,20 @@ export const useKeyboardNavigation = ({
 
         for (const card of cards) {
             if (card.getAttribute('data-file-path') === selectedFile.path) {
-                card.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'nearest',
-                    inline: 'nearest',
-                });
+                const cardRect = card.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const padding = 20; // Extra padding to ensure card is fully visible
+
+                // Check if card is above visible area
+                if (cardRect.top < containerRect.top + padding) {
+                    const scrollAmount = cardRect.top - containerRect.top - padding;
+                    container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                }
+                // Check if card is below visible area
+                else if (cardRect.bottom > containerRect.bottom - padding) {
+                    const scrollAmount = cardRect.bottom - containerRect.bottom + padding;
+                    container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                }
                 break;
             }
         }
