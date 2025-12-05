@@ -48,7 +48,7 @@ const LocationManager: React.FC = () => {
     if (savedLocations) {
       setLocations(JSON.parse(savedLocations));
     }
-    
+
     // 加载选中的位置
     const savedSelectedLocation = localStorage.getItem('tagAnything_selectedLocation');
     if (savedSelectedLocation) {
@@ -65,7 +65,7 @@ const LocationManager: React.FC = () => {
   const handleSelectFolder = async () => {
     try {
       const folderPath = await window.electron.selectFolder();
-      
+
       if (folderPath) {
         const defaultName = folderPath.split(/[/\\]/).pop() || 'Unknown';
         setLocationName(defaultName);
@@ -113,18 +113,40 @@ const LocationManager: React.FC = () => {
 
   const handleDeleteLocation = (locationId: string) => {
     setLocations(prev => prev.filter(loc => loc.id !== locationId));
+
+    // 如果删除的是当前选中的位置，这里虽然不能直接知道当前FileExplorer的状态，
+    // 但是我们可以检查selectedLocationId
+    if (locationId === selectedLocationId) {
+      setSelectedLocationId(null);
+      localStorage.removeItem('tagAnything_selectedLocation');
+      // 通知FileExplorer清除选中状态
+      window.dispatchEvent(new CustomEvent('locationSelected', {
+        detail: null
+      }));
+    }
   };
 
   const handleSelectLocation = (location: Location) => {
+    // 检查是否已经在选中状态，如果是则取消选中
+    if (selectedLocationId === location.id) {
+      setSelectedLocationId(null);
+      localStorage.removeItem('tagAnything_selectedLocation');
+      // 触发自定义事件通知FileExplorer更新（传null表示取消选中）
+      window.dispatchEvent(new CustomEvent('locationSelected', {
+        detail: null
+      }));
+      return;
+    }
+
     // 设置选中的位置到localStorage，供FileExplorer使用
     localStorage.setItem('tagAnything_selectedLocation', JSON.stringify(location));
-    
+
     // 更新本地选中状态
     setSelectedLocationId(location.id);
-    
+
     // 触发自定义事件通知FileExplorer更新
-    window.dispatchEvent(new CustomEvent('locationSelected', { 
-      detail: location 
+    window.dispatchEvent(new CustomEvent('locationSelected', {
+      detail: location
     }));
   };
 
@@ -202,8 +224,8 @@ const LocationManager: React.FC = () => {
             </Button>
           </Box>
         ) : (
-          <Box sx={{ 
-            display: 'grid', 
+          <Box sx={{
+            display: 'grid',
             gridTemplateColumns: {
               xs: '1fr', // 小屏幕单列
               sm: 'repeat(auto-fit, minmax(160px, 1fr))', // 中等屏幕自适应
@@ -234,90 +256,90 @@ const LocationManager: React.FC = () => {
                   }}
                   onClick={() => handleSelectLocation(location)}
                 >
-                <CardContent sx={{ pb: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: 'transparent',
-                        mr: 2,
-                        width: 48,
-                        height: 48,
-                        flexShrink: 0, // 防止头像被压缩
-                      }}
-                    >
-                      {getLocationIcon(location.path)}
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                      <Typography
-                        variant="h6"
+                  <CardContent sx={{ pb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                      <Avatar
                         sx={{
-                          fontWeight: 600,
-                          mb: 0.5,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          bgcolor: 'transparent',
+                          mr: 2,
+                          width: 48,
+                          height: 48,
+                          flexShrink: 0, // 防止头像被压缩
                         }}
                       >
-                        {location.name}
-                      </Typography>
-                      <Tooltip title={location.path}>
+                        {getLocationIcon(location.path)}
+                      </Avatar>
+                      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         <Typography
-                          variant="body2"
-                          color="text.secondary"
+                          variant="h6"
                           sx={{
+                            fontWeight: 600,
+                            mb: 0.5,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          {location.path}
+                          {location.name}
                         </Typography>
+                        <Tooltip title={location.path}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {location.path}
+                          </Typography>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  </CardContent>
+
+                  <Divider />
+
+                  <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Tooltip title="编辑位置">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditLocation(location);
+                          }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="删除位置">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLocation(location.id);
+                          }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
                       </Tooltip>
                     </Box>
-                  </Box>
-                </CardContent>
 
-                <Divider />
-
-                <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="编辑位置">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditLocation(location);
-                        }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="删除位置">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteLocation(location.id);
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  
-                  <Button
-                    size="small"
-                    startIcon={<FolderOpenIcon />}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.electron.openFile(location.path);
-                    }}
-                  >
-                    打开
-                  </Button>
-                </CardActions>
-              </Card>
+                    <Button
+                      size="small"
+                      startIcon={<FolderOpenIcon />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.electron.openFile(location.path);
+                      }}
+                    >
+                      打开
+                    </Button>
+                  </CardActions>
+                </Card>
               );
             })}
           </Box>
@@ -357,7 +379,7 @@ const LocationManager: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             {editingLocation
               ? '修改位置的显示名称'
-              : selectedFolderPath 
+              : selectedFolderPath
                 ? '您可以自定义位置的显示名称，然后点击"添加"按钮'
                 : '请先点击"选择文件夹"按钮选择要管理的文件夹'
             }

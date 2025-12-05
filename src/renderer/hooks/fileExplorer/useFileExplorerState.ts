@@ -251,7 +251,18 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         }
     }, [tagGroups]);
 
-    const handleLocationSelect = useCallback(async (location: Location) => {
+    const handleLocationSelect = useCallback(async (location: Location | null) => {
+        if (!location) {
+            // 取消选中，清空状态
+            setCurrentLocation(null);
+            setCurrentPath('');
+            setFiles([]);
+            // 重置为默认标签组或保持当前？建议重置为Effective
+            const effectiveGroups = getEffectiveTagGroups();
+            setTagGroups(effectiveGroups);
+            return;
+        }
+
         const effectiveGroups = getEffectiveTagGroups();
         setTagGroups(effectiveGroups);
 
