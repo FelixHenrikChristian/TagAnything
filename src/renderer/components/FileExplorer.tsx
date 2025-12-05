@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { FolderOpen as FolderOpenIcon } from '@mui/icons-material';
 import { DragEndEvent } from '@dnd-kit/core';
 import { useFileExplorerState } from '../hooks/fileExplorer/useFileExplorerState';
 import { useFileFilter } from '../hooks/fileExplorer/useFileFilter';
@@ -340,7 +341,24 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         onDrop={handleNativeDrop}
       >
         {/* File View */}
-        {viewMode === 'list' ? (
+        {!currentLocation ? (
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            py: 8
+          }}>
+            <FolderOpenIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 3, opacity: 0.5 }} />
+            <Typography variant="h5" color="text.secondary" gutterBottom sx={{ fontWeight: 500 }}>
+              未选择位置
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 400 }}>
+              请先在位置管理中选择一个位置，或添加新的位置来开始管理文件
+            </Typography>
+          </Box>
+        ) : viewMode === 'list' ? (
           <FileList
             files={filteredFiles}
             handleNavigate={onNavigate}

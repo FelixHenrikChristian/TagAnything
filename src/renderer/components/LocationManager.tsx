@@ -233,7 +233,8 @@ const LocationManager: React.FC = () => {
             },
             gap: 2,
             width: '100%',
-            maxWidth: '100%'
+            maxWidth: '100%',
+            pt: 1, // 添加上边距，确保卡片悬停上移时不被裁切
           }}>
             {locations.map((location) => {
               const isSelected = selectedLocationId === location.id;
