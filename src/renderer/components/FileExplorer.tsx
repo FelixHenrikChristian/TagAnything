@@ -7,6 +7,7 @@ import { useFileFilter } from '../hooks/fileExplorer/useFileFilter';
 import { useFileOperations } from '../hooks/fileExplorer/useFileOperations';
 import { useFileContextMenu } from '../hooks/fileExplorer/useFileContextMenu';
 import { useFileDrag } from '../hooks/fileExplorer/useFileDrag';
+import { useKeyboardNavigation } from '../hooks/fileExplorer/useKeyboardNavigation';
 
 import { ExplorerToolbar } from './FileExplorer/ExplorerToolbar';
 import { ExplorerStatusBar } from './FileExplorer/ExplorerStatusBar';
@@ -161,7 +162,18 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
   // 6. Layout Refs
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 7. Handlers Wrapper
+  // 7. Keyboard Navigation
+  const { selectedFile, clearSelection } = useKeyboardNavigation({
+    files: filteredFiles,
+    gridContainerRef: containerRef,
+    goBack,
+    handleRefresh: async () => { await refreshCore(isFiltering, filteredFiles); },
+    handleNavigate: (path: string) => { clearFilter(); handleNavigate(path); },
+    handleFileOpen,
+    enabled: !!currentLocation,
+  });
+
+  // 8. Handlers Wrapper
   const onNavigate = (path: string) => {
     clearFilter();
     handleNavigate(path);
@@ -382,6 +394,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             gridSize={gridSize}
             handleTagDrop={handleTagDrop}
             reorderTagWithinFile={reorderTagWithinFile}
+            selectedFilePath={selectedFile?.path}
           />
         )}
       </Box>

@@ -34,6 +34,7 @@ interface FileGridProps {
     gridSize: number;
     handleTagDrop: (file: FileItem, tag: Tag) => void;
     reorderTagWithinFile: (file: FileItem, oldIndex: number, newIndex: number) => void;
+    selectedFilePath?: string | null;
 }
 
 const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
@@ -123,6 +124,7 @@ const FileCard = ({
     fileInfoHeight,
     tagOverlayHeight,
     iconSize,
+    isSelected = false,
 }: {
     file: FileItem;
     handleNavigate: (path: string) => void;
@@ -137,6 +139,7 @@ const FileCard = ({
     fileInfoHeight: number;
     tagOverlayHeight: string;
     iconSize: number;
+    isSelected?: boolean;
 }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: file.path,
@@ -216,9 +219,11 @@ const FileCard = ({
                 flexDirection: 'column',
                 position: 'relative',
                 overflow: 'hidden',
-                transition: 'transform 0.1s, box-shadow 0.1s',
-                border: 'none',
+                transition: 'transform 0.1s, box-shadow 0.1s, border-color 0.1s',
+                border: isSelected ? '2px solid #2196f3' : '2px solid transparent',
                 transform: 'none',
+                outline: isSelected ? '2px solid rgba(33, 150, 243, 0.3)' : 'none',
+                outlineOffset: '1px',
                 '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: 4,
@@ -384,6 +389,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     gridSize,
     handleTagDrop,
     reorderTagWithinFile,
+    selectedFilePath,
 }) => {
     // Grid Layout Calculations
     const GRID_CONFIG = {
@@ -437,6 +443,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     fileInfoHeight={fileInfoHeight}
                     tagOverlayHeight={tagOverlayHeight}
                     iconSize={iconSize}
+                    isSelected={selectedFilePath === file.path}
                 />
             ))}
         </Box>
