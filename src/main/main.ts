@@ -209,15 +209,15 @@ ipcMain.handle('select-folder', async () => {
 ipcMain.handle('get-files', async (event, folderPath: string) => {
   const fs = require('fs');
   const path = require('path');
-  
+
   try {
     const items = fs.readdirSync(folderPath);
     const files = [];
-    
+
     for (const item of items) {
       const fullPath = path.join(folderPath, item);
       const stats = fs.statSync(fullPath);
-      
+
       files.push({
         name: item,
         path: fullPath,
@@ -226,7 +226,7 @@ ipcMain.handle('get-files', async (event, folderPath: string) => {
         modified: stats.mtime,
       });
     }
-    
+
     return files;
   } catch (error) {
     console.error('Error reading directory:', error);
@@ -238,17 +238,17 @@ ipcMain.handle('get-files', async (event, folderPath: string) => {
 ipcMain.handle('get-all-files', async (event, folderPath: string) => {
   const fs = require('fs');
   const path = require('path');
-  
+
   const getAllFiles = (dirPath: string): any[] => {
     const files: any[] = [];
-    
+
     try {
       const items = fs.readdirSync(dirPath);
-      
+
       for (const item of items) {
         const fullPath = path.join(dirPath, item);
         const stats = fs.statSync(fullPath);
-        
+
         const fileItem = {
           name: item,
           path: fullPath,
@@ -256,9 +256,9 @@ ipcMain.handle('get-all-files', async (event, folderPath: string) => {
           size: stats.size,
           modified: stats.mtime,
         };
-        
+
         files.push(fileItem);
-        
+
         // 如果是目录，递归获取子目录中的文件
         if (stats.isDirectory()) {
           const subFiles = getAllFiles(fullPath);
@@ -268,10 +268,10 @@ ipcMain.handle('get-all-files', async (event, folderPath: string) => {
     } catch (error) {
       console.error(`Error reading directory ${dirPath}:`, error);
     }
-    
+
     return files;
   };
-  
+
   try {
     return getAllFiles(folderPath);
   } catch (error) {
@@ -354,10 +354,10 @@ ipcMain.handle('reset-window-size', async () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     const defaultWidth = 1280;
     const defaultHeight = 960;
-    
+
     // 重置窗口大小
     mainWindow.setSize(defaultWidth, defaultHeight);
-    
+
     // 清除缓存中的窗口大小
     try {
       const store = new Store();
@@ -365,7 +365,7 @@ ipcMain.handle('reset-window-size', async () => {
     } catch (error) {
       console.log('Failed to clear window size cache:', error);
     }
-    
+
     return { width: defaultWidth, height: defaultHeight };
   }
   return null;
@@ -476,11 +476,11 @@ ipcMain.handle('rename-file', async (event, oldPath: string, newPath: string) =>
 // 递归复制文件或目录的辅助函数
 async function copyFileOrDirectory(src: string, dest: string): Promise<void> {
   const stats = await fsPromises.stat(src);
-  
+
   if (stats.isDirectory()) {
     // 创建目标目录
     await fsPromises.mkdir(dest, { recursive: true });
-    
+
     // 递归复制目录内容
     const items = await fsPromises.readdir(src);
     for (const item of items) {
@@ -578,21 +578,101 @@ ipcMain.handle('set-setting', async (event, key: string, value: any) => {
   store.set(key, value);
 });
 
+// 清除所有缓存数据（包括磁盘上的所有应用数据）
+ipcMain.handle('clear-all-cache', async () => {
+  try {
+    const results = {
+      userDataCleared: false,
+      storeCleared: false,
+      clearedItems: [] as string[],
+      errors: [] as string[],
+    };
+
+    const userDataPath = app.getPath('userData');
+    console.log('Clearing cache in userData path:', userDataPath);
+
+    // 1. 清除 electron-store 设置（在删除文件之前先清除）
+    try {
+      const store = new Store();
+      store.clear();
+      results.storeCleared = true;
+      console.log('Electron store cleared');
+    } catch (error) {
+      const errMsg = `清除设置失败: ${error instanceof Error ? error.message : '未知错误'}`;
+      results.errors.push(errMsg);
+      console.error(errMsg);
+    }
+
+    // 2. 清除 userData 目录下的所有应用数据
+    // 需要保留的系统目录（Electron 自动管理的）
+    const preserveList = ['Crashpad', 'blob_storage', 'Code Cache', 'DawnCache', 'DawnWebGPUCache'];
+
+    if (fs.existsSync(userDataPath)) {
+      try {
+        const items = await fsPromises.readdir(userDataPath);
+
+        for (const item of items) {
+          // 跳过需要保留的系统目录
+          if (preserveList.includes(item)) {
+            continue;
+          }
+
+          const itemPath = path.join(userDataPath, item);
+          try {
+            const stats = await fsPromises.stat(itemPath);
+            if (stats.isDirectory()) {
+              await fsPromises.rm(itemPath, { recursive: true, force: true });
+            } else {
+              await fsPromises.unlink(itemPath);
+            }
+            results.clearedItems.push(item);
+            console.log('Cleared:', item);
+          } catch (itemError) {
+            const errMsg = `清除 ${item} 失败: ${itemError instanceof Error ? itemError.message : '未知错误'}`;
+            results.errors.push(errMsg);
+            console.error(errMsg);
+          }
+        }
+
+        results.userDataCleared = results.clearedItems.length > 0 || items.length === 0;
+      } catch (error) {
+        const errMsg = `读取目录失败: ${error instanceof Error ? error.message : '未知错误'}`;
+        results.errors.push(errMsg);
+        console.error(errMsg);
+      }
+    } else {
+      results.userDataCleared = true;
+    }
+
+    return {
+      success: results.errors.length === 0,
+      userDataPath,
+      ...results,
+    };
+  } catch (error) {
+    console.error('Clear cache error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '清除缓存时发生错误',
+    };
+  }
+});
+
 // 自动更新配置
 if (app.isPackaged) {
   autoUpdater.autoDownload = false;
-  
+
   // 配置更新服务器
   autoUpdater.setFeedURL({
     provider: 'github',
     owner: 'FelixChristian011226',
     repo: 'TagAnything'
   });
-  
+
   // 检查设置中是否启用了启动时自动检查更新
   const store = new Store();
   const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
-  
+
   if (autoUpdateEnabled) {
     autoUpdater.checkForUpdates();
   }

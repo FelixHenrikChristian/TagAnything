@@ -43,6 +43,8 @@ const electronHandler = {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  // 缓存管理 API
+  clearAllCache: () => ipcRenderer.invoke('clear-all-cache'),
   // 自动更新事件监听
   onUpdateChecking: (callback: () => void) => {
     const unsubscribe = electronHandler.ipcRenderer.on('update-checking', (...args: unknown[]) => {

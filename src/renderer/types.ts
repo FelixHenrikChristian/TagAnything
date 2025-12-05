@@ -79,6 +79,16 @@ declare global {
             checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
             downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
             installUpdate: () => Promise<{ success: boolean; error?: string }>;
+            // 缓存管理 API
+            clearAllCache: () => Promise<{
+                success: boolean;
+                userDataPath?: string;
+                userDataCleared?: boolean;
+                storeCleared?: boolean;
+                clearedItems?: string[];
+                errors?: string[];
+                error?: string;
+            }>;
             // 自动更新事件监听
             onUpdateChecking: (callback: () => void) => () => void;
             onUpdateAvailable: (callback: (info: any) => void) => () => void;

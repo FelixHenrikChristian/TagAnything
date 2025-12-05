@@ -104,9 +104,15 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
     };
 
     // 清除所有缓存的函数
-    const handleClearCache = () => {
+    const handleClearCache = async () => {
         try {
-            // 清除所有 localStorage 中的应用数据
+            // 1. 首先调用主进程清除磁盘缓存（缩略图和 electron-store）
+            const result = await window.electron.clearAllCache();
+            if (!result.success) {
+                console.error('主进程缓存清除失败:', result.errors || result.error);
+            }
+
+            // 2. 清除所有 localStorage 中的应用数据
             const keysToRemove = [
                 'tagAnything_locations',
                 'tagAnything_selectedLocation',
@@ -114,7 +120,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 'tagAnything_videoThumbnails',
                 'tagAnything_filter',
                 'tagAnything_multiFilter',
-                'tagAnything_currentPath'
+                'tagAnything_currentPath',
+                'tagAnything_gridSize',
+                'autoUpdateEnabled',
             ];
 
             keysToRemove.forEach(key => {
@@ -208,7 +216,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                     🗂️ 缓存管理
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    清除所有应用缓存数据，包括位置信息、标签组、视频缩略图等
+                                    清除所有应用缓存数据，包括视频缩略图、浏览器缓存、应用设置等
                                 </Typography>
                                 <Button
                                     variant="outlined"
@@ -370,11 +378,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                         此操作将清除以下数据：
                     </Typography>
                     <Typography variant="body2" color="text.secondary" component="ul" sx={{ mt: 1, pl: 2 }}>
-                        <li>所有位置信息</li>
-                        <li>标签组设置</li>
+                        <li>位置信息与标签组设置</li>
                         <li>视频缩略图缓存</li>
-                        <li>过滤器设置</li>
-                        <li>其他应用设置</li>
+                        <li>浏览器缓存（Local Storage、Session Storage 等）</li>
+                        <li>窗口状态与应用设置</li>
+                        <li>其他用户数据</li>
                     </Typography>
                     <Typography variant="body2" color="warning.main" sx={{ mt: 2, fontWeight: 'bold' }}>
                         此操作无法撤销，应用将重新加载。
