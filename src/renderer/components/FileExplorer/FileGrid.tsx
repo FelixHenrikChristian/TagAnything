@@ -152,6 +152,9 @@ const FileCard = ({
 
     const { active, over } = useDndContext();
 
+    // Track image load error
+    const [imageError, setImageError] = React.useState(false);
+
     // Track previous optimistic tags to prevent flickering
     const prevOptimisticTagsRef = React.useRef<Tag[]>(fileTags);
 
@@ -288,22 +291,44 @@ const FileCard = ({
             >
                 {file.isDirectory ? (
                     <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
-                ) : (
-                    videoThumbnails.has(file.path) ? (
-                        <Box
-                            component="img"
-                            src={toFileUrl(videoThumbnails.get(file.path) as string)}
-                            alt={file.name}
-                            sx={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                            }}
-                        />
-                    ) : (
-                        <FileIcon sx={{ fontSize: iconSize, color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
-                    )
-                )}
+                ) : (() => {
+                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'];
+                    const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+                    const isImageFile = imageExtensions.includes(ext);
+
+                    if (isImageFile && !imageError) {
+                        return (
+                            <Box
+                                component="img"
+                                src={toFileUrl(file.path)}
+                                alt={file.name}
+                                sx={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                }}
+                                onError={() => setImageError(true)}
+                            />
+                        );
+                    } else if (videoThumbnails.has(file.path)) {
+                        return (
+                            <Box
+                                component="img"
+                                src={toFileUrl(videoThumbnails.get(file.path) as string)}
+                                alt={file.name}
+                                sx={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                }}
+                            />
+                        );
+                    } else {
+                        return (
+                            <FileIcon sx={{ fontSize: iconSize, color: getFileTypeColor(file.name.split('.').pop()?.toLowerCase()) }} />
+                        );
+                    }
+                })()}
             </Box>
 
             {/* File Info */}
