@@ -297,6 +297,24 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     }
   };
 
+  // 10. Ctrl + Wheel Zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      // gridSize 越小 = 卡片越大 = 放大
+      // deltaY < 0: scroll up (zoom in = decrease gridSize)
+      // deltaY > 0: scroll down (zoom out = increase gridSize)
+      const zoomStep = 1;
+      const minSize = 1;
+      const maxSize = 17;
+
+      setGridSize(prev => {
+        const newSize = e.deltaY < 0 ? prev - zoomStep : prev + zoomStep;
+        return Math.max(minSize, Math.min(maxSize, newSize));
+      });
+    }
+  };
+
   // 8. Render
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -351,6 +369,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         onDragLeave={handleNativeDragLeave}
         onDragOver={handleNativeDragOver}
         onDrop={handleNativeDrop}
+        onWheel={handleWheel}
       >
         {/* File View */}
         {!currentLocation ? (
