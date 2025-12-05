@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { FileItem, Tag, TagGroup } from '../../types';
 import {
     parseTagsFromFilename,
@@ -35,7 +35,8 @@ export const useFileFilter = (
     generateVideoThumbnails: (files: FileItem[]) => Promise<void>,
     fileTags: Map<string, Tag[]>
 ) => {
-    const [filteredFiles, setFilteredFiles] = useState<FileItem[]>(files);
+    // filterResultFiles stores the result when a filter is actively being applied
+    const [filterResultFiles, setFilterResultFiles] = useState<FileItem[]>([]);
     const [isFiltering, setIsFiltering] = useState(false);
     const [filterState, setFilterState] = useState<FilterState>({
         tagFilter: null,
@@ -231,7 +232,7 @@ export const useFileFilter = (
 
             // Sort and update
             const sorted = sortFiles(result);
-            setFilteredFiles(sorted);
+            setFilterResultFiles(sorted);
 
             // Generate thumbnails for video files
             await generateVideoThumbnails(sorted);
@@ -239,7 +240,7 @@ export const useFileFilter = (
         } catch (error) {
             if (requestId === filterRequestRef.current) {
                 console.error('❌ 递归搜索失败:', error);
-                setFilteredFiles([]);
+                setFilterResultFiles([]);
             }
         } finally {
             if (requestId === filterRequestRef.current) {
@@ -270,13 +271,13 @@ export const useFileFilter = (
 
             // Sort and update
             const sorted = sortFiles(result);
-            setFilteredFiles(sorted);
+            setFilterResultFiles(sorted);
 
             console.log(`✅ 当前目录筛选出 ${sorted.length} 个文件`);
 
         } catch (error) {
             console.error('❌ 当前目录搜索失败:', error);
-            setFilteredFiles([]);
+            setFilterResultFiles([]);
         } finally {
             isProcessing.current = false;
         }
@@ -440,7 +441,7 @@ export const useFileFilter = (
                 setIsFiltering(query.trim().length > 0);
                 const result = filterByFilename(files, query);
                 const sorted = sortFiles(result);
-                setFilteredFiles(sorted);
+                setFilterResultFiles(sorted);
             }
         }, 300); // 300ms debounce
     }, [currentPath, filterState, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch]);
@@ -469,7 +470,7 @@ export const useFileFilter = (
         });
 
         setIsFiltering(false);
-        setFilteredFiles(files);
+        setFilterResultFiles([]);
 
         // Clear localStorage
         localStorage.removeItem('tagAnything_filter');
@@ -532,26 +533,37 @@ export const useFileFilter = (
     }, [handleFilterByTag, handleMultiTagFilter, clearFilter]);
 
     /**
-     * Update filtered files when source files or sorting changes
+     * Synchronously compute sorted files for non-filtering case using useMemo.
+     * This prevents UI flicker when navigating between folders.
      */
-    useEffect(() => {
-        if (!isFiltering && !filterState.tagFilter && !filterState.multiTagFilter && !filterState.nameFilterQuery) {
-            // No filters active, just sort the files
-            const sorted = sortFiles(files);
-            setFilteredFiles(sorted);
-        }
-    }, [files, isFiltering, filterState, sortFiles]);
+    const sortedBaseFiles = useMemo(() => {
+        return sortFiles(files);
+    }, [files, sortFiles]);
 
     /**
-     * Re-apply sorting when sort type or direction changes
-     * This ensures sorting works even when filters are active
+     * Re-apply sorting when sort type or direction changes for filtered results.
+     * This ensures sorting works even when filters are active.
      */
     useEffect(() => {
-        // Re-sort the current filtered files
-        const sorted = sortFiles(filteredFiles);
-        setFilteredFiles(sorted);
+        if (isFiltering || filterState.tagFilter || filterState.multiTagFilter || filterState.nameFilterQuery) {
+            // Re-sort the current filtered files when sort changes
+            const sorted = sortFiles(filterResultFiles);
+            setFilterResultFiles(sorted);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sortType, sortDirection]);
+
+    /**
+     * Compute final filtered files:
+     * - When filtering is active, return filterResultFiles
+     * - When not filtering, return sortedBaseFiles (synchronously computed)
+     */
+    const filteredFiles = useMemo(() => {
+        if (isFiltering || filterState.tagFilter || filterState.multiTagFilter || filterState.nameFilterQuery) {
+            return filterResultFiles;
+        }
+        return sortedBaseFiles;
+    }, [isFiltering, filterState, filterResultFiles, sortedBaseFiles]);
 
     /**
      * Cleanup on unmount
