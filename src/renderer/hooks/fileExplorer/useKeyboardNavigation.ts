@@ -55,6 +55,26 @@ export const useKeyboardNavigation = ({
         setSelectedIndex(null);
     }, []);
 
+    // Auto-scroll to keep selected item visible
+    useEffect(() => {
+        if (selectedFile === null || !gridContainerRef.current) return;
+
+        // Find the selected card element by file path
+        const container = gridContainerRef.current;
+        const cards = container.querySelectorAll('[data-file-path]');
+
+        for (const card of cards) {
+            if (card.getAttribute('data-file-path') === selectedFile.path) {
+                card.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'nearest',
+                });
+                break;
+            }
+        }
+    }, [selectedFile, gridContainerRef]);
+
     // Calculate number of columns in the grid
     const getColumnsCount = useCallback((): number => {
         const container = gridContainerRef.current;

@@ -210,6 +210,7 @@ const FileCard = ({
     return (
         <Card
             ref={setNodeRef}
+            data-file-path={file.path}
             key={file.path}
             draggable={false}
             sx={{
