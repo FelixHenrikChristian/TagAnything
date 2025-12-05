@@ -11,6 +11,7 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
     const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
     const [currentPath, setCurrentPath] = useState<string>('');
     const [files, setFiles] = useState<FileItem[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
     const [gridSize, setGridSize] = useState<number>(6);
     const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
@@ -196,13 +197,20 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
 
     const loadFiles = useCallback(async (path: string, groups?: TagGroup[]) => {
         try {
+            setIsLoading(true);
             const fileList = await window.electron.getFiles(path);
             setFiles(fileList);
-            parseFileTagsAndUpdateSystem(fileList, groups);
-            await generateVideoThumbnailsImpl(fileList);
+            setIsLoading(false);
+
+            // Defer heavy processing to next tick to allow UI to render files first
+            setTimeout(() => {
+                parseFileTagsAndUpdateSystem(fileList, groups);
+                generateVideoThumbnailsImpl(fileList);
+            }, 0);
         } catch (error) {
             console.error('Error loading files:', error);
             setFiles([]);
+            setIsLoading(false);
         }
     }, [parseFileTagsAndUpdateSystem, generateVideoThumbnailsImpl]);
 
@@ -428,6 +436,7 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         setCurrentPath,
         files,
         setFiles,
+        isLoading,
         viewMode,
         setViewMode,
         gridSize,

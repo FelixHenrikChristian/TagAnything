@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import { FolderOpen as FolderOpenIcon } from '@mui/icons-material';
 import { DragEndEvent } from '@dnd-kit/core';
 import { useFileExplorerState } from '../hooks/fileExplorer/useFileExplorerState';
@@ -31,6 +31,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     currentLocation,
     currentPath,
     files,
+    isLoading,
     viewMode,
     setViewMode,
     gridSize,
@@ -372,7 +373,17 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         onWheel={handleWheel}
       >
         {/* File View */}
-        {!currentLocation ? (
+        {isLoading ? (
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            width: '100%'
+          }}>
+            <CircularProgress />
+          </Box>
+        ) : !currentLocation ? (
           <Box sx={{
             display: 'flex',
             flexDirection: 'column',
