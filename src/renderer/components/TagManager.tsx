@@ -41,8 +41,18 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { Tag, TagGroup } from '../types';
-import { useDraggable } from '@dnd-kit/core';
+import { useDraggable, DragEndEvent } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+
+export interface TagManagerHandle {
+  handleDragEnd: (event: DragEndEvent) => void;
+}
 
 const predefinedColors = [
   '#f44336', '#e91e63', '#9c27b0', '#673ab7',
@@ -78,6 +88,44 @@ function TabPanel(props: TabPanelProps) {
     </div>
   );
 }
+
+// 这里的 SortableTagGroup 使用 useSortable 来实现拖拽排序
+const SortableTagGroup = ({
+  group,
+  children,
+}: {
+  group: TagGroup;
+  children: React.ReactNode;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: group.id,
+    data: {
+      type: 'TAG_GROUP',
+      group,
+    },
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 1 : 0,
+    position: 'relative' as const,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+};
 
 const DraggableTag = ({ tag, onClick }: { tag: Tag; onClick: (e: React.MouseEvent<HTMLElement>) => void }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -128,8 +176,22 @@ const DraggableTag = ({ tag, onClick }: { tag: Tag; onClick: (e: React.MouseEven
   );
 };
 
-const TagManager: React.FC = () => {
+const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
+
+  // 暴露 handleDragEnd 给父组件
+  React.useImperativeHandle(ref, () => ({
+    handleDragEnd: (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (active.id !== over?.id) {
+        setTagGroups((items) => {
+          const oldIndex = items.findIndex((item) => item.id === active.id);
+          const newIndex = items.findIndex((item) => item.id === over?.id);
+          return arrayMove(items, oldIndex, newIndex);
+        });
+      }
+    },
+  }));
   const [currentTab, setCurrentTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -547,70 +609,82 @@ const TagManager: React.FC = () => {
             )}
           </Box>
         ) : (
+
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {filteredGroups.map((group) => (
-              <Accordion key={group.id} defaultExpanded sx={{
-                '&:before': { display: 'none' },
-                boxShadow: 'none',
-                border: '1px solid',
-                borderColor: 'divider',
-                '&:not(:last-child)': { marginBottom: 0 },
-                '&.Mui-expanded': { margin: 0 }
-              }}>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{
-                    minHeight: 40,
-                    '&.Mui-expanded': { minHeight: 40 },
-                    '& .MuiAccordionSummary-content': {
-                      alignItems: 'center',
-                      margin: '8px 0',
-                      '&.Mui-expanded': { margin: '8px 0' }
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, fontSize: '1.1rem' }}>
-                      {group.name}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenGroupMenu(e, group);
+            <SortableContext
+              items={filteredGroups.map(g => g.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {filteredGroups.map((group) => (
+                <SortableTagGroup key={group.id} group={group}>
+                  <Accordion defaultExpanded sx={{
+                    '&:before': { display: 'none' },
+                    boxShadow: 'none',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    '&:not(:last-child)': { marginBottom: 0 },
+                    '&.Mui-expanded': { margin: 0 }
+                  }}>
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon />}
+                      // 阻止事件冒泡，防止点击展开按钮时触发拖拽（虽然 PointerSensor 已有 distance 限制，这层保护更稳妥）
+                      onMouseDown={(e) => e.stopPropagation()}
+                      sx={{
+                        minHeight: 40,
+                        '&.Mui-expanded': { minHeight: 40 },
+                        '& .MuiAccordionSummary-content': {
+                          alignItems: 'center',
+                          margin: '8px 0',
+                          '&.Mui-expanded': { margin: '8px 0' }
+                        },
                       }}
                     >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    {group.tags.length === 0 ? (
-                      <Box sx={{ textAlign: 'center', py: 2 }}>
-                        <LocalOfferIcon sx={{ fontSize: 32, color: 'text.secondary', mb: 0.5 }} />
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                          该标签组还没有标签
+                      <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1, fontSize: '1.1rem' }}>
+                          {group.name}
                         </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenGroupMenu(e, group);
+                          }}
+                          // 同样阻止菜单按钮触发拖拽
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
                       </Box>
-                    ) : (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {group.tags.map((tag) => (
-                          <DraggableTag
-                            key={tag.id}
-                            tag={tag}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenTagMenu(e, tag);
-                            }}
-                          />
-                        ))}
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        {group.tags.length === 0 ? (
+                          <Box sx={{ textAlign: 'center', py: 2 }}>
+                            <LocalOfferIcon sx={{ fontSize: 32, color: 'text.secondary', mb: 0.5 }} />
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                              该标签组还没有标签
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {group.tags.map((tag) => (
+                              <DraggableTag
+                                key={tag.id}
+                                tag={tag}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenTagMenu(e, tag);
+                                }}
+                              />
+                            ))}
+                          </Box>
+                        )}
                       </Box>
-                    )}
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-            ))}
+                    </AccordionDetails>
+                  </Accordion>
+                </SortableTagGroup>
+              ))}
+            </SortableContext>
           </Box>
         )}
       </Box>
@@ -1261,8 +1335,8 @@ const TagManager: React.FC = () => {
           {importMessage}
         </Alert>
       </Snackbar>
-    </Box>
+    </Box >
   );
-};
+});
 
 export default TagManager;

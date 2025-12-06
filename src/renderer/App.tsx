@@ -67,7 +67,7 @@ import {
 } from '@dnd-kit/core';
 
 import LocationManager from './components/LocationManager';
-import TagManager from './components/TagManager';
+import TagManager, { TagManagerHandle } from './components/TagManager';
 import FileExplorer, { FileExplorerHandle } from './components/FileExplorer';
 import SettingsDialog from './components/SettingsDialog';
 import UpdateDialog from './components/UpdateDialog';
@@ -157,6 +157,7 @@ const App: React.FC = () => {
   // Drag and Drop State
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
+  const tagManagerRef = useRef<TagManagerHandle>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -174,6 +175,15 @@ const App: React.FC = () => {
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragItem(null);
+    const { active } = event;
+
+    if (active.data.current?.type === 'TAG_GROUP') {
+      if (tagManagerRef.current) {
+        tagManagerRef.current.handleDragEnd(event);
+      }
+      return;
+    }
+
     if (fileExplorerRef.current) {
       fileExplorerRef.current.handleDragEnd(event);
     }
@@ -422,7 +432,7 @@ const App: React.FC = () => {
       case 'locations':
         return <LocationManager />;
       case 'tags':
-        return <TagManager />;
+        return <TagManager ref={tagManagerRef} />;
       default:
         return null;
     }
@@ -651,6 +661,27 @@ const App: React.FC = () => {
         <DragOverlay>
           {activeDragItem ? (
             (() => {
+              if (activeDragItem.type === 'TAG_GROUP') {
+                const group = activeDragItem.group;
+                return (
+                  <Chip
+                    label={group.name}
+                    sx={{
+                      height: 40,
+                      fontWeight: 600,
+                      fontSize: '1.1rem',
+                      bgcolor: 'background.paper',
+                      boxShadow: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      '& .MuiChip-label': { px: 2 },
+                      transform: 'scale(1.05)',
+                      cursor: 'grabbing',
+                    }}
+                  />
+                );
+              }
+
               const tag = activeDragItem.tag;
               // Unified Tag Style for both Library and File tags (Compact)
               const getTagStyle = (t: any, style: 'original' | 'library') => {
