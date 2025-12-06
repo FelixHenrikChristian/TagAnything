@@ -39,9 +39,11 @@ import {
   FileDownload as ExportIcon,
   CheckCircle as CheckCircleIcon,
   FilterList as FilterListIcon,
+  Sort as SortIcon,
+  DragIndicator as DragIndicatorIcon,
 } from '@mui/icons-material';
 import { Tag, TagGroup } from '../types';
-import { useDraggable, DragEndEvent } from '@dnd-kit/core';
+import { useDraggable, DragEndEvent, DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import {
   SortableContext,
@@ -176,6 +178,70 @@ const DraggableTag = ({ tag, onClick }: { tag: Tag; onClick: (e: React.MouseEven
   );
 };
 
+// 排序对话框中使用的可排序标签项组件
+const SortableTagItem = ({ tag, index }: { tag: Tag; index: number }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: tag.id,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 1 : 0,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Box
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        p: 1.5,
+        borderRadius: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        cursor: 'grab',
+        '&:hover': {
+          bgcolor: 'action.hover',
+        },
+        '&:active': {
+          cursor: 'grabbing',
+        },
+      }}
+    >
+      <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+      <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: 24, textAlign: 'center' }}>
+        {index + 1}
+      </Typography>
+      <Chip
+        size="small"
+        label={tag.name}
+        sx={{
+          bgcolor: tag.color,
+          color: tag.textcolor || 'white',
+          fontWeight: 500,
+          borderRadius: 0.8,
+          height: 24,
+          fontSize: '0.8rem',
+        }}
+      />
+    </Box>
+  );
+};
+
 const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
 
@@ -213,6 +279,11 @@ const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
   const [openImportDialog, setOpenImportDialog] = useState(false); // 导入对话框状态
   const [importSuccess, setImportSuccess] = useState(false); // 导入成功状态
   const [importMessage, setImportMessage] = useState(''); // 导入成功消息
+
+  // 排序标签对话框相关状态
+  const [openSortDialog, setOpenSortDialog] = useState(false);
+  const [sortGroupId, setSortGroupId] = useState<string>('');
+  const [sortedTags, setSortedTags] = useState<Tag[]>([]);
 
   // 菜单状态
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -438,6 +509,50 @@ const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
 
   const handleCloseMainMenu = () => {
     setMainMenuAnchorEl(null);
+  };
+
+  // 排序标签功能
+  const handleOpenSortDialog = (groupId: string) => {
+    const group = tagGroups.find(g => g.id === groupId);
+    if (group) {
+      setSortGroupId(groupId);
+      setSortedTags([...group.tags]);
+      setOpenSortDialog(true);
+    }
+    setMenuOpen(false);
+  };
+
+  const handleCloseSortDialog = () => {
+    setOpenSortDialog(false);
+  };
+
+  const handleSortDialogExited = () => {
+    setSortGroupId('');
+    setSortedTags([]);
+  };
+
+  const handleSaveSortedTags = () => {
+    if (sortGroupId) {
+      setTagGroups(prev =>
+        prev.map(group =>
+          group.id === sortGroupId
+            ? { ...group, tags: sortedTags }
+            : group
+        )
+      );
+      setOpenSortDialog(false);
+    }
+  };
+
+  const handleSortDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      setSortedTags((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over?.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   };
 
   // 导入导出功能
@@ -1153,6 +1268,12 @@ const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
               </ListItemIcon>
               <ListItemText>添加标签</ListItemText>
             </MenuItem>,
+            <MenuItem key="sortTags" onClick={() => handleOpenSortDialog(selectedGroup.id)}>
+              <ListItemIcon>
+                <SortIcon />
+              </ListItemIcon>
+              <ListItemText>排序标签</ListItemText>
+            </MenuItem>,
             <MenuItem key="edit" onClick={() => {
               handleEditGroup(selectedGroup);
               setMenuOpen(false);
@@ -1225,6 +1346,67 @@ const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
           <ListItemText>导出标签库</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* Sort Tags Dialog */}
+      <Dialog
+        open={openSortDialog}
+        onClose={handleCloseSortDialog}
+        TransitionProps={{
+          onExited: handleSortDialogExited
+        }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SortIcon color="primary" />
+          排序标签
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            拖拽标签可以调整顺序
+          </Typography>
+          {sortedTags.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <LocalOfferIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">
+                该标签组暂无标签
+              </Typography>
+            </Box>
+          ) : (
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={handleSortDragEnd}
+            >
+              <SortableContext
+                items={sortedTags.map(t => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {sortedTags.map((tag, index) => (
+                    <SortableTagItem key={tag.id} tag={tag} index={index} />
+                  ))}
+                </Box>
+              </SortableContext>
+            </DndContext>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button onClick={handleCloseSortDialog}>
+            取消
+          </Button>
+          <Button
+            onClick={handleSaveSortedTags}
+            variant="contained"
+            disabled={sortedTags.length === 0}
+            sx={{ borderRadius: 2 }}
+          >
+            保存
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Import Dialog */}
       <Dialog
