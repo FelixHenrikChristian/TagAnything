@@ -80,7 +80,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
   const {
     fileOperationDialog,
     setFileOperationDialog,
-    operationStatus,
+    operationStatuses,
     renameDialog,
     setRenameDialog,
     openRenameDialog,
@@ -434,7 +434,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
       <ExplorerDialogs
         fileOperationDialog={fileOperationDialog}
         setFileOperationDialog={setFileOperationDialog}
-        operationStatus={operationStatus}
+        operationStatuses={operationStatuses}
         renameDialog={renameDialog}
         setRenameDialog={setRenameDialog}
         addTagDialog={addTagDialog}

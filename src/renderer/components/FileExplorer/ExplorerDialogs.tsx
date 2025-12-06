@@ -52,7 +52,7 @@ interface ExplorerDialogsProps {
     // Dialog States
     fileOperationDialog: FileOperationDialogState;
     setFileOperationDialog: React.Dispatch<React.SetStateAction<FileOperationDialogState>>;
-    operationStatus: FileOperationStatus;
+    operationStatuses: FileOperationStatus[];
     renameDialog: RenameDialogState;
     setRenameDialog: React.Dispatch<React.SetStateAction<RenameDialogState>>;
     addTagDialog: AddTagDialogState;
@@ -104,7 +104,7 @@ interface ExplorerDialogsProps {
 export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     fileOperationDialog,
     setFileOperationDialog,
-    operationStatus,
+    operationStatuses,
     renameDialog,
     setRenameDialog,
     addTagDialog,
@@ -579,39 +579,51 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                 </DialogActions>
             </Dialog>
 
-            {/* Operation Status */}
-            {operationStatus.isOperating && (
-                <Box
-                    sx={{
-                        position: 'fixed',
-                        top: 16,
-                        right: 16,
-                        zIndex: 9999,
-                        backgroundColor: 'background.paper',
-                        borderRadius: 2,
-                        p: 2,
-                        boxShadow: 3,
-                        minWidth: 300,
-                        border: 1,
-                        borderColor: 'divider'
-                    }}
-                >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <CircularProgress size={20} />
-                        <Typography variant="body2" fontWeight="medium">
-                            正在{operationStatus.operation === 'move' ? '移动' : '复制'}文件...
+            {/* Operation Status Stack */}
+            <Box
+                sx={{
+                    position: 'fixed',
+                    top: 16,
+                    right: 16,
+                    zIndex: 9999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    alignItems: 'flex-end',
+                }}
+            >
+                {operationStatuses.map((status) => (
+                    <Box
+                        key={status.id}
+                        sx={{
+                            backgroundColor: 'background.paper',
+                            borderRadius: 2,
+                            p: 2,
+                            boxShadow: 3,
+                            minWidth: 300,
+                            border: 1,
+                            borderColor: 'divider',
+                            opacity: status.isOperating ? 1 : 0, // Should be always true if in list, but just in case
+                            transition: 'all 0.3s ease',
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <CircularProgress size={20} />
+                            <Typography variant="body2" fontWeight="medium">
+                                正在{status.operation === 'move' ? '移动' : '复制'}文件...
+                            </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                            {status.completedFiles} / {status.totalFiles} 个文件
                         </Typography>
+                        <LinearProgress
+                            variant="determinate"
+                            value={(status.completedFiles / status.totalFiles) * 100}
+                            sx={{ mt: 1 }}
+                        />
                     </Box>
-                    <Typography variant="caption" color="text.secondary">
-                        {operationStatus.completedFiles} / {operationStatus.totalFiles} 个文件
-                    </Typography>
-                    <LinearProgress
-                        variant="determinate"
-                        value={(operationStatus.completedFiles / operationStatus.totalFiles) * 100}
-                        sx={{ mt: 1 }}
-                    />
-                </Box>
-            )}
+                ))}
+            </Box>
         </>
     );
 };

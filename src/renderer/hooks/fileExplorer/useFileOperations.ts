@@ -29,14 +29,7 @@ export const useFileOperations = (
         files: [],
         targetPath: ''
     });
-    const [operationStatus, setOperationStatus] = useState<FileOperationStatus>({
-        isOperating: false,
-        operation: null,
-        progress: 0,
-        currentFile: '',
-        totalFiles: 0,
-        completedFiles: 0
-    });
+    const [operationStatuses, setOperationStatuses] = useState<FileOperationStatus[]>([]);
 
     // Notification state removed in favor of notistack
 
@@ -271,14 +264,17 @@ export const useFileOperations = (
     }, [directOperationDialog.browsePath, directOperationDialog.rootPath]);
 
     const handleFileOperation = useCallback(async (operation: 'move' | 'copy', files: DraggedFile[], targetPath: string) => {
-        setOperationStatus({
+        const operationId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+
+        setOperationStatuses(prev => [...prev, {
+            id: operationId,
             isOperating: true,
             operation,
             progress: 0,
             currentFile: '准备中...',
             totalFiles: files.length,
             completedFiles: 0
-        });
+        }]);
 
         showNotification(`开始${operation === 'move' ? '移动' : '复制'} ${files.length} 个文件...`, 'info');
 
@@ -286,6 +282,13 @@ export const useFileOperations = (
             // 异步执行文件操作
             setTimeout(async () => {
                 try {
+                    // Update current file status
+                    setOperationStatuses(prev => prev.map(s =>
+                        s.id === operationId
+                            ? { ...s, currentFile: '正在处理...' }
+                            : s
+                    ));
+
                     const result = await window.electron.performFileOperation({
                         operation,
                         files: files.map(f => f.path),
@@ -302,13 +305,13 @@ export const useFileOperations = (
                 } catch (error) {
                     showNotification(`文件${operation === 'move' ? '移动' : '复制'}操作出错: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
                 } finally {
-                    setOperationStatus(prev => ({ ...prev, isOperating: false }));
+                    setOperationStatuses(prev => prev.filter(s => s.id !== operationId));
                 }
             }, 100);
 
         } catch (error) {
             showNotification(`启动文件操作失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
-            setOperationStatus(prev => ({ ...prev, isOperating: false }));
+            setOperationStatuses(prev => prev.filter(s => s.id !== operationId));
         }
     }, [handleRefresh, showNotification]);
 
@@ -593,7 +596,7 @@ export const useFileOperations = (
     return {
         fileOperationDialog,
         setFileOperationDialog,
-        operationStatus,
+        operationStatuses,
         showNotification,
         renameDialog,
         setRenameDialog,

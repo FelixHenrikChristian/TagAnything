@@ -52,6 +52,7 @@ export interface FileOperationDialogState {
 
 // 添加文件操作状态接口
 export interface FileOperationStatus {
+    id: string; // Unique ID for the operation
     isOperating: boolean;
     operation: 'copy' | 'move' | null;
     progress: number;
