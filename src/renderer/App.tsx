@@ -722,7 +722,7 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <SnackbarProvider maxSnack={5} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+      <SnackbarProvider maxSnack={5} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} autoHideDuration={3000} disableWindowBlurListener>
         <AppContent darkMode={darkMode} setDarkMode={setDarkMode} />
       </SnackbarProvider>
     </ThemeProvider>
