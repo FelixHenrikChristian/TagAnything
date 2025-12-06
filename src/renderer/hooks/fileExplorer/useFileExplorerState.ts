@@ -195,12 +195,12 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         }
     }, [saveThumbnailsToCache]);
 
-    const loadFiles = useCallback(async (path: string, groups?: TagGroup[]) => {
+    const loadFiles = useCallback(async (path: string, groups?: TagGroup[], silent: boolean = false) => {
         try {
-            setIsLoading(true);
+            if (!silent) setIsLoading(true);
             const fileList = await window.electron.getFiles(path);
             setFiles(fileList);
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
 
             // Defer heavy processing to next tick to allow UI to render files first
             setTimeout(() => {
@@ -210,7 +210,7 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         } catch (error) {
             console.error('Error loading files:', error);
             setFiles([]);
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }, [parseFileTagsAndUpdateSystem, generateVideoThumbnailsImpl]);
 
@@ -349,12 +349,12 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         }
     }, [currentPath, handleNavigate, canGoUp]);
 
-    const handleRefresh = useCallback(async (isFiltering: boolean, filteredFiles: FileItem[]) => {
+    const handleRefresh = useCallback(async (isFiltering: boolean, filteredFiles: FileItem[], silent: boolean = false) => {
         if (currentLocation) {
             const effectiveGroups = getEffectiveTagGroups();
             setTagGroups(effectiveGroups);
 
-            await loadFiles(currentPath, effectiveGroups);
+            await loadFiles(currentPath, effectiveGroups, silent);
             await scanAllFilesForTags(currentLocation.path, effectiveGroups);
 
             try {

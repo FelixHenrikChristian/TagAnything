@@ -138,7 +138,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
   } = useFileOperations(
     currentPath,
     currentLocation,
-    async () => { await refreshCore(isFiltering, filteredFiles); },
+    async (silent?: boolean) => { await refreshCore(isFiltering, filteredFiles, silent); },
     getEffectiveTagGroups,
     getFileTags
   );

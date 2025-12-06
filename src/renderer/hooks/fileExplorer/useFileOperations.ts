@@ -17,7 +17,7 @@ import { getDisplayName, parseTagsFromFilename } from '../../utils/fileTagParser
 export const useFileOperations = (
     currentPath: string,
     currentLocation: Location | null,
-    handleRefresh: () => Promise<void>,
+    handleRefresh: (silent?: boolean) => Promise<void>,
     getEffectiveTagGroups: () => TagGroup[],
     getFileTags: (file: FileItem) => Tag[],
 ) => {
@@ -426,7 +426,7 @@ export const useFileOperations = (
                 throw new Error(result.error || '文件重命名失败');
             }
 
-            await handleRefresh();
+            await handleRefresh(true);
             console.log('✅ 文件标签更新成功:', { oldPath: file.path, newPath: newFilePath, tags: tagNames });
         } catch (error) {
             console.error('❌ 更新文件标签失败:', error);
