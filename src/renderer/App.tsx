@@ -624,7 +624,7 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
         />
 
       </Box>
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeDragItem ? (
           (() => {
             if (activeDragItem.type === 'TAG_GROUP') {

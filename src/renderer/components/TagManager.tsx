@@ -137,7 +137,7 @@ const DraggableTag = ({ tag, onClick }: { tag: Tag; onClick: (e: React.MouseEven
   });
 
   const style = {
-    opacity: isDragging ? 0.3 : 1,
+    opacity: 1, // 保持原始标签不变，拖拽时只显示副本
     display: 'inline-block',
   };
 
