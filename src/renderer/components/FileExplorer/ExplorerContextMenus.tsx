@@ -110,7 +110,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
             >
                 {/* Open in Explorer */}
                 {fileContextMenu?.file && (
-                    <MenuItem onClick={() => handleOpenInExplorer(fileContextMenu.file)}>
+                    <MenuItem onClick={() => { setFileMenuOpen(false); handleOpenInExplorer(fileContextMenu.file); }}>
                         <ListItemIcon>
                             <FolderOpenIcon fontSize="small" />
                         </ListItemIcon>
@@ -175,7 +175,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
             >
                 {/* Open in Explorer */}
                 {folderContextMenu?.file && (
-                    <MenuItem onClick={() => handleOpenInExplorer(folderContextMenu.file)}>
+                    <MenuItem onClick={() => { setFolderMenuOpen(false); handleOpenInExplorer(folderContextMenu.file); }}>
                         <ListItemIcon>
                             <FolderOpenIcon fontSize="small" />
                         </ListItemIcon>
