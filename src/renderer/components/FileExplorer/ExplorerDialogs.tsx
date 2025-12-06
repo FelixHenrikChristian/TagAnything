@@ -24,7 +24,6 @@ import {
     Chip,
     CircularProgress,
     LinearProgress,
-    Snackbar,
 } from '@mui/material';
 import {
     ArrowUpward as ArrowUpwardIcon,
@@ -39,7 +38,6 @@ import { FileItem, Tag, TagGroup, DraggedFile } from '../../types';
 import {
     FileOperationDialogState,
     FileOperationStatus,
-    NotificationState,
     RenameDialogState,
     AddTagDialogState,
     DeleteTagDialogState,
@@ -55,7 +53,6 @@ interface ExplorerDialogsProps {
     fileOperationDialog: FileOperationDialogState;
     setFileOperationDialog: React.Dispatch<React.SetStateAction<FileOperationDialogState>>;
     operationStatus: FileOperationStatus;
-    notification: NotificationState;
     renameDialog: RenameDialogState;
     setRenameDialog: React.Dispatch<React.SetStateAction<RenameDialogState>>;
     addTagDialog: AddTagDialogState;
@@ -92,7 +89,6 @@ interface ExplorerDialogsProps {
     confirmDeleteTags: () => void;
     toggleDeleteSelection: (tagId: string) => void;
     closeDetailsDialog: () => void;
-    closeNotification: () => void;
 
     // Data
     pickerDirectories: FileItem[];  // For DirectOperationDialog
@@ -109,7 +105,6 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     fileOperationDialog,
     setFileOperationDialog,
     operationStatus,
-    notification,
     renameDialog,
     setRenameDialog,
     addTagDialog,
@@ -145,7 +140,6 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     confirmDeleteTags,
     toggleDeleteSelection,
     closeDetailsDialog,
-    closeNotification,
 
     pickerDirectories,
     pickerLoading,
@@ -618,23 +612,6 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                     />
                 </Box>
             )}
-
-            {/* Notification */}
-            <Snackbar
-                open={notification.open}
-                autoHideDuration={6000}
-                onClose={closeNotification}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Alert
-                    onClose={closeNotification}
-                    severity={notification.severity}
-                    variant="filled"
-                    sx={{ width: '100%' }}
-                >
-                    {notification.message}
-                </Alert>
-            </Snackbar>
         </>
     );
 };

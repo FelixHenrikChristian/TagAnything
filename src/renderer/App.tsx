@@ -32,11 +32,10 @@ import {
   Radio,
   Switch,
   Grid,
-  Snackbar,
-  Alert,
   LinearProgress,
   CircularProgress,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   Menu as MenuIcon,
   Folder as FolderIcon,
@@ -65,6 +64,7 @@ import {
   closestCenter,
   pointerWithin,
 } from '@dnd-kit/core';
+import { SnackbarProvider, useSnackbar } from 'notistack';
 
 import LocationManager from './components/LocationManager';
 import TagManager, { TagManagerHandle } from './components/TagManager';
@@ -140,10 +140,16 @@ interface TagFilterInfo {
   tagName: string;
 }
 
-const App: React.FC = () => {
+interface AppContentProps {
+  darkMode: boolean;
+  setDarkMode: (mode: boolean) => void;
+}
+
+const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
+  const theme = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
   const [sidebarView, setSidebarView] = useState<'locations' | 'tags' | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [activeTagFilter, setActiveTagFilter] = useState<TagFilterInfo | null>(null);
@@ -226,14 +232,9 @@ const App: React.FC = () => {
   };
 
   // 自动更新相关状态
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
-
+  // NOTE: showSnackbar is now a wrapper for enqueueSnackbar
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
+    enqueueSnackbar(message, { variant: severity });
   };
 
   const update = useAppUpdate({ showSnackbar });
@@ -252,12 +253,6 @@ const App: React.FC = () => {
     handleDownloadUpdate,
     handleInstallUpdate,
   } = updateActions;
-
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-
-  useEffect(() => {
-    setDarkMode(prefersDarkMode);
-  }, [prefersDarkMode]);
 
   // Load tag display style from localStorage
   useEffect(() => {
@@ -403,23 +398,12 @@ const App: React.FC = () => {
     setMultiTagDialogOpen(false);
   };
 
-  const theme = createAppTheme(darkMode ? 'dark' : 'light');
-
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
   };
 
   const handleThemeToggle = () => {
     setDarkMode(!darkMode);
-  };
-
-  // 处理Snackbar关闭
-  const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
-    // 只阻止点击外部区域关闭，但允许自动隐藏和手动关闭
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbarOpen(false);
   };
 
   const menuItems = [
@@ -439,307 +423,308 @@ const App: React.FC = () => {
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <DndContext
-        sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <Box sx={{ display: 'flex', height: '100vh' }}>
-          {/* App Bar */}
-          <AppBar
-            position="fixed"
-            sx={{
-              zIndex: theme.zIndex.drawer + 1,
-              transition: theme.transitions.create(['width', 'margin'], {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.leavingScreen,
-              }),
-            }}
-          >
-            <Toolbar>
-              <IconButton
-                color="inherit"
-                aria-label="toggle drawer"
-                onClick={handleDrawerToggle}
-                edge="start"
-                sx={{ mr: 2 }}
-              >
-                <MenuIcon />
-              </IconButton>
-
-              <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, mr: 3 }}>
-                TagAnything
-              </Typography>
-
-              <IconButton color="inherit" onClick={handleThemeToggle}>
-                {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
-              </IconButton>
-
-              <IconButton
-                color="inherit"
-                onClick={handleTagDisplayStyleToggle}
-                title={`标签样式: ${tagDisplayStyle === 'original' ? '原始' : '标签库'}`}
-              >
-                <StyleIcon />
-              </IconButton>
-
-              <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
-                <SettingsIcon />
-              </IconButton>
-            </Toolbar>
-          </AppBar>
-
-          {/* Sidebar Drawer */}
-          <Drawer
-            variant="persistent"
-            anchor="left"
-            open={drawerOpen}
-            sx={{
-              width: DRAWER_WIDTH,
-              flexShrink: 0,
-              '& .MuiDrawer-paper': {
-                width: DRAWER_WIDTH,
-                boxSizing: 'border-box',
-              },
-            }}
-          >
-            <Toolbar />
-            <Box sx={{ overflow: 'auto', p: 1 }}>
-              <List>
-                {menuItems.map((item) => (
-                  <ListItem
-                    key={item.id}
-                    button
-                    selected={sidebarView === item.view}
-                    onClick={() => setSidebarView(sidebarView === item.view ? null : item.view)}
-                  >
-                    <ListItemIcon sx={{ color: 'inherit' }}>
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.label}
-                      primaryTypographyProps={{
-                        fontWeight: sidebarView === item.view ? 600 : 400,
-                      }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-
-              <Divider sx={{ my: 2 }} />
-
-              {/* Sidebar Content */}
-              <Box sx={{ p: 1 }}>
-                {renderSidebarContent()}
-              </Box>
-            </Box>
-          </Drawer>
-
-          {/* Main Content */}
-          <Box
-            component="main"
-            sx={{
-              flexGrow: 1,
-              transition: theme.transitions.create('margin', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.leavingScreen,
-              }),
-              marginLeft: drawerOpen ? 0 : `-${DRAWER_WIDTH}px`,
-            }}
-          >
-            <Toolbar />
-            <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
-              <Paper
-                elevation={1}
-                sx={{
-                  p: 3,
-                  height: '100%',
-                  borderRadius: 2,
-                  backgroundColor: theme.palette.background.paper,
-                }}
-              >
-                <FileExplorer ref={fileExplorerRef} tagDisplayStyle={tagDisplayStyle} />
-              </Paper>
-            </Box>
-          </Box>
-
-          {/* Settings Dialog */}
-          <SettingsDialog
-            open={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
-            updateState={updateState}
-            updateActions={updateActions}
-            onShowSnackbar={showSnackbar}
-          />
-
-          {/* Multi-Tag Filter Dialog */}
-          <Dialog
-            open={multiTagDialogOpen}
-            onClose={handleCloseMultiTagDialog}
-            maxWidth="sm"
-            fullWidth
-          >
-            <DialogTitle>
-              选择多个标签进行筛选
-            </DialogTitle>
-            <DialogContent>
-              {(() => {
-                const groups = getTagGroupsFromStorage();
-                if (!groups.length) {
-                  return (
-                    <Typography variant="body2" color="text.secondary">
-                      暂无标签，请先在「标签管理」中创建标签。
-                    </Typography>
-                  );
-                }
-                return (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {groups.map((g) => (
-                      <Box key={g.id}>
-                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                          {g.name}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {g.tags.map((t) => {
-                            const selected = multiTagSelectedIds.includes(t.id);
-                            return (
-                              <Chip
-                                key={t.id}
-                                label={t.name}
-                                onClick={() => toggleSelectMultiTag(t.id)}
-                                color={selected ? 'primary' : 'default'}
-                                variant={selected ? 'filled' : 'outlined'}
-                                sx={{ cursor: 'pointer' }}
-                              />
-                            );
-                          })}
-                        </Box>
-                      </Box>
-                    ))}
-                  </Box>
-                );
-              })()}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseMultiTagDialog}>取消</Button>
-              <Button onClick={() => setMultiTagSelectedIds([])}>清空选择</Button>
-              <Button variant="contained" onClick={handleConfirmMultiTagFilter}>应用</Button>
-            </DialogActions>
-          </Dialog>
-
-          {/* Update Notification Dialog */}
-          <UpdateDialog
-            open={updateDialogOpen}
-            onClose={() => setUpdateDialogOpen(false)}
-            updateInfo={updateInfo}
-            updateDownloading={updateDownloading}
-            updateProgress={updateProgress}
-            onDownload={handleDownloadUpdate}
-            onInstall={handleInstallUpdate}
-          />
-
-
-          {/* Snackbar for notifications */}
-          <Snackbar
-            open={snackbarOpen}
-            autoHideDuration={6000}
-            onClose={handleSnackbarClose}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-          >
-            <Alert
-              severity={snackbarSeverity}
-              variant="filled"
-              sx={{ width: '100%' }}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <Box sx={{ display: 'flex', height: '100vh' }}>
+        {/* App Bar */}
+        <AppBar
+          position="fixed"
+          sx={{
+            zIndex: theme.zIndex.drawer + 1,
+            transition: theme.transitions.create(['width', 'margin'], {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.leavingScreen,
+            }),
+          }}
+        >
+          <Toolbar>
+            <IconButton
+              color="inherit"
+              aria-label="toggle drawer"
+              onClick={handleDrawerToggle}
+              edge="start"
+              sx={{ mr: 2 }}
             >
-              {snackbarMessage}
-            </Alert>
-          </Snackbar>
-        </Box>
-        <DragOverlay>
-          {activeDragItem ? (
-            (() => {
-              if (activeDragItem.type === 'TAG_GROUP') {
-                const group = activeDragItem.group;
-                return (
-                  <Chip
-                    label={group.name}
-                    sx={{
-                      height: 40,
-                      fontWeight: 600,
-                      fontSize: '1.1rem',
-                      bgcolor: 'background.paper',
-                      boxShadow: 3,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      '& .MuiChip-label': { px: 2 },
-                      transform: 'scale(1.05)',
-                      cursor: 'grabbing',
+              <MenuIcon />
+            </IconButton>
+
+            <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, mr: 3 }}>
+              TagAnything
+            </Typography>
+
+            <IconButton color="inherit" onClick={handleThemeToggle}>
+              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+
+            <IconButton
+              color="inherit"
+              onClick={handleTagDisplayStyleToggle}
+              title={`标签样式: ${tagDisplayStyle === 'original' ? '原始' : '标签库'}`}
+            >
+              <StyleIcon />
+            </IconButton>
+
+            <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
+              <SettingsIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+
+        {/* Sidebar Drawer */}
+        <Drawer
+          variant="persistent"
+          anchor="left"
+          open={drawerOpen}
+          sx={{
+            width: DRAWER_WIDTH,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+            },
+          }}
+        >
+          <Toolbar />
+          <Box sx={{ overflow: 'auto', p: 1 }}>
+            <List>
+              {menuItems.map((item) => (
+                <ListItem
+                  key={item.id}
+                  button
+                  selected={sidebarView === item.view}
+                  onClick={() => setSidebarView(sidebarView === item.view ? null : item.view)}
+                >
+                  <ListItemIcon sx={{ color: 'inherit' }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{
+                      fontWeight: sidebarView === item.view ? 600 : 400,
                     }}
                   />
+                </ListItem>
+              ))}
+            </List>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Sidebar Content */}
+            <Box sx={{ p: 1 }}>
+              {renderSidebarContent()}
+            </Box>
+          </Box>
+        </Drawer>
+
+        {/* Main Content */}
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            transition: theme.transitions.create('margin', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.leavingScreen,
+            }),
+            marginLeft: drawerOpen ? 0 : `-${DRAWER_WIDTH}px`,
+          }}
+        >
+          <Toolbar />
+          <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
+            <Paper
+              elevation={1}
+              sx={{
+                p: 3,
+                height: '100%',
+                borderRadius: 2,
+                backgroundColor: theme.palette.background.paper,
+              }}
+            >
+              <FileExplorer ref={fileExplorerRef} tagDisplayStyle={tagDisplayStyle} />
+            </Paper>
+          </Box>
+        </Box>
+
+        {/* Settings Dialog */}
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          updateState={updateState}
+          updateActions={updateActions}
+          onShowSnackbar={showSnackbar}
+        />
+
+        {/* Multi-Tag Filter Dialog */}
+        <Dialog
+          open={multiTagDialogOpen}
+          onClose={handleCloseMultiTagDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            选择多个标签进行筛选
+          </DialogTitle>
+          <DialogContent>
+            {(() => {
+              const groups = getTagGroupsFromStorage();
+              if (!groups.length) {
+                return (
+                  <Typography variant="body2" color="text.secondary">
+                    暂无标签，请先在「标签管理」中创建标签。
+                  </Typography>
                 );
               }
+              return (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {groups.map((g) => (
+                    <Box key={g.id}>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        {g.name}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {g.tags.map((t) => {
+                          const selected = multiTagSelectedIds.includes(t.id);
+                          return (
+                            <Chip
+                              key={t.id}
+                              label={t.name}
+                              onClick={() => toggleSelectMultiTag(t.id)}
+                              color={selected ? 'primary' : 'default'}
+                              variant={selected ? 'filled' : 'outlined'}
+                              sx={{ cursor: 'pointer' }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              );
+            })()}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseMultiTagDialog}>取消</Button>
+            <Button onClick={() => setMultiTagSelectedIds([])}>清空选择</Button>
+            <Button variant="contained" onClick={handleConfirmMultiTagFilter}>应用</Button>
+          </DialogActions>
+        </Dialog>
 
-              const tag = activeDragItem.tag;
-              // Unified Tag Style for both Library and File tags (Compact)
-              const getTagStyle = (t: any, style: 'original' | 'library') => {
-                if (t.groupId === 'temporary') {
-                  return {
-                    variant: 'filled' as const,
-                    backgroundColor: t.color + '40',
-                    borderColor: t.color,
-                    color: '#fff',
-                    border: '1px dashed ' + t.color,
-                  };
-                }
-                if (style === 'library') {
-                  return {
-                    variant: 'filled' as const,
-                    backgroundColor: t.color,
-                    color: t.textcolor || '#fff',
-                    borderColor: t.color,
-                  };
-                } else {
-                  return {
-                    variant: 'outlined' as const,
-                    backgroundColor: t.color + '20',
-                    borderColor: t.color,
-                    color: t.color,
-                  };
-                }
-              };
+        {/* Update Notification Dialog */}
+        <UpdateDialog
+          open={updateDialogOpen}
+          onClose={() => setUpdateDialogOpen(false)}
+          updateInfo={updateInfo}
+          updateDownloading={updateDownloading}
+          updateProgress={updateProgress}
+          onDownload={handleDownloadUpdate}
+          onInstall={handleInstallUpdate}
+        />
 
-              const style = getTagStyle(tag, tagDisplayStyle);
-
+      </Box>
+      <DragOverlay>
+        {activeDragItem ? (
+          (() => {
+            if (activeDragItem.type === 'TAG_GROUP') {
+              const group = activeDragItem.group;
               return (
                 <Chip
-                  size="small"
-                  label={tag.name}
-                  variant={style.variant}
+                  label={group.name}
                   sx={{
-                    backgroundColor: style.backgroundColor,
-                    borderColor: style.borderColor,
-                    color: style.color,
-                    fontSize: '0.6rem',
-                    height: '18px',
-                    border: style.border,
-                    opacity: 0.9,
-                    backdropFilter: 'blur(4px)',
-                    borderRadius: '4px',
-                    cursor: 'grabbing',
-                    '& .MuiChip-label': { px: 0.4 },
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    height: 40,
+                    fontWeight: 600,
+                    fontSize: '1.1rem',
+                    bgcolor: 'background.paper',
+                    boxShadow: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    '& .MuiChip-label': { px: 2 },
                     transform: 'scale(1.05)',
-                    pointerEvents: 'none',
+                    cursor: 'grabbing',
                   }}
                 />
               );
-            })()
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+            }
+
+            const tag = activeDragItem.tag;
+            // Unified Tag Style for both Library and File tags (Compact)
+            const getTagStyle = (t: any, style: 'original' | 'library') => {
+              if (t.groupId === 'temporary') {
+                return {
+                  variant: 'filled' as const,
+                  backgroundColor: t.color + '40',
+                  borderColor: t.color,
+                  color: '#fff',
+                  border: '1px dashed ' + t.color,
+                };
+              }
+              if (style === 'library') {
+                return {
+                  variant: 'filled' as const,
+                  backgroundColor: t.color,
+                  color: t.textcolor || '#fff',
+                  borderColor: t.color,
+                };
+              } else {
+                return {
+                  variant: 'outlined' as const,
+                  backgroundColor: t.color + '20',
+                  borderColor: t.color,
+                  color: t.color,
+                };
+              }
+            };
+
+            const style = getTagStyle(tag, tagDisplayStyle);
+
+            return (
+              <Chip
+                size="small"
+                label={tag.name}
+                variant={style.variant}
+                sx={{
+                  backgroundColor: style.backgroundColor,
+                  borderColor: style.borderColor,
+                  color: style.color,
+                  fontSize: '0.6rem',
+                  height: '18px',
+                  border: style.border,
+                  opacity: 0.9,
+                  backdropFilter: 'blur(4px)',
+                  borderRadius: '4px',
+                  cursor: 'grabbing',
+                  '& .MuiChip-label': { px: 0.4 },
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  transform: 'scale(1.05)',
+                  pointerEvents: 'none',
+                }}
+              />
+            );
+          })()
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+};
+
+const App: React.FC = () => {
+  const [darkMode, setDarkMode] = useState(false);
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+
+  useEffect(() => {
+    setDarkMode(prefersDarkMode);
+  }, [prefersDarkMode]);
+
+  const theme = createAppTheme(darkMode ? 'dark' : 'light');
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <SnackbarProvider maxSnack={5} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+        <AppContent darkMode={darkMode} setDarkMode={setDarkMode} />
+      </SnackbarProvider>
     </ThemeProvider>
   );
 };

@@ -60,12 +60,7 @@ export interface FileOperationStatus {
     completedFiles: number;
 }
 
-// 添加通知状态接口
-export interface NotificationState {
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
-}
+
 
 // 重命名对话框状态
 export interface RenameDialogState {

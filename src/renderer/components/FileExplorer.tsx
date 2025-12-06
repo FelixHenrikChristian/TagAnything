@@ -81,7 +81,6 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     fileOperationDialog,
     setFileOperationDialog,
     operationStatus,
-    notification,
     renameDialog,
     setRenameDialog,
     openRenameDialog,
@@ -123,7 +122,6 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleTagDrop,
     handleTagDropWithPosition,
     reorderTagWithinFile,
-    closeNotification,
     closeAddTagDialog,
     confirmAddTags,
     toggleAddSelection,
@@ -437,7 +435,6 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         fileOperationDialog={fileOperationDialog}
         setFileOperationDialog={setFileOperationDialog}
         operationStatus={operationStatus}
-        notification={notification}
         renameDialog={renameDialog}
         setRenameDialog={setRenameDialog}
         addTagDialog={addTagDialog}
@@ -473,7 +470,6 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         confirmDeleteTags={confirmDeleteTags}
         toggleDeleteSelection={toggleDeleteSelection}
         closeDetailsDialog={closeDetailsDialog}
-        closeNotification={closeNotification}
 
         pickerDirectories={pickerDirectories}
         pickerLoading={pickerLoading}

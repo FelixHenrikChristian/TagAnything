@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useSnackbar } from 'notistack';
 import { FileItem, DraggedFile, Tag, TagGroup, Location } from '../../types';
 import {
     FileOperationDialogState,
     FileOperationStatus,
-    NotificationState,
     RenameDialogState,
     AddTagDialogState,
     DeleteTagDialogState,
@@ -21,6 +21,8 @@ export const useFileOperations = (
     getEffectiveTagGroups: () => TagGroup[],
     getFileTags: (file: FileItem) => Tag[],
 ) => {
+    const { enqueueSnackbar } = useSnackbar();
+
     // Dialog States
     const [fileOperationDialog, setFileOperationDialog] = useState<FileOperationDialogState>({
         open: false,
@@ -35,11 +37,9 @@ export const useFileOperations = (
         totalFiles: 0,
         completedFiles: 0
     });
-    const [notification, setNotification] = useState<NotificationState>({
-        open: false,
-        message: '',
-        severity: 'info'
-    });
+
+    // Notification state removed in favor of notistack
+
     const [renameDialog, setRenameDialog] = useState<RenameDialogState>({ open: false, file: null, inputName: '' });
     const [addTagDialog, setAddTagDialog] = useState<AddTagDialogState>({ open: false, file: null, selectedTagIds: [] });
     const [deleteTagDialog, setDeleteTagDialog] = useState<DeleteTagDialogState>({ open: false, file: null, selectedTagIds: [] });
@@ -68,12 +68,10 @@ export const useFileOperations = (
 
     // Notification Helper
     const showNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
-        setNotification({ open: true, message, severity });
-    }, []);
+        enqueueSnackbar(message, { variant: severity });
+    }, [enqueueSnackbar]);
 
-    const closeNotification = useCallback(() => {
-        setNotification(prev => ({ ...prev, open: false }));
-    }, []);
+    // closeNotification removed
 
     // File Operations
     const handleFileOpen = useCallback(async (file: FileItem) => {
@@ -596,10 +594,7 @@ export const useFileOperations = (
         fileOperationDialog,
         setFileOperationDialog,
         operationStatus,
-        notification,
-        setNotification,
         showNotification,
-        closeNotification,
         renameDialog,
         setRenameDialog,
         openRenameDialog,
