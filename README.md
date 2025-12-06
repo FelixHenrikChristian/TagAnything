@@ -19,27 +19,40 @@ A modern, powerful file tagging and organization application inspired by TagSpac
 ### 🎨 **Modern User Interface**
 - Beautiful Material-UI design with light/dark theme support
 - Responsive grid and list view modes
-- Customizable zoom levels for optimal viewing
+- Customizable zoom levels (Ctrl + Mouse Wheel or zoom slider)
 - Intuitive drag-and-drop file operations
+- Keyboard navigation support for efficient browsing
 
 ### 🔍 **Advanced File Explorer**
 - High-performance file browsing with thumbnail support
-- Video thumbnail generation for media files
+- Image and video thumbnail generation for media files
 - Multiple sorting options (name, date, type, size)
 - Advanced filtering by tags and file types
 - Search functionality across all locations
+- In-app directory picker for file operations
 
 ### 🎯 **Tag Management System**
 - Centralized tag library with color coding
+- Custom tag colors and font color settings
 - Tag groups for better organization
 - Bulk tag operations
 - Tag usage statistics and management
 
 ### ⚡ **Performance & Reliability**
 - Fast file operations with progress tracking
-- Efficient caching system
+- Efficient caching system with complete cache clearing
 - Auto-save functionality
 - Robust error handling and recovery
+
+### ⌨️ **Keyboard Shortcuts**
+| Shortcut | Action |
+|----------|--------|
+| ↑ / ↓ / ← / → | Navigate between file cards |
+| Enter | Open selected file or enter folder |
+| Backspace | Go back to parent directory |
+| ESC | Deselect current file |
+| F5 | Refresh file list |
+| Ctrl + Scroll | Zoom in/out |
 
 ### 🛠️ **File Operations**
 - Copy, move, and rename files
