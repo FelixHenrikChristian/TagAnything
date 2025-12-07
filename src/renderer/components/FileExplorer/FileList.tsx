@@ -76,6 +76,7 @@ export const FileList: React.FC<FileListProps> = ({
             {files.map((file) => (
                 <ListItem
                     key={file.path}
+                    data-file-path={file.path}
                     button
                     draggable={false}
                     onClick={() => {

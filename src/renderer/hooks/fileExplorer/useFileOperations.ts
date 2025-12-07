@@ -20,6 +20,7 @@ export const useFileOperations = (
     handleRefresh: (silent?: boolean) => Promise<void>,
     getEffectiveTagGroups: () => TagGroup[],
     getFileTags: (file: FileItem) => Tag[],
+    onOperationSuccess?: (targetPath: string) => void
 ) => {
     const { enqueueSnackbar } = useSnackbar();
 
@@ -301,6 +302,21 @@ export const useFileOperations = (
                     if (result.success) {
                         await handleRefresh();
                         showNotification(`${files.length} 个文件${operation === 'move' ? '移动' : '复制'}成功！`, 'success');
+
+                        // Call success callback with the first file's destination path
+                        if (onOperationSuccess && files.length > 0) {
+                            // Construct the full path of the first file in the target directory
+                            // Note: targetPath is the directory. We need to append the filename.
+                            // However, we don't have the new filename if a conflict occurred and it was renamed automatically.
+                            // But usually, we can assume it keeps the name or we just scroll to the directory if it's a folder?
+                            // Let's try to construct the expected path of the first file.
+                            const firstFile = files[0];
+                            const separator = targetPath.includes('\\') ? '\\' : '/';
+                            // Normalize targetPath to remove trailing slash if present, unless it's root
+                            const cleanTarget = targetPath.replace(/[\\/]$/, '');
+                            const expectedPath = `${cleanTarget}${separator}${firstFile.name}`;
+                            onOperationSuccess(expectedPath);
+                        }
                     } else {
                         showNotification(`文件${operation === 'move' ? '移动' : '复制'}失败: ${result.error}`, 'error');
                     }

@@ -77,6 +77,23 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     fileTags
   );
 
+  // Scroll to File Logic
+  const [scrollTarget, setScrollTarget] = React.useState<string | null>(null);
+
+  useEffect(() => {
+    if (scrollTarget && files.length > 0) {
+      // Timeout ensures that the DOM has been updated with the new list
+      setTimeout(() => {
+        const element = document.querySelector(`[data-file-path="${scrollTarget.replace(/\\/g, '\\\\')}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Optional: highlight effect could be added here
+        }
+        setScrollTarget(null);
+      }, 100);
+    }
+  }, [files, scrollTarget]);
+
   // 3. Operations & Dialogs
   const {
     fileOperationDialog,
@@ -141,7 +158,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     currentLocation,
     async (silent?: boolean) => { await refreshCore(isFiltering, filteredFiles, silent); },
     getEffectiveTagGroups,
-    getFileTags
+    getFileTags,
+    (targetPath) => setScrollTarget(targetPath)
   );
 
   // 4. Context Menus
