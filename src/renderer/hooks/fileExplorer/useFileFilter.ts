@@ -324,13 +324,13 @@ export const useFileFilter = (
 
             console.log(`📁 递归扫描到 ${allFiles.length} 个文件`);
 
-            // Filter by filename
+            // Filter by filename (include both files and folders)
             const lowerQuery = query.toLowerCase();
             const filteredFiles = allFiles.filter(file =>
-                !file.isDirectory && file.name.toLowerCase().includes(lowerQuery)
+                file.name.toLowerCase().includes(lowerQuery)
             );
 
-            console.log(`✅ 全局搜索匹配到 ${filteredFiles.length} 个文件`);
+            console.log(`✅ 全局搜索匹配到 ${filteredFiles.length} 个文件/文件夹`);
 
             // Sort and update
             const sorted = sortFiles(filteredFiles);

@@ -127,7 +127,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                     </MenuItem>
                 )}
                 {/* Navigate to file directory - only show in global search or multi-tag filter */}
-                {fileContextMenu?.file && !fileContextMenu.file.isDirectory && (
+                {fileContextMenu?.file && (
                     filterState.multiTagFilter !== null ||
                     (filterState.isGlobalSearch && filterState.nameFilterQuery)
                 ) && (
@@ -135,7 +135,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                             <ListItemIcon>
                                 <MyLocationIcon fontSize="small" />
                             </ListItemIcon>
-                            <ListItemText>导航到文件所在目录</ListItemText>
+                            <ListItemText>导航到所在目录</ListItemText>
                         </MenuItem>
                     )}
                 <Divider />
@@ -203,6 +203,18 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                         <ListItemText>在资源管理器中打开</ListItemText>
                     </MenuItem>
                 )}
+                {/* Navigate to folder's parent directory - only show in global search or multi-tag filter */}
+                {folderContextMenu?.file && (
+                    filterState.multiTagFilter !== null ||
+                    (filterState.isGlobalSearch && filterState.nameFilterQuery)
+                ) && (
+                        <MenuItem onClick={() => { setFolderMenuOpen(false); handleNavigateToDirectory(folderContextMenu.file); }}>
+                            <ListItemIcon>
+                                <MyLocationIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>导航到所在目录</ListItemText>
+                        </MenuItem>
+                    )}
                 <Divider />
                 {/* Folder Operations */}
                 {folderContextMenu?.file && (
