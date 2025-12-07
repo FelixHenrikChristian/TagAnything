@@ -33,12 +33,15 @@ export interface FilenameSearchFilter {
     immediate?: boolean;
     // 是否清除所有筛选与搜索（用于地址栏点击/切换目录/清除按钮）
     clearAll?: boolean;
+    // 是否全局搜索（搜索所有子目录）
+    isGlobal?: boolean;
 }
 
 export interface FilterState {
     tagFilter: TagFilter | null;
     multiTagFilter: MultiTagFilter | null;
     nameFilterQuery: string | null;
+    isGlobalSearch: boolean;
 }
 
 export interface FileOperationDialogState {

@@ -67,6 +67,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     setSortType,
     sortDirection,
     setSortDirection,
+    setGlobalSearchMode,
   } = useFileFilter(
     files,
     currentPath,
@@ -344,6 +345,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         setSortType={setSortType}
         sortDirection={sortDirection}
         setSortDirection={setSortDirection}
+        setGlobalSearchMode={setGlobalSearchMode}
       />
 
       {/* Main Content Area */}

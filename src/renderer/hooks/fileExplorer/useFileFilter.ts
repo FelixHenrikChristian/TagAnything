@@ -42,6 +42,7 @@ export const useFileFilter = (
         tagFilter: null,
         multiTagFilter: null,
         nameFilterQuery: null,
+        isGlobalSearch: false,
     });
 
     // Sorting state
@@ -284,6 +285,73 @@ export const useFileFilter = (
     }, [files, filterState.nameFilterQuery, filterByTags, filterByFilename, sortFiles]);
 
     /**
+     * Perform global filename search (recursive)
+     */
+    const performGlobalFilenameSearch = useCallback(async (query: string, requestId: number) => {
+        try {
+            if (requestId !== filterRequestRef.current) return;
+            if (!query || query.trim() === '') {
+                setIsFiltering(false);
+                setFilterResultFiles([]);
+                return;
+            }
+
+            isProcessing.current = true;
+            setIsFiltering(true);
+
+            console.log('🌐 开始全局文件名搜索:', { query, requestId });
+
+            // Get search root from current location
+            const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
+            let searchRoot = currentPath;
+            if (savedLocation) {
+                try {
+                    const location = JSON.parse(savedLocation);
+                    searchRoot = location.path;
+                } catch (e) {
+                    console.warn('Failed to parse location:', e);
+                }
+            }
+
+            // Get all files recursively
+            const allFiles = await window.electron.getAllFiles(searchRoot);
+
+            // Check again after await
+            if (requestId !== filterRequestRef.current) {
+                console.log('🚫 忽略过期的全局搜索请求:', requestId);
+                return;
+            }
+
+            console.log(`📁 递归扫描到 ${allFiles.length} 个文件`);
+
+            // Filter by filename
+            const lowerQuery = query.toLowerCase();
+            const filteredFiles = allFiles.filter(file =>
+                !file.isDirectory && file.name.toLowerCase().includes(lowerQuery)
+            );
+
+            console.log(`✅ 全局搜索匹配到 ${filteredFiles.length} 个文件`);
+
+            // Sort and update
+            const sorted = sortFiles(filteredFiles);
+            setFilterResultFiles(sorted);
+
+            // Generate thumbnails for video files
+            await generateVideoThumbnails(sorted);
+
+        } catch (error) {
+            if (requestId === filterRequestRef.current) {
+                console.error('❌ 全局文件名搜索失败:', error);
+                setFilterResultFiles([]);
+            }
+        } finally {
+            if (requestId === filterRequestRef.current) {
+                isProcessing.current = false;
+            }
+        }
+    }, [currentPath, sortFiles, generateVideoThumbnails]);
+
+    /**
      * Handle single tag filter
      */
     const handleFilterByTag = useCallback((tag: Tag, origin: 'tagManager' | 'fileExplorer' = 'fileExplorer') => {
@@ -299,11 +367,12 @@ export const useFileFilter = (
         };
 
         // Clear other filters
-        setFilterState({
+        setFilterState(prev => ({
             tagFilter: filter,
             multiTagFilter: null,
             nameFilterQuery: null,
-        });
+            isGlobalSearch: prev.isGlobalSearch,
+        }));
 
         // Save to localStorage
         localStorage.setItem('tagAnything_filter', JSON.stringify(filter));
@@ -345,11 +414,12 @@ export const useFileFilter = (
     const handleMultiTagFilter = useCallback((filter: MultiTagFilter) => {
         console.log('🏷️ 多标签筛选:', filter);
 
-        setFilterState({
+        setFilterState(prev => ({
             tagFilter: null,
             multiTagFilter: filter,
             nameFilterQuery: null,
-        });
+            isGlobalSearch: prev.isGlobalSearch,
+        }));
 
         // Save to localStorage
         localStorage.setItem('tagAnything_multiFilter', JSON.stringify(filter));
@@ -380,8 +450,10 @@ export const useFileFilter = (
     /**
      * Handle filename search with debouncing
      */
-    const handleFilenameSearch = useCallback((query: string) => {
-        console.log('🔍 文件名搜索:', query);
+    const handleFilenameSearch = useCallback((query: string, isGlobal?: boolean) => {
+        // Determine if this should be a global search
+        const useGlobalSearch = isGlobal !== undefined ? isGlobal : filterState.isGlobalSearch;
+        console.log('🔍 文件名搜索:', query, useGlobalSearch ? '(全局)' : '(当前目录)');
 
         // Clear existing timer
         if (searchDebounceTimer.current) {
@@ -401,6 +473,7 @@ export const useFileFilter = (
                 timestamp: Date.now(),
                 origin: 'fileExplorer',
                 currentPath,
+                isGlobal: useGlobalSearch,
             };
 
             // Dispatch event for AppBar sync
@@ -436,15 +509,34 @@ export const useFileFilter = (
                     } catch (e) { }
                 }
                 performRecursiveSearch(filterState.multiTagFilter.tagIds, searchRoot, requestId);
+            } else if (useGlobalSearch) {
+                // Global filename search
+                performGlobalFilenameSearch(query, requestId);
             } else {
-                // Just filename search, no tags
+                // Local filename search
                 setIsFiltering(query.trim().length > 0);
                 const result = filterByFilename(files, query);
                 const sorted = sortFiles(result);
                 setFilterResultFiles(sorted);
             }
         }, 300); // 300ms debounce
-    }, [currentPath, filterState, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch]);
+    }, [currentPath, filterState, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch]);
+
+    /**
+     * Toggle global search mode
+     */
+    const setGlobalSearchMode = useCallback((isGlobal: boolean) => {
+        console.log('🌐 切换全局搜索模式:', isGlobal);
+        setFilterState(prev => ({
+            ...prev,
+            isGlobalSearch: isGlobal,
+        }));
+
+        // If there's an active filename search, re-execute with new mode
+        if (filterState.nameFilterQuery) {
+            handleFilenameSearch(filterState.nameFilterQuery, isGlobal);
+        }
+    }, [filterState.nameFilterQuery, handleFilenameSearch]);
 
     /**
      * Clear all filters
@@ -467,6 +559,7 @@ export const useFileFilter = (
             tagFilter: null,
             multiTagFilter: null,
             nameFilterQuery: null,
+            isGlobalSearch: false,
         });
 
         setIsFiltering(false);
@@ -591,5 +684,6 @@ export const useFileFilter = (
         setSortType,
         sortDirection,
         setSortDirection,
+        setGlobalSearchMode,
     };
 };
