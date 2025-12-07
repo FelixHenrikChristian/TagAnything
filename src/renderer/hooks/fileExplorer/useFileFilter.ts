@@ -555,12 +555,12 @@ export const useFileFilter = (
         // Invalidate any pending requests
         filterRequestRef.current = Date.now();
 
-        setFilterState({
+        setFilterState(prev => ({
             tagFilter: null,
             multiTagFilter: null,
             nameFilterQuery: null,
-            isGlobalSearch: false,
-        });
+            isGlobalSearch: prev.isGlobalSearch,
+        }));
 
         setIsFiltering(false);
         setFilterResultFiles([]);
