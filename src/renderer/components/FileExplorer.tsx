@@ -489,6 +489,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         folderContextMenu={folderContextMenu}
         blankContextMenu={blankContextMenu}
         tagContextMenu={tagContextMenu}
+        filterState={filterState}
 
         handleCloseContextMenu={handleCloseContextMenu}
         handleCloseBlankContextMenu={() => handleCloseContextMenu()} // Reusing generic close
@@ -505,6 +506,13 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
 
         handleFilterByTag={handleFilterByTag}
         handleRemoveTagFromFile={handleRemoveTagFromFile}
+        handleNavigateToDirectory={(file) => {
+          // Extract parent directory from file path
+          const parentDir = file.path.replace(/[/\\][^/\\]+$/, '');
+          // Clear filters and navigate to the parent directory
+          clearFilter();
+          handleNavigate(parentDir);
+        }}
       />
     </Box>
   );

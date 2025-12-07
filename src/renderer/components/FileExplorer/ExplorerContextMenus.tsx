@@ -15,6 +15,7 @@ import {
     Info as InfoIcon,
     CreateNewFolder as CreateNewFolderIcon,
     FilterList as FilterListIcon,
+    MyLocation as MyLocationIcon,
 } from '@mui/icons-material';
 import { FileItem, Tag, DraggedFile } from '../../types';
 import {
@@ -23,6 +24,7 @@ import {
     BlankContextMenuState,
     TagContextMenuState,
 } from '../../hooks/fileExplorer/useFileContextMenu';
+import { FilterState } from './types';
 
 interface ExplorerContextMenusProps {
     // Context Menu States
@@ -30,6 +32,9 @@ interface ExplorerContextMenusProps {
     folderContextMenu: FolderContextMenuState | null;
     blankContextMenu: BlankContextMenuState | null;
     tagContextMenu: TagContextMenuState | null;
+
+    // Filter state for conditional menu items
+    filterState: FilterState;
 
     // Handlers
     handleCloseContextMenu: () => void;
@@ -47,6 +52,8 @@ interface ExplorerContextMenusProps {
 
     handleFilterByTag: (tag: Tag, origin?: 'tagManager' | 'fileExplorer') => void;
     handleRemoveTagFromFile: (tag: Tag, file: FileItem) => void;
+
+    handleNavigateToDirectory: (file: FileItem) => void;
 }
 
 export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
@@ -54,6 +61,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
     folderContextMenu,
     blankContextMenu,
     tagContextMenu,
+    filterState,
 
     handleCloseContextMenu,
     handleCloseBlankContextMenu,
@@ -70,6 +78,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
 
     handleFilterByTag,
     handleRemoveTagFromFile,
+    handleNavigateToDirectory,
 }) => {
     // Local state to control tag menu visibility without clearing tagContextMenu immediately
     const [tagMenuOpen, setTagMenuOpen] = React.useState(false);
@@ -117,6 +126,18 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                         <ListItemText>在资源管理器中打开</ListItemText>
                     </MenuItem>
                 )}
+                {/* Navigate to file directory - only show in global search or multi-tag filter */}
+                {fileContextMenu?.file && !fileContextMenu.file.isDirectory && (
+                    filterState.multiTagFilter !== null ||
+                    (filterState.isGlobalSearch && filterState.nameFilterQuery)
+                ) && (
+                        <MenuItem onClick={() => { setFileMenuOpen(false); handleNavigateToDirectory(fileContextMenu.file); }}>
+                            <ListItemIcon>
+                                <MyLocationIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>导航到文件所在目录</ListItemText>
+                        </MenuItem>
+                    )}
                 <Divider />
                 {/* File Operations */}
                 {fileContextMenu?.file && (
