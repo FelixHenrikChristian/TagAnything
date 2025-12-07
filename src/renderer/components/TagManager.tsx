@@ -492,7 +492,7 @@ const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
       tagId: tag.id,
       tagName: tag.name,
       timestamp: Date.now(),
-      origin: 'tagManager' as const,
+      origin: 'fileExplorer' as const,
       currentPath,
     };
     localStorage.setItem('tagAnything_filter', JSON.stringify(filterInfo));
