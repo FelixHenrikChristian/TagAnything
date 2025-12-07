@@ -621,6 +621,7 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
           updateProgress={updateProgress}
           onDownload={handleDownloadUpdate}
           onInstall={handleInstallUpdate}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
       </Box>

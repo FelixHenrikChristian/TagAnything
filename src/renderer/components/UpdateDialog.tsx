@@ -22,13 +22,8 @@ interface UpdateDialogProps {
     updateDownloading: boolean;
     updateProgress: number;
     onDownload: () => void;
-    onInstall: () => void; // Not used in this dialog usually, but maybe for "Install and Restart" if we want to reuse it? 
-    // Actually the original code has "Download" and "Open External". 
-    // And "Install" button is in the Settings page usually, or replaces Download button?
-    // Original code (lines 1151-1272) has "Manual Download" (external), "Download Update" (internal).
-    // It doesn't seem to have "Install" button in the popup, only "Download". 
-    // Wait, line 986 in Settings has "Install".
-    // The popup (1262) calls `handleDownloadUpdate`.
+    onInstall: () => void;
+    onOpenSettings?: () => void; // 点击"立即更新"后自动打开设置页面以显示下载进度
 }
 
 const UpdateDialog: React.FC<UpdateDialogProps> = ({
@@ -38,6 +33,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({
     updateDownloading,
     updateProgress,
     onDownload,
+    onOpenSettings,
 }) => {
     return (
         <Dialog
@@ -152,19 +148,12 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 </Button>
                 <Button
                     onClick={() => {
-                        // Don't close immediately if we want to show progress?
-                        // Original code closed it: `setUpdateDialogOpen(false); handleDownloadUpdate();`
-                        // So the progress is shown in Settings?
-                        // Line 1263: setUpdateDialogOpen(false);
-                        // Line 1264: handleDownloadUpdate();
-                        // So yes, the popup closes and presumably the user can go to settings to see progress?
-                        // Or maybe the progress is not shown in the popup?
-                        // Wait, line 999 in Settings shows progress.
-                        // But if the popup closes, where does the user see "Downloading..."?
-                        // Maybe they don't, unless they open settings.
-                        // That seems like a UX flaw in the original code, but I will replicate it for now to avoid changing behavior too much.
                         onClose();
                         onDownload();
+                        // 自动打开设置页面，让用户看到下载进度
+                        if (onOpenSettings) {
+                            onOpenSettings();
+                        }
                     }}
                     color="primary"
                     variant="contained"
