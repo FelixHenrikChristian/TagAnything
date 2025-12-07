@@ -266,6 +266,9 @@ export const useFileOperations = (
     const handleFileOperation = useCallback(async (operation: 'move' | 'copy', files: DraggedFile[], targetPath: string) => {
         const operationId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
+        // 立即关闭对话框
+        setFileOperationDialog(prev => ({ ...prev, open: false }));
+
         setOperationStatuses(prev => [...prev, {
             id: operationId,
             isOperating: true,
@@ -298,7 +301,6 @@ export const useFileOperations = (
                     if (result.success) {
                         await handleRefresh();
                         showNotification(`${files.length} 个文件${operation === 'move' ? '移动' : '复制'}成功！`, 'success');
-                        setFileOperationDialog(prev => ({ ...prev, open: false }));
                     } else {
                         showNotification(`文件${operation === 'move' ? '移动' : '复制'}失败: ${result.error}`, 'error');
                     }
