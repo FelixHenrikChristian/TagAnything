@@ -618,6 +618,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         handleNavigateToDirectory={(file) => {
           // Extract parent directory from file path
           const parentDir = file.path.replace(/[/\\][^/\\]+$/, '');
+          // Set pending selection so it gets selected after navigation
+          setPendingSelection([file.path]);
           // Clear filters and navigate to the parent directory
           clearFilter();
           handleNavigate(parentDir);
