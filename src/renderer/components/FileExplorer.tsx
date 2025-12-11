@@ -69,6 +69,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     sortDirection,
     setSortDirection,
     setGlobalSearchMode,
+    refreshCurrentFilter
   } = useFileFilter(
     files,
     currentPath,
@@ -142,7 +143,12 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
   } = useFileOperations(
     currentPath,
     currentLocation,
-    async (silent?: boolean) => { await refreshCore(isFiltering, filteredFiles, silent); },
+    async (silent?: boolean) => {
+      await refreshCore(isFiltering, filteredFiles, silent);
+      if (isFiltering) {
+        await refreshCurrentFilter();
+      }
+    },
     getEffectiveTagGroups,
     getFileTags,
     (targetPaths) => setPendingSelection(targetPaths)

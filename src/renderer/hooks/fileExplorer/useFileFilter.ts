@@ -626,6 +626,61 @@ export const useFileFilter = (
     }, [handleFilterByTag, handleMultiTagFilter, clearFilter]);
 
     /**
+     * Refresh the current active filter.
+     * Use this when file operations (move/rename/delete) might affect search results.
+     */
+    const refreshCurrentFilter = useCallback(async () => {
+        if (!isFiltering) return;
+
+        const requestId = Date.now();
+        filterRequestRef.current = requestId;
+
+        console.log('🔄 刷新当前筛选...', filterState);
+
+        if (filterState.tagFilter) {
+            const origin = filterState.tagFilter.origin || 'fileExplorer';
+            if (origin === 'tagManager') {
+                const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
+                let searchRoot = currentPath;
+                if (savedLocation) {
+                    try {
+                        const location = JSON.parse(savedLocation);
+                        searchRoot = location.path;
+                    } catch (e) { }
+                }
+                await performRecursiveSearch([filterState.tagFilter.tagId], searchRoot, requestId);
+            } else {
+                performCurrentDirectorySearch([filterState.tagFilter.tagId], requestId);
+            }
+        } else if (filterState.multiTagFilter) {
+            const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
+            let searchRoot = currentPath;
+            if (savedLocation) {
+                try {
+                    const location = JSON.parse(savedLocation);
+                    searchRoot = location.path;
+                } catch (e) { }
+            }
+            await performRecursiveSearch(filterState.multiTagFilter.tagIds, searchRoot, requestId);
+        } else if (filterState.nameFilterQuery && filterState.isGlobalSearch) {
+            await performGlobalFilenameSearch(filterState.nameFilterQuery, requestId);
+        } else {
+            // Local filter - usually re-evaluates automatically when 'files' prop updates,
+            // but we can force a re-run logic if needed. 
+            // Since local filter depends on `files`, and `handleRefresh` in parent updates `files`,
+            // this branch might just need to ensure `filteredFiles` gets updated.
+            // Our useMemo for `filteredFiles` handles it.
+            // But if we want to be explicit or if we have side effects:
+            if (filterState.nameFilterQuery) {
+                // Re-run local filename filter logic just in case
+                const result = filterByFilename(files, filterState.nameFilterQuery);
+                const sorted = sortFiles(result);
+                setFilterResultFiles(sorted);
+            }
+        }
+    }, [isFiltering, filterState, currentPath, files, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch, filterByFilename, sortFiles]);
+
+    /**
      * Synchronously compute sorted files for non-filtering case using useMemo.
      * This prevents UI flicker when navigating between folders.
      */
@@ -685,5 +740,6 @@ export const useFileFilter = (
         sortDirection,
         setSortDirection,
         setGlobalSearchMode,
+        refreshCurrentFilter,
     };
 };
