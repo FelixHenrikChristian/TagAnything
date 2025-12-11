@@ -122,18 +122,18 @@ export const useFileOperations = (
             } else {
                 closeNewFolderDialog(); // Close dialog immediately on success
                 showNotification(`已创建：${res.path}`, 'success');
-                await handleRefresh();
+                await handleRefresh(true);
+
+                // Select the new folder
+                if (onOperationSuccess && res.path) {
+                    onOperationSuccess([res.path]);
+                }
             }
         } catch (e) {
             showNotification(`创建文件夹失败：${e instanceof Error ? e.message : String(e)}`, 'error');
-            closeNewFolderDialog(); // Ensure closed on error too if needed, or keep open? Original was in finally.
-            // Let's keep original behavior for error loop if we want to let user retry, 
-            // but generally we close. 
-            // The original code had it in finally, so it ALWAYS closed.
-        } finally {
-            // closeNewFolderDialog(); // Moved specific calls inside/above 
+            closeNewFolderDialog();
         }
-    }, [currentPath, newFolderDialog.inputName, handleRefresh, showNotification, closeNewFolderDialog]);
+    }, [currentPath, newFolderDialog.inputName, handleRefresh, showNotification, closeNewFolderDialog, onOperationSuccess]);
 
     // Rename
     const openRenameDialog = useCallback((file: FileItem) => {
