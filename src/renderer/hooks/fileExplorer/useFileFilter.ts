@@ -549,6 +549,7 @@ export const useFileFilter = (
         }));
 
         setIsFiltering(false);
+        setIsSearching(false);
         setFilterResultFiles([]);
 
         // Clear localStorage
