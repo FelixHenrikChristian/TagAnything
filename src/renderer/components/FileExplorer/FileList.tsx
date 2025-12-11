@@ -30,6 +30,7 @@ interface FileListProps {
     getFileTags: (file: FileItem) => Tag[];
     tagDisplayStyle: 'original' | 'library';
     selectedPaths?: Set<string>;
+    onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
 }
 
 export const FileList: React.FC<FileListProps> = ({
@@ -42,6 +43,7 @@ export const FileList: React.FC<FileListProps> = ({
     getFileTags,
     tagDisplayStyle,
     selectedPaths,
+    onFileClick,
 }) => {
     const toFileUrl = (p: string) => 'file:///' + p.replace(/\\/g, '/');
 
@@ -75,14 +77,17 @@ export const FileList: React.FC<FileListProps> = ({
 
     return (
         <List>
-            {files.map((file) => (
+            {files.map((file, index) => (
                 <ListItem
                     key={file.path}
                     data-file-path={file.path}
                     button
                     selected={selectedPaths?.has(file.path)}
                     draggable={false}
-                    onClick={() => {
+                    onClick={(e) => {
+                        onFileClick?.(e, file, index);
+                    }}
+                    onDoubleClick={() => {
                         if (file.isDirectory) {
                             handleNavigate(file.path);
                         } else {

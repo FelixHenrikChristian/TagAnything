@@ -35,6 +35,7 @@ interface FileGridProps {
     handleTagDrop: (file: FileItem, tag: Tag) => void;
     reorderTagWithinFile: (file: FileItem, oldIndex: number, newIndex: number) => void;
     selectedPaths?: Set<string>;
+    onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
 }
 
 const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
@@ -125,6 +126,8 @@ const FileCard = ({
     tagOverlayHeight,
     iconSize,
     isSelected = false,
+    index,
+    onFileClick,
 }: {
     file: FileItem;
     handleNavigate: (path: string) => void;
@@ -140,6 +143,8 @@ const FileCard = ({
     tagOverlayHeight: string;
     iconSize: number;
     isSelected?: boolean;
+    index: number;
+    onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
 }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: file.path,
@@ -233,7 +238,10 @@ const FileCard = ({
                     boxShadow: 4,
                 },
             }}
-            onClick={() => {
+            onClick={(e) => {
+                onFileClick?.(e, file, index);
+            }}
+            onDoubleClick={() => {
                 if (file.isDirectory) {
                     handleNavigate(file.path);
                 } else {
@@ -416,6 +424,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     handleTagDrop,
     reorderTagWithinFile,
     selectedPaths,
+    onFileClick,
 }) => {
     // Grid Layout Calculations
     const GRID_CONFIG = {
@@ -453,7 +462,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                 p: 1,
             }}
         >
-            {files.map((file) => (
+            {files.map((file, index) => (
                 <FileCard
                     key={file.path}
                     file={file}
@@ -470,6 +479,8 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     tagOverlayHeight={tagOverlayHeight}
                     iconSize={iconSize}
                     isSelected={selectedPaths?.has(file.path)}
+                    index={index}
+                    onFileClick={onFileClick}
                 />
             ))}
         </Box>

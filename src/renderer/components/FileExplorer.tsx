@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
+import React, { useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { FolderOpen as FolderOpenIcon } from '@mui/icons-material';
 import { DragEndEvent } from '@dnd-kit/core';
@@ -15,6 +15,7 @@ import { FileList } from './FileExplorer/FileList';
 import { FileGrid } from './FileExplorer/FileGrid';
 import { ExplorerDialogs } from './FileExplorer/ExplorerDialogs';
 import { ExplorerContextMenus } from './FileExplorer/ExplorerContextMenus';
+import { FileItem, Tag, TagGroup } from '../types';
 
 interface FileExplorerProps {
   tagDisplayStyle?: 'original' | 'library';
@@ -202,6 +203,60 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
       }
     }
   }, [filteredFiles, pendingSelection, setSelectedIndices]);
+
+  const handleFileClick = useCallback((event: React.MouseEvent, file: FileItem, index: number) => {
+    // If it's a right click, we generally don't change selection unless the clicked item is not in the current selection
+    if (event.button === 2) {
+      if (!selectedPaths.has(file.path)) {
+        setSelectedIndices(new Set([index]));
+      }
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      // Toggle selection
+      const newIndices = new Set(selectedFiles.reduce((acc, f) => {
+        const idx = filteredFiles.findIndex(fi => fi.path === f.path);
+        if (idx !== -1) acc.push(idx);
+        return acc;
+      }, [] as number[]));
+
+      if (newIndices.has(index)) {
+        newIndices.delete(index);
+      } else {
+        newIndices.add(index);
+      }
+      setSelectedIndices(newIndices);
+    } else if (event.shiftKey && selectedFiles.length > 0) {
+      // Range selection
+      // Find the "anchor" - let's assume it's the last selected item's index
+      // In a real OS, there's a concept of 'anchor' which might differ from 'focused'.
+      // For simplicity, we'll use the last item in the current selection list as the anchor.
+      // Or better, finding the index of the first selected item?
+      // Actually, useKeyboardNavigation usually tracks focus. Let's see if we can use focusedIndex from it if we exposed it.
+      // Since we don't expose focusedIndex, let's just pick the last selected file as anchor.
+      const lastSelectedPath = selectedFiles[selectedFiles.length - 1].path;
+      const lastSelectedIndex = filteredFiles.findIndex(f => f.path === lastSelectedPath);
+
+      if (lastSelectedIndex !== -1) {
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+        const newIndices = new Set<number>();
+        // Keep existing non-range selection? Windows usually replaces.
+        // Let's replace.
+        for (let i = start; i <= end; i++) {
+          newIndices.add(i);
+        }
+        setSelectedIndices(newIndices);
+      } else {
+        setSelectedIndices(new Set([index]));
+      }
+
+    } else {
+      // Single select
+      setSelectedIndices(new Set([index]));
+    }
+  }, [filteredFiles, selectedFiles, selectedPaths, setSelectedIndices]);
 
 
   // 8. Handlers Wrapper
@@ -442,6 +497,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             getFileTags={getFileTags}
             tagDisplayStyle={tagDisplayStyle}
             selectedPaths={selectedPaths}
+            onFileClick={handleFileClick}
           />
         ) : (
           <FileGrid
@@ -457,6 +513,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             handleTagDrop={handleTagDrop}
             reorderTagWithinFile={reorderTagWithinFile}
             selectedPaths={selectedPaths}
+            onFileClick={handleFileClick}
           />
         )}
       </Box>
