@@ -38,6 +38,7 @@ export const useFileFilter = (
     // filterResultFiles stores the result when a filter is actively being applied
     const [filterResultFiles, setFilterResultFiles] = useState<FileItem[]>([]);
     const [isFiltering, setIsFiltering] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
     const [filterState, setFilterState] = useState<FilterState>({
         tagFilter: null,
         multiTagFilter: null,
@@ -157,7 +158,6 @@ export const useFileFilter = (
      */
     const performRecursiveSearch = useCallback(async (tagIds: string[], rootPath: string, requestId: number) => {
         try {
-            // Check if this request is still valid
             if (requestId !== filterRequestRef.current) {
                 console.log('🚫 忽略过期的搜索请求:', requestId);
                 return;
@@ -165,11 +165,19 @@ export const useFileFilter = (
 
             isProcessing.current = true;
             setIsFiltering(true);
+            setIsSearching(true);
 
-            console.log('🔍 开始递归搜索:', { tagIds, rootPath, requestId });
+            console.log('🔍 开始递归搜索 (IPC):', { tagIds, rootPath, requestId });
 
-            // Get all files recursively
-            const allFiles = await window.electron.getAllFiles(rootPath);
+            // Call Main Process to search
+            // Pass current name filter query to optimize search
+            const { files: resultFiles, fileTags: resultTags } = await window.electron.searchFiles({
+                rootPath,
+                tagGroups: getEffectiveTagGroups(),
+                tagIds,
+                query: filterState.nameFilterQuery || undefined,
+                matchAllTags: true
+            });
 
             // Check again after await
             if (requestId !== filterRequestRef.current) {
@@ -177,66 +185,33 @@ export const useFileFilter = (
                 return;
             }
 
-            console.log(`📁 递归扫描到 ${allFiles.length} 个文件`);
+            console.log(`✅ IPC搜索完成, 找到 ${resultFiles.length} 个文件`);
 
-            // Parse tags for all files
-            const groups = getEffectiveTagGroups();
-            const newFileTags = new Map<string, Tag[]>();
-
-            allFiles.forEach(file => {
-                if (!file.isDirectory) {
-                    const tagNames = parseTagsFromFilename(file.name);
-                    if (tagNames.length > 0) {
-                        const { matchedTags, unmatchedTags } = createTagsFromNames(tagNames, groups);
-                        const temporaryTags = createTemporaryTags(unmatchedTags);
-                        const allTags = [...matchedTags, ...temporaryTags];
-                        if (allTags.length > 0) {
-                            newFileTags.set(file.path, allTags);
-                        }
-                    }
-                }
-            });
-
-            // Update file tags map
-            setFileTags((prevTags: Map<string, Tag[]>) => {
-                const updated = new Map(prevTags);
-                newFileTags.forEach((tags, path) => {
-                    updated.set(path, tags);
+            // Update file tags map from results
+            if (resultTags) {
+                setFileTags((prevTags: Map<string, Tag[]>) => {
+                    const updated = new Map(prevTags);
+                    Object.entries(resultTags).forEach(([path, tags]) => {
+                        updated.set(path, tags as Tag[]);
+                    });
+                    return updated;
                 });
-                return updated;
-            });
-
-            // Wait a bit for fileTags state to update
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            // Check again after await
-            if (requestId !== filterRequestRef.current) {
-                return;
             }
 
-            // Filter by tags using the new map
-            const tagFilteredFiles = allFiles.filter(file => {
-                if (file.isDirectory) return false;
-                const tags = newFileTags.get(file.path);
-                if (!tags || tags.length === 0) return false;
-                const fileTagIds = tags.map(t => t.id);
-                return tagIds.every(tagId => fileTagIds.includes(tagId));
-            });
+            // Wait a bit just to be safe with state updates if needed (optional)
+            // await new Promise(resolve => setTimeout(resolve, 50)); 
 
-            console.log(`✅ 筛选出 ${tagFilteredFiles.length} 个匹配文件`);
+            // resultFiles is already filtered by tag AND filename (if passed)
+            // But we should double check if we need client side sorting.
+            // Main process does NOT sort. 
 
-            // Apply filename filter if exists
-            let result = tagFilteredFiles;
-            if (filterState.nameFilterQuery) {
-                result = filterByFilename(result, filterState.nameFilterQuery);
-            }
-
-            // Sort and update
-            const sorted = sortFiles(result);
+            const sorted = sortFiles(resultFiles);
             setFilterResultFiles(sorted);
 
             // Generate thumbnails for video files
-            await generateVideoThumbnails(sorted);
+            // Optimized: only generate for visible ones? existing logic does all.
+            // Leaving as is.
+            generateVideoThumbnails(sorted);
 
         } catch (error) {
             if (requestId === filterRequestRef.current) {
@@ -246,9 +221,10 @@ export const useFileFilter = (
         } finally {
             if (requestId === filterRequestRef.current) {
                 isProcessing.current = false;
+                setIsSearching(false);
             }
         }
-    }, [filterState.nameFilterQuery, getEffectiveTagGroups, setFileTags, sortFiles, filterByFilename, generateVideoThumbnails]);
+    }, [filterState.nameFilterQuery, getEffectiveTagGroups, setFileTags, sortFiles, generateVideoThumbnails]);
 
     /**
      * Perform current directory only search
@@ -298,8 +274,9 @@ export const useFileFilter = (
 
             isProcessing.current = true;
             setIsFiltering(true);
+            setIsSearching(true);
 
-            console.log('🌐 开始全局文件名搜索:', { query, requestId });
+            console.log('🌐 开始全局文件名搜索 (IPC):', { query, requestId });
 
             // Get search root from current location
             const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
@@ -313,8 +290,13 @@ export const useFileFilter = (
                 }
             }
 
-            // Get all files recursively
-            const allFiles = await window.electron.getAllFiles(searchRoot);
+            // Perform IPC search
+            const { files: resultFiles, fileTags: resultTags } = await window.electron.searchFiles({
+                rootPath: searchRoot,
+                tagGroups: getEffectiveTagGroups(),
+                query: query
+                // No tagIds -> matches folders and files just by name
+            });
 
             // Check again after await
             if (requestId !== filterRequestRef.current) {
@@ -322,18 +304,21 @@ export const useFileFilter = (
                 return;
             }
 
-            console.log(`📁 递归扫描到 ${allFiles.length} 个文件`);
+            console.log(`✅ IPC全局搜索匹配到 ${resultFiles.length} 个文件/文件夹`);
 
-            // Filter by filename (include both files and folders)
-            const lowerQuery = query.toLowerCase();
-            const filteredFiles = allFiles.filter(file =>
-                file.name.toLowerCase().includes(lowerQuery)
-            );
-
-            console.log(`✅ 全局搜索匹配到 ${filteredFiles.length} 个文件/文件夹`);
+            // Update file tags map from results (in case they have tags)
+            if (resultTags) {
+                setFileTags((prevTags: Map<string, Tag[]>) => {
+                    const updated = new Map(prevTags);
+                    Object.entries(resultTags).forEach(([path, tags]) => {
+                        updated.set(path, tags as Tag[]);
+                    });
+                    return updated;
+                });
+            }
 
             // Sort and update
-            const sorted = sortFiles(filteredFiles);
+            const sorted = sortFiles(resultFiles);
             setFilterResultFiles(sorted);
 
             // Generate thumbnails for video files
@@ -347,9 +332,10 @@ export const useFileFilter = (
         } finally {
             if (requestId === filterRequestRef.current) {
                 isProcessing.current = false;
+                setIsSearching(false);
             }
         }
-    }, [currentPath, sortFiles, generateVideoThumbnails]);
+    }, [currentPath, sortFiles, generateVideoThumbnails, getEffectiveTagGroups, setFileTags]);
 
     /**
      * Handle single tag filter
@@ -741,5 +727,6 @@ export const useFileFilter = (
         setSortDirection,
         setGlobalSearchMode,
         refreshCurrentFilter,
+        isSearching,
     };
 };

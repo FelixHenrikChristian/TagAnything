@@ -234,6 +234,169 @@ ipcMain.handle('get-files', async (event, folderPath: string) => {
   }
 });
 
+// Helper functions for search
+function parseTagsFromFilename(filename: string): string[] {
+  const tagMatch = filename.match(/^\[([^\]]+)\]/);
+  if (!tagMatch) return [];
+  return tagMatch[1].split(/\s+/).filter(tag => tag.trim().length > 0);
+}
+
+function getDefaultTagColor(tagName: string): string {
+  const colors = [
+    '#f44336', '#e91e63', '#9c27b0', '#673ab7',
+    '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
+    '#009688', '#4caf50', '#8bc34a', '#cddc39',
+    '#ffeb3b', '#ffc107', '#ff9800', '#ff5722',
+  ];
+  let hash = 0;
+  for (let i = 0; i < tagName.length; i++) {
+    hash = tagName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+interface LocalTag {
+  id: string;
+  name: string;
+  color: string;
+  textcolor?: string;
+  groupId?: string;
+}
+
+interface LocalTagGroup {
+  id: string;
+  name: string;
+  tags: LocalTag[];
+}
+
+// 搜索文件处理函数
+ipcMain.handle('search-files', async (event, params: {
+  rootPath: string;
+  tagGroups: LocalTagGroup[];
+  tagIds?: string[];
+  query?: string;
+  matchAllTags?: boolean;
+}) => {
+  const { rootPath, tagGroups, tagIds, query, matchAllTags = true } = params;
+  const fs = require('fs').promises;
+  const path = require('path');
+
+  const results: any[] = [];
+  const fileTagsMap: Record<string, LocalTag[]> = {};
+
+  const lowerQuery = query ? query.toLowerCase() : null;
+  const hasTagFilter = tagIds && tagIds.length > 0;
+
+  // 使用栈进行非递归遍历，防止栈溢出并支持异步等待
+  const stack = [rootPath];
+  let loops = 0;
+
+  try {
+    while (stack.length > 0) {
+      const currentDir = stack.pop()!;
+
+      loops++;
+      if (loops % 100 === 0) {
+        // 让出事件循环，避免卡顿
+        await new Promise(resolve => setImmediate(resolve));
+      }
+
+      try {
+        const items = await fs.readdir(currentDir);
+
+        for (const item of items) {
+          const fullPath = path.join(currentDir, item);
+          let stats;
+          try {
+            stats = await fs.stat(fullPath);
+          } catch { continue; }
+
+          const fileItem = {
+            name: item,
+            path: fullPath,
+            isDirectory: stats.isDirectory(),
+            size: stats.size,
+            modified: stats.mtime,
+          };
+
+          // 1. Filename Filter
+          let nameMatch = true;
+          if (lowerQuery) {
+            nameMatch = item.toLowerCase().includes(lowerQuery);
+          }
+
+          if (stats.isDirectory()) {
+            // 如果是目录，只有在没有标签筛选且名字匹配时才加入结果
+            if (!hasTagFilter && nameMatch) {
+              results.push(fileItem);
+            }
+            // 继续递归
+            stack.push(fullPath);
+            continue;
+          }
+
+          // 是文件
+          if (!nameMatch) continue;
+
+          // 2. Tag Filter
+          const rawTagNames = parseTagsFromFilename(item);
+          if (hasTagFilter && rawTagNames.length === 0) continue;
+
+          // 解析标签
+          const matchedTags: LocalTag[] = [];
+          const unmatchedTags: string[] = [];
+
+          rawTagNames.forEach(tagName => {
+            let found: LocalTag | undefined;
+            for (const g of tagGroups) {
+              found = g.tags.find((t: any) => t.name.toLowerCase() === tagName.toLowerCase());
+              if (found) break;
+            }
+            if (found) matchedTags.push(found);
+            else unmatchedTags.push(tagName);
+          });
+
+          // 创建临时标签
+          const tempTags = unmatchedTags.map(name => ({
+            id: `temp_${Date.now()}_${Math.random()}`,
+            name,
+            color: getDefaultTagColor(name),
+            textcolor: '#ffffff',
+            groupId: 'temporary'
+          }));
+
+          const allTags = [...matchedTags, ...tempTags];
+
+          if (hasTagFilter) {
+            const fileTagIds = allTags.map(t => t.id);
+            let tagMatch = false;
+            if (matchAllTags) {
+              tagMatch = tagIds!.every(id => fileTagIds.includes(id));
+            } else {
+              tagMatch = tagIds!.some(id => fileTagIds.includes(id));
+            }
+
+            if (!tagMatch) continue;
+          }
+
+          // 匹配成功
+          results.push(fileItem);
+          if (allTags.length > 0) {
+            fileTagsMap[fullPath] = allTags;
+          }
+        }
+      } catch (e) {
+        // ignore dir read error
+      }
+    }
+  } catch (e) {
+    console.error('Search failed:', e);
+    return { files: [], fileTags: {} };
+  }
+
+  return { files: results, fileTags: fileTagsMap };
+});
+
 // 递归获取所有文件（包括子目录中的文件）
 ipcMain.handle('get-all-files', async (event, folderPath: string) => {
   const fs = require('fs');

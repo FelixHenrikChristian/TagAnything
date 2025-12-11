@@ -69,7 +69,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     sortDirection,
     setSortDirection,
     setGlobalSearchMode,
-    refreshCurrentFilter
+    refreshCurrentFilter,
+    isSearching
   } = useFileFilter(
     files,
     currentPath,
@@ -478,7 +479,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         onWheel={handleWheel}
       >
         {/* File View */}
-        {isLoading ? (
+        {isLoading || isSearching ? (
           <Box sx={{
             display: 'flex',
             alignItems: 'center',

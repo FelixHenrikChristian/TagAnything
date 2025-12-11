@@ -56,6 +56,13 @@ declare global {
             selectFolder: () => Promise<string>;
             getFiles: (folderPath: string) => Promise<FileItem[]>;
             getAllFiles: (folderPath: string) => Promise<FileItem[]>;
+            searchFiles: (params: {
+                rootPath: string;
+                tagGroups: TagGroup[];
+                tagIds?: string[];
+                query?: string;
+                matchAllTags?: boolean;
+            }) => Promise<{ files: FileItem[]; fileTags?: { [path: string]: Tag[] } }>;
             openFile: (filePath: string) => Promise<void>;
             createFolder: (parentPath: string, name: string) => Promise<{ success: boolean; path?: string; error?: string }>;
             showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>;
