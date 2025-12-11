@@ -287,7 +287,20 @@ ipcMain.handle('search-files', async (event, params: {
   const lowerQuery = query ? query.toLowerCase() : null;
   const hasTagFilter = tagIds && tagIds.length > 0;
 
-  // 使用栈进行非递归遍历，防止栈溢出并支持异步等待
+  // 预先构建标签查找表，优化搜索速度 (O(M) -> O(1))
+  const tagLookup = new Map<string, LocalTag>();
+  if (tagGroups) {
+    for (const g of tagGroups) {
+      // 检查 g.tags 是否存在，避免潜在的 undefined 错误
+      if (Array.isArray(g.tags)) {
+        for (const t of g.tags) {
+          tagLookup.set(t.name.toLowerCase(), t);
+        }
+      }
+    }
+  }
+
+  // 使用栈进行非递归遍历
   const stack = [rootPath];
   let loops = 0;
 
@@ -297,70 +310,68 @@ ipcMain.handle('search-files', async (event, params: {
 
       loops++;
       if (loops % 100 === 0) {
-        // 让出事件循环，避免卡顿
         await new Promise(resolve => setImmediate(resolve));
       }
 
       try {
-        const items = await fs.readdir(currentDir);
+        // 关键优化：withFileTypes: true 返回 Dirent 对象，包含文件类型信息
+        // 从而避免了对每个文件都调用 stat (昂贵的系统调用)
+        const dirents = await fs.readdir(currentDir, { withFileTypes: true });
 
-        for (const item of items) {
-          const fullPath = path.join(currentDir, item);
-          let stats;
-          try {
-            stats = await fs.stat(fullPath);
-          } catch { continue; }
-
-          const fileItem = {
-            name: item,
-            path: fullPath,
-            isDirectory: stats.isDirectory(),
-            size: stats.size,
-            modified: stats.mtime,
-          };
+        for (const dirent of dirents) {
+          const name = dirent.name;
+          const fullPath = path.join(currentDir, name);
+          const isDirectory = dirent.isDirectory();
 
           // 1. Filename Filter
           let nameMatch = true;
           if (lowerQuery) {
-            nameMatch = item.toLowerCase().includes(lowerQuery);
+            nameMatch = name.toLowerCase().includes(lowerQuery);
           }
 
-          if (stats.isDirectory()) {
-            // 如果是目录，只有在没有标签筛选且名字匹配时才加入结果
+          if (isDirectory) {
+            // 如果是目录
+            // 在没有标签筛选且名字匹配时加入结果
             if (!hasTagFilter && nameMatch) {
-              results.push(fileItem);
+              // 只有确认为结果时才调用 stat 获取详情
+              try {
+                const stats = await fs.stat(fullPath);
+                results.push({
+                  name,
+                  path: fullPath,
+                  isDirectory: true,
+                  size: stats.size,
+                  modified: stats.mtime,
+                });
+              } catch { }
             }
             // 继续递归
             stack.push(fullPath);
             continue;
           }
 
-          // 是文件
+          // 是文件：先进行名字筛选
           if (!nameMatch) continue;
 
           // 2. Tag Filter
-          const rawTagNames = parseTagsFromFilename(item);
+          const rawTagNames = parseTagsFromFilename(name);
           if (hasTagFilter && rawTagNames.length === 0) continue;
 
-          // 解析标签
+          // 解析标签 (使用优化后的查找表)
           const matchedTags: LocalTag[] = [];
           const unmatchedTags: string[] = [];
 
           rawTagNames.forEach(tagName => {
-            let found: LocalTag | undefined;
-            for (const g of tagGroups) {
-              found = g.tags.find((t: any) => t.name.toLowerCase() === tagName.toLowerCase());
-              if (found) break;
-            }
+            const lowerName = tagName.toLowerCase();
+            const found = tagLookup.get(lowerName);
             if (found) matchedTags.push(found);
             else unmatchedTags.push(tagName);
           });
 
-          // 创建临时标签
-          const tempTags = unmatchedTags.map(name => ({
+          const tempTags = unmatchedTags.map(tagName => ({
             id: `temp_${Date.now()}_${Math.random()}`,
-            name,
-            color: getDefaultTagColor(name),
+            name: tagName,
+            color: getDefaultTagColor(tagName),
             textcolor: '#ffffff',
             groupId: 'temporary'
           }));
@@ -370,6 +381,7 @@ ipcMain.handle('search-files', async (event, params: {
           if (hasTagFilter) {
             const fileTagIds = allTags.map(t => t.id);
             let tagMatch = false;
+            // 优化：检查逻辑应该简单快速
             if (matchAllTags) {
               tagMatch = tagIds!.every(id => fileTagIds.includes(id));
             } else {
@@ -379,10 +391,22 @@ ipcMain.handle('search-files', async (event, params: {
             if (!tagMatch) continue;
           }
 
-          // 匹配成功
-          results.push(fileItem);
-          if (allTags.length > 0) {
-            fileTagsMap[fullPath] = allTags;
+          // 匹配成功！现在才调用 stat 获取文件详情
+          try {
+            // 只有通过了所有过滤器的文件才会执行这一步，大幅减少 syscall
+            const stats = await fs.stat(fullPath);
+            results.push({
+              name,
+              path: fullPath,
+              isDirectory: false,
+              size: stats.size,
+              modified: stats.mtime,
+            });
+            if (allTags.length > 0) {
+              fileTagsMap[fullPath] = allTags;
+            }
+          } catch (e) {
+            // stat 失败则忽略该文件
           }
         }
       } catch (e) {
