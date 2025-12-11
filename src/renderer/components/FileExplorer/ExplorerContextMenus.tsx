@@ -54,6 +54,7 @@ interface ExplorerContextMenusProps {
     handleRemoveTagFromFile: (tag: Tag, file: FileItem) => void;
 
     handleNavigateToDirectory: (file: FileItem) => void;
+    selectedFiles: FileItem[];
 }
 
 export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
@@ -79,7 +80,17 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
     handleFilterByTag,
     handleRemoveTagFromFile,
     handleNavigateToDirectory,
+    selectedFiles,
 }) => {
+    // Helper to get files for operation
+    const getFilesForOperation = (targetFile: FileItem) => {
+        const isTargetSelected = selectedFiles.some(f => f.path === targetFile.path);
+        if (isTargetSelected) {
+            return selectedFiles.map(f => ({ name: f.name, path: f.path, size: f.size }));
+        }
+        return [{ name: targetFile.name, path: targetFile.path, size: targetFile.size }];
+    };
+
     // Local state to control tag menu visibility without clearing tagContextMenu immediately
     const [tagMenuOpen, setTagMenuOpen] = React.useState(false);
     // Local state to control file menu visibility
@@ -148,19 +159,19 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                             </ListItemIcon>
                             <ListItemText>重命名</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDirectOperationDialog('move', getFilesForOperation(f)); }}>
                             <ListItemIcon>
                                 <ArrowUpwardIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>移动</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDirectOperationDialog('copy', getFilesForOperation(f)); }}>
                             <ListItemIcon>
                                 <CopyIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>复制</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = fileContextMenu.file; setFileMenuOpen(false); openDeleteConfirmDialog(getFilesForOperation(f)); }}>
                             <ListItemIcon>
                                 <DeleteIcon fontSize="small" color="error" />
                             </ListItemIcon>
@@ -225,19 +236,19 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                             </ListItemIcon>
                             <ListItemText>重命名</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDirectOperationDialog('move', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDirectOperationDialog('move', getFilesForOperation(f)); }}>
                             <ListItemIcon>
                                 <ArrowUpwardIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>移动</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDirectOperationDialog('copy', [{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDirectOperationDialog('copy', getFilesForOperation(f)); }}>
                             <ListItemIcon>
                                 <CopyIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText>复制</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDeleteConfirmDialog([{ name: f.name, path: f.path, size: f.size }]); }}>
+                        <MenuItem onClick={() => { const f = folderContextMenu.file; setFolderMenuOpen(false); openDeleteConfirmDialog(getFilesForOperation(f)); }}>
                             <ListItemIcon>
                                 <DeleteIcon fontSize="small" color="error" />
                             </ListItemIcon>

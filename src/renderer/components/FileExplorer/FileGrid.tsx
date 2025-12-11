@@ -26,7 +26,7 @@ interface FileGridProps {
     files: FileItem[];
     handleNavigate: (path: string) => void;
     handleFileOpen: (file: FileItem) => void;
-    handleContextMenu: (event: React.MouseEvent, file: FileItem) => void;
+    handleContextMenu: (event: React.MouseEvent, file: FileItem, index: number) => void;
     handleTagContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void;
     videoThumbnails: Map<string, string>;
     getFileTags: (file: FileItem) => Tag[];
@@ -468,7 +468,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     file={file}
                     handleNavigate={handleNavigate}
                     handleFileOpen={handleFileOpen}
-                    handleContextMenu={handleContextMenu}
+                    handleContextMenu={(e, f) => handleContextMenu(e, f, index)}
                     handleTagContextMenu={handleTagContextMenu}
                     videoThumbnails={videoThumbnails}
                     fileTags={getFileTags(file)}

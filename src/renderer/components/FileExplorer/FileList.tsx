@@ -24,7 +24,7 @@ interface FileListProps {
     files: FileItem[];
     handleNavigate: (path: string) => void;
     handleFileOpen: (file: FileItem) => void;
-    handleContextMenu: (event: React.MouseEvent, file: FileItem) => void;
+    handleContextMenu: (event: React.MouseEvent, file: FileItem, index: number) => void;
     handleTagContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void;
     videoThumbnails: Map<string, string>;
     getFileTags: (file: FileItem) => Tag[];
@@ -94,7 +94,7 @@ export const FileList: React.FC<FileListProps> = ({
                             handleFileOpen(file);
                         }
                     }}
-                    onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, file); }}
+                    onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, file, index); }}
                     onDragStart={(e) => e.preventDefault()}
                     sx={{
                         borderRadius: 1,
@@ -189,7 +189,7 @@ export const FileList: React.FC<FileListProps> = ({
                         edge="end"
                         onClick={(e) => {
                             e.stopPropagation();
-                            handleContextMenu(e, file);
+                            handleContextMenu(e, file, index);
                         }}
                     >
                         <MoreIcon />

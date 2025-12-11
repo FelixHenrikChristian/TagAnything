@@ -160,6 +160,19 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleTagContextMenu,
   } = useFileContextMenu();
 
+  // Wrapper for context menu to handle selection logic
+  const handleContextMenuWrapper = (event: React.MouseEvent, file: FileItem, index: number) => {
+    // If the right-clicked file is NOT in the current selection, select it exclusively
+    if (!selectedPaths.has(file.path)) {
+      setSelectedIndices(new Set([index]));
+    }
+    // If it IS in the selection, do nothing to selection (preserve multi-selection)
+
+    handleFileContextMenu(event, file);
+  };
+
+
+
   // 5. Drag State
   const { dragState, setDragState } = useFileDrag();
 
@@ -491,7 +504,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             files={filteredFiles}
             handleNavigate={onNavigate}
             handleFileOpen={handleFileOpen}
-            handleContextMenu={handleFileContextMenu}
+            handleContextMenu={handleContextMenuWrapper}
             handleTagContextMenu={handleTagContextMenu}
             videoThumbnails={videoThumbnails}
             getFileTags={getFileTags}
@@ -504,7 +517,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             files={filteredFiles}
             handleNavigate={onNavigate}
             handleFileOpen={handleFileOpen}
-            handleContextMenu={handleFileContextMenu}
+            handleContextMenu={handleContextMenuWrapper}
             handleTagContextMenu={handleTagContextMenu}
             videoThumbnails={videoThumbnails}
             getFileTags={getFileTags}
@@ -602,6 +615,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
           clearFilter();
           handleNavigate(parentDir);
         }}
+        selectedFiles={selectedFiles}
       />
     </Box>
   );
