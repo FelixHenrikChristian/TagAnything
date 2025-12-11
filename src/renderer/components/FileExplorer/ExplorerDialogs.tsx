@@ -337,6 +337,8 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                         autoFocus
                         fullWidth
                         label="文件夹名称"
+                        placeholder="新建文件夹"
+                        InputLabelProps={{ shrink: true }}
                         margin="dense"
                         size="small"
                         value={newFolderDialog.inputName}

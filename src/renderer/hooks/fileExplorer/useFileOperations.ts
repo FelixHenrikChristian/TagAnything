@@ -53,7 +53,7 @@ export const useFileOperations = (
         rootPath: '',
         browsePath: ''
     });
-    const [newFolderDialog, setNewFolderDialog] = useState<NewFolderDialogState>({ open: false, inputName: '新建文件夹' });
+    const [newFolderDialog, setNewFolderDialog] = useState<NewFolderDialogState>({ open: false, inputName: '' });
     const [deleteDialog, setDeleteDialog] = useState<DeleteConfirmDialogState>({ open: false, files: [] });
 
     const [pickerDirectories, setPickerDirectories] = useState<FileItem[]>([]);
@@ -103,16 +103,19 @@ export const useFileOperations = (
 
     // Create Folder
     const handleCreateFolder = useCallback(() => {
-        setNewFolderDialog({ open: true, inputName: '新建文件夹' });
+        setNewFolderDialog({ open: true, inputName: '' });
     }, []);
 
-    const closeNewFolderDialog = useCallback(() => setNewFolderDialog({ open: false, inputName: '新建文件夹' }), []);
+    const closeNewFolderDialog = useCallback(() => setNewFolderDialog({ open: false, inputName: '' }), []);
 
     const confirmCreateFolder = useCallback(async () => {
         try {
             if (!currentPath) { closeNewFolderDialog(); return; }
-            const name = (newFolderDialog.inputName || '').trim();
-            if (!name || /[<>:"\/\\|?*]/.test(name)) {
+            let name = (newFolderDialog.inputName || '').trim();
+            if (!name) {
+                name = '新建文件夹';
+            }
+            if (/[<>:"\/\\|?*]/.test(name)) {
                 showNotification('文件夹名称无效，不能包含特殊字符：<>:"/\\|?*', 'error');
                 return;
             }
