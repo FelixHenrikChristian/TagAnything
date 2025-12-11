@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { FolderOpen as FolderOpenIcon } from '@mui/icons-material';
 import { DragEndEvent } from '@dnd-kit/core';
@@ -77,22 +77,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     fileTags
   );
 
-  // Scroll to File Logic
-  const [scrollTarget, setScrollTarget] = React.useState<string | null>(null);
 
-  useEffect(() => {
-    if (scrollTarget && files.length > 0) {
-      // Timeout ensures that the DOM has been updated with the new list
-      setTimeout(() => {
-        const element = document.querySelector(`[data-file-path="${scrollTarget.replace(/\\/g, '\\\\')}"]`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Optional: highlight effect could be added here
-        }
-        setScrollTarget(null);
-      }, 100);
-    }
-  }, [files, scrollTarget]);
 
   // 3. Operations & Dialogs
   const {
@@ -159,7 +144,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     async (silent?: boolean) => { await refreshCore(isFiltering, filteredFiles, silent); },
     getEffectiveTagGroups,
     getFileTags,
-    (targetPath) => setScrollTarget(targetPath)
+    (targetPaths) => setPendingSelection(targetPaths)
   );
 
   // 4. Context Menus
@@ -181,7 +166,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 7. Keyboard Navigation
-  const { selectedFile, clearSelection } = useKeyboardNavigation({
+  const { selectedFiles, clearSelection, setSelectedIndices } = useKeyboardNavigation({
     files: filteredFiles,
     gridContainerRef: containerRef,
     goBack,
@@ -190,6 +175,34 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleFileOpen,
     enabled: !!currentLocation,
   });
+
+  // Calculate selected paths for rendering
+  const selectedPaths = useMemo(() => new Set(selectedFiles.map(f => f.path)), [selectedFiles]);
+
+  // Scroll/Select Logic (Refactored to use Selection)
+  // When an operation completes, we want to select the new file.
+  // The useKeyboardNavigation hook will automatically scroll to the selected file.
+  // Scroll/Select Logic (Refactored to use Selection)
+  const [pendingSelection, setPendingSelection] = React.useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (pendingSelection && pendingSelection.length > 0 && filteredFiles.length > 0) {
+      // Find the indices of the files we want to select
+      const indices = new Set<number>();
+      pendingSelection.forEach(path => {
+        const index = filteredFiles.findIndex(f => f.path === path);
+        if (index !== -1) {
+          indices.add(index);
+        }
+      });
+
+      if (indices.size > 0) {
+        setSelectedIndices(indices);
+        setPendingSelection(null);
+      }
+    }
+  }, [filteredFiles, pendingSelection, setSelectedIndices]);
+
 
   // 8. Handlers Wrapper
   const onNavigate = (path: string) => {
@@ -428,6 +441,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             videoThumbnails={videoThumbnails}
             getFileTags={getFileTags}
             tagDisplayStyle={tagDisplayStyle}
+            selectedPaths={selectedPaths}
           />
         ) : (
           <FileGrid
@@ -442,7 +456,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             gridSize={gridSize}
             handleTagDrop={handleTagDrop}
             reorderTagWithinFile={reorderTagWithinFile}
-            selectedFilePath={selectedFile?.path}
+            selectedPaths={selectedPaths}
           />
         )}
       </Box>

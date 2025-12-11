@@ -29,6 +29,7 @@ interface FileListProps {
     videoThumbnails: Map<string, string>;
     getFileTags: (file: FileItem) => Tag[];
     tagDisplayStyle: 'original' | 'library';
+    selectedPaths?: Set<string>;
 }
 
 export const FileList: React.FC<FileListProps> = ({
@@ -40,6 +41,7 @@ export const FileList: React.FC<FileListProps> = ({
     videoThumbnails,
     getFileTags,
     tagDisplayStyle,
+    selectedPaths,
 }) => {
     const toFileUrl = (p: string) => 'file:///' + p.replace(/\\/g, '/');
 
@@ -78,6 +80,7 @@ export const FileList: React.FC<FileListProps> = ({
                     key={file.path}
                     data-file-path={file.path}
                     button
+                    selected={selectedPaths?.has(file.path)}
                     draggable={false}
                     onClick={() => {
                         if (file.isDirectory) {

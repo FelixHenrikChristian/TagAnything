@@ -34,7 +34,7 @@ interface FileGridProps {
     gridSize: number;
     handleTagDrop: (file: FileItem, tag: Tag) => void;
     reorderTagWithinFile: (file: FileItem, oldIndex: number, newIndex: number) => void;
-    selectedFilePath?: string | null;
+    selectedPaths?: Set<string>;
 }
 
 const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
@@ -415,7 +415,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     gridSize,
     handleTagDrop,
     reorderTagWithinFile,
-    selectedFilePath,
+    selectedPaths,
 }) => {
     // Grid Layout Calculations
     const GRID_CONFIG = {
@@ -469,7 +469,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     fileInfoHeight={fileInfoHeight}
                     tagOverlayHeight={tagOverlayHeight}
                     iconSize={iconSize}
-                    isSelected={selectedFilePath === file.path}
+                    isSelected={selectedPaths?.has(file.path)}
                 />
             ))}
         </Box>

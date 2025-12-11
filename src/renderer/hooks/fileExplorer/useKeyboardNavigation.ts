@@ -12,20 +12,20 @@ interface UseKeyboardNavigationOptions {
 }
 
 interface UseKeyboardNavigationResult {
-    selectedIndex: number | null;
-    selectedFile: FileItem | null;
-    setSelectedIndex: (index: number | null) => void;
+    selectedIndices: Set<number>;
+    selectedFiles: FileItem[];
+    setSelectedIndices: (indices: Set<number>) => void;
     clearSelection: () => void;
 }
 
 /**
  * Custom hook for keyboard navigation in file explorer.
  * Supports Windows 11-style navigation:
- * - Arrow keys: Navigate between files in grid
+ * - Arrow keys: Navigate between files in grid (single select)
  * - ESC: Clear selection
  * - Backspace: Go back to parent folder
  * - F5: Refresh current folder
- * - Enter: Open selected file/folder
+ * - Enter: Open selected file/folder (opens first selected)
  */
 export const useKeyboardNavigation = ({
     files,
@@ -36,35 +36,42 @@ export const useKeyboardNavigation = ({
     handleFileOpen,
     enabled = true,
 }: UseKeyboardNavigationOptions): UseKeyboardNavigationResult => {
-    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+    const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+    const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-    // Calculate the selected file based on index
-    const selectedFile = useMemo(() => {
-        if (selectedIndex === null || selectedIndex < 0 || selectedIndex >= files.length) {
-            return null;
-        }
-        return files[selectedIndex];
-    }, [selectedIndex, files]);
+    // Calculate the selected files based on indices
+    const selectedFiles = useMemo(() => {
+        const result: FileItem[] = [];
+        selectedIndices.forEach(index => {
+            if (index >= 0 && index < files.length) {
+                result.push(files[index]);
+            }
+        });
+        return result;
+    }, [selectedIndices, files]);
 
     // Clear selection when files change (e.g., navigating to new folder)
     useEffect(() => {
-        setSelectedIndex(null);
+        setSelectedIndices(new Set());
+        setFocusedIndex(null);
     }, [files]);
 
     const clearSelection = useCallback(() => {
-        setSelectedIndex(null);
+        setSelectedIndices(new Set());
+        setFocusedIndex(null);
     }, []);
 
-    // Auto-scroll to keep selected item visible
+    // Auto-scroll to keep focused item visible
     useEffect(() => {
-        if (selectedFile === null || !gridContainerRef.current) return;
+        if (focusedIndex === null || focusedIndex < 0 || focusedIndex >= files.length || !gridContainerRef.current) return;
 
+        const focusedFile = files[focusedIndex];
         // Find the selected card element by file path
         const container = gridContainerRef.current;
         const cards = container.querySelectorAll('[data-file-path]');
 
         for (const card of cards) {
-            if (card.getAttribute('data-file-path') === selectedFile.path) {
+            if (card.getAttribute('data-file-path') === focusedFile.path) {
                 const cardRect = card.getBoundingClientRect();
                 const containerRect = container.getBoundingClientRect();
                 const padding = 20; // Extra padding to ensure card is fully visible
@@ -82,7 +89,7 @@ export const useKeyboardNavigation = ({
                 break;
             }
         }
-    }, [selectedFile, gridContainerRef]);
+    }, [focusedIndex, files, gridContainerRef]);
 
     // Calculate number of columns in the grid
     const getColumnsCount = useCallback((): number => {
@@ -128,39 +135,34 @@ export const useKeyboardNavigation = ({
                     event.preventDefault();
                     const columnsCount = getColumnsCount();
 
-                    setSelectedIndex(prevIndex => {
-                        // Default to first item if nothing selected
-                        if (prevIndex === null) {
-                            return 0;
-                        }
-
-                        let newIndex = prevIndex;
-
+                    let newIndex = focusedIndex ?? 0;
+                    if (focusedIndex === null) {
+                        // If no focus, start at 0
+                        newIndex = 0;
+                    } else {
                         switch (event.key) {
                             case 'ArrowUp':
-                                newIndex = prevIndex - columnsCount;
+                                newIndex = focusedIndex - columnsCount;
                                 break;
                             case 'ArrowDown':
-                                newIndex = prevIndex + columnsCount;
+                                newIndex = focusedIndex + columnsCount;
                                 break;
                             case 'ArrowLeft':
-                                newIndex = prevIndex - 1;
+                                newIndex = focusedIndex - 1;
                                 break;
                             case 'ArrowRight':
-                                newIndex = prevIndex + 1;
+                                newIndex = focusedIndex + 1;
                                 break;
                         }
+                    }
 
-                        // Clamp to valid range
-                        if (newIndex < 0) {
-                            return prevIndex; // Stay at current position
-                        }
-                        if (newIndex >= files.length) {
-                            return prevIndex; // Stay at current position
-                        }
+                    // Clamp to valid range
+                    if (newIndex < 0) newIndex = focusedIndex ?? 0;
+                    if (newIndex >= files.length) newIndex = focusedIndex ?? 0;
 
-                        return newIndex;
-                    });
+                    // Update focus and single selection (mimic standard navigation without Shift)
+                    setFocusedIndex(newIndex);
+                    setSelectedIndices(new Set([newIndex]));
                     break;
                 }
 
@@ -180,12 +182,14 @@ export const useKeyboardNavigation = ({
                     break;
 
                 case 'Enter':
-                    if (selectedFile) {
+                    if (selectedFiles.length > 0) {
                         event.preventDefault();
-                        if (selectedFile.isDirectory) {
-                            handleNavigate(selectedFile.path);
+                        const primaryFile = selectedFiles[0];
+                        if (primaryFile.isDirectory) {
+                            handleNavigate(primaryFile.path);
                         } else {
-                            handleFileOpen(selectedFile);
+                            // If multiple files selected, maybe open all? For now, open first.
+                            handleFileOpen(primaryFile);
                         }
                     }
                     break;
@@ -199,7 +203,8 @@ export const useKeyboardNavigation = ({
     }, [
         enabled,
         files,
-        selectedFile,
+        focusedIndex,
+        selectedFiles,
         getColumnsCount,
         clearSelection,
         goBack,
@@ -209,9 +214,21 @@ export const useKeyboardNavigation = ({
     ]);
 
     return {
-        selectedIndex,
-        selectedFile,
-        setSelectedIndex,
+        selectedIndices,
+        selectedFiles,
+        setSelectedIndices: (indices) => {
+            setSelectedIndices(indices);
+            // If explicit selection set, move focus to the first item (arbitrary choice)
+            if (indices.size > 0) {
+                // Try to keep focus if it's in the set, otherwise move to first of set
+                if (focusedIndex === null || !indices.has(focusedIndex)) {
+                    const nextVal = indices.values().next().value;
+                    setFocusedIndex(nextVal !== undefined ? nextVal : null);
+                }
+            } else {
+                setFocusedIndex(null);
+            }
+        },
         clearSelection,
     };
 };
