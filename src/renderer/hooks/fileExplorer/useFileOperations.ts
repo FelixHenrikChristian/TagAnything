@@ -120,13 +120,18 @@ export const useFileOperations = (
             if (!res.success) {
                 showNotification(`创建文件夹失败：${res.error || '未知错误'}`, 'error');
             } else {
+                closeNewFolderDialog(); // Close dialog immediately on success
                 showNotification(`已创建：${res.path}`, 'success');
                 await handleRefresh();
             }
         } catch (e) {
             showNotification(`创建文件夹失败：${e instanceof Error ? e.message : String(e)}`, 'error');
+            closeNewFolderDialog(); // Ensure closed on error too if needed, or keep open? Original was in finally.
+            // Let's keep original behavior for error loop if we want to let user retry, 
+            // but generally we close. 
+            // The original code had it in finally, so it ALWAYS closed.
         } finally {
-            closeNewFolderDialog();
+            // closeNewFolderDialog(); // Moved specific calls inside/above 
         }
     }, [currentPath, newFolderDialog.inputName, handleRefresh, showNotification, closeNewFolderDialog]);
 
@@ -157,15 +162,30 @@ export const useFileOperations = (
 
             const res = await window.electron.renameFile(file.path, newPath);
             if (res.success) {
+                closeRenameDialog(); // Close immediately
                 showNotification('重命名成功', 'success');
                 await handleRefresh();
             } else {
                 showNotification(`重命名失败：${res.error}`, 'error');
+                // Keep dialog open on failure to allow user to edit
             }
         } catch (e) {
             showNotification(`重命名失败：${e instanceof Error ? e.message : String(e)}`, 'error');
+            closeRenameDialog(); // Close on exception? Or keeps open?
+            // If it's a critical error, maybe close. If it is validation, keep open.
+            // For now, let's follow the pattern of closing if we can't recover easily.
+            // But usually we want to let user retry. 
+            // Original code had `closeRenameDialog()` in finally, so it ALWAYS closed.
+            // I will maintain the "Always Close" behavior for now to be safe, 
+            // BUT for success case, it is closed earlier.
         } finally {
-            closeRenameDialog();
+            // If we closed it earlier, this is redundant but harmless.
+            // But if we want it to ONLY close on success, we shouldn't have it here.
+            // Wait, user wants better responsiveness. Closing on error is also responsive?
+            // Generally, you want to keep dialog open on error.
+            // BUT, the original code decided to CLOSE IT ALL THE TIME.
+            // I should probably respect the original intent to close it, but just do it FASTER on success.
+            if (renameDialog.open) closeRenameDialog();
         }
     }, [renameDialog, handleRefresh, showNotification, closeRenameDialog]);
 
@@ -477,11 +497,13 @@ export const useFileOperations = (
             });
 
             await updateFileWithTags(file, mergedTags);
+            closeAddTagDialog(); // Close immediately after update request succeeds (updateFileWithTags throws if fails)
             showNotification(`已添加 ${newTagsToAdd.length} 个标签`, 'success');
         } catch (e) {
             showNotification(`添加标签失败: ${e instanceof Error ? e.message : String(e)}`, 'error');
-        } finally {
             closeAddTagDialog();
+        } finally {
+            // closeAddTagDialog();
         }
     }, [addTagDialog, getFileTags, getEffectiveTagGroups, updateFileWithTags, showNotification, closeAddTagDialog]);
 
@@ -510,11 +532,13 @@ export const useFileOperations = (
             const currentTags = getFileTags(file);
             const remainingTags = currentTags.filter(t => !selectedTagIds.includes(t.id));
             await updateFileWithTags(file, remainingTags);
+            closeDeleteTagDialog(); // Close immediately
             showNotification(`已删除 ${selectedTagIds.length} 个标签`, 'success');
         } catch (e) {
             showNotification(`删除标签失败: ${e instanceof Error ? e.message : String(e)}`, 'error');
-        } finally {
             closeDeleteTagDialog();
+        } finally {
+            // closeDeleteTagDialog();
         }
     }, [deleteTagDialog, getFileTags, updateFileWithTags, showNotification, closeDeleteTagDialog]);
 
