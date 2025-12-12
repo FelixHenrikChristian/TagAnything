@@ -316,11 +316,30 @@ export const useFileOperations = (
                             : s
                     ));
 
+                    // Listen for progress
+                    const cleanup = window.electron.onFileOperationProgress((progress) => {
+                        if (progress.operationId === operationId) {
+                            setOperationStatuses(prev => prev.map(s =>
+                                s.id === operationId
+                                    ? {
+                                        ...s,
+                                        currentFile: progress.currentFile,
+                                        progress: Math.round((progress.processedCount / progress.totalCount) * 100),
+                                        completedFiles: progress.processedCount
+                                    }
+                                    : s
+                            ));
+                        }
+                    });
+
                     const result = await window.electron.performFileOperation({
                         operation,
                         files: files.map(f => f.path),
-                        targetPath
+                        targetPath,
+                        operationId
                     });
+
+                    cleanup();
 
                     if (result.success) {
                         await handleRefresh(true);

@@ -2,7 +2,7 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
-export type Channels = 'ipc-example' | 'update-checking' | 'update-available' | 'update-not-available' | 'update-error' | 'update-download-progress' | 'update-downloaded';
+export type Channels = 'ipc-example' | 'update-checking' | 'update-available' | 'update-not-available' | 'update-error' | 'update-download-progress' | 'update-downloaded' | 'file-operation-progress';
 
 const electronHandler = {
   ipcRenderer: {
@@ -79,6 +79,12 @@ const electronHandler = {
   },
   onUpdateDownloaded: (callback: (info: any) => void) => {
     const unsubscribe = electronHandler.ipcRenderer.on('update-downloaded', (...args: unknown[]) => {
+      callback(args[0]);
+    });
+    return unsubscribe;
+  },
+  onFileOperationProgress: (callback: (progress: any) => void) => {
+    const unsubscribe = electronHandler.ipcRenderer.on('file-operation-progress', (...args: unknown[]) => {
       callback(args[0]);
     });
     return unsubscribe;

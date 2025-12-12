@@ -563,8 +563,9 @@ ipcMain.handle('perform-file-operation', async (event, request: {
   operation: 'move' | 'copy';
   files: string[];
   targetPath: string;
+  operationId?: string;
 }) => {
-  const { operation, files, targetPath } = request;
+  const { operation, files, targetPath, operationId } = request;
   const processedFiles: string[] = [];
   const failedFiles: { path: string; error: string }[] = [];
 
@@ -625,6 +626,18 @@ ipcMain.handle('perform-file-operation', async (event, request: {
         }
 
         processedFiles.push(filePath);
+
+        // Send progress update
+        if (operationId && mainWindow) {
+          mainWindow.webContents.send('file-operation-progress', {
+            operationId,
+            currentFile: fileName,
+            processedCount: processedFiles.length,
+            totalCount: files.length,
+            processedSize: 0, // TODO: Add size tracking if needed
+            totalSize: 0
+          });
+        }
       } catch (error) {
         failedFiles.push({
           path: filePath,

@@ -41,6 +41,7 @@ export interface FileOperationRequest {
     operation: 'move' | 'copy';
     files: string[]; // 源文件路径数组
     targetPath: string; // 目标目录路径
+    operationId?: string; // 用于进度追踪的ID
 }
 
 export interface FileOperationResult {
@@ -48,6 +49,15 @@ export interface FileOperationResult {
     error?: string;
     processedFiles?: string[]; // 成功处理的文件路径
     failedFiles?: { path: string; error: string }[]; // 失败的文件及错误信息
+}
+
+export interface FileOperationProgress {
+    operationId: string;
+    currentFile: string;
+    processedCount: number;
+    totalCount: number;
+    totalSize?: number;
+    processedSize?: number;
 }
 
 declare global {
@@ -103,6 +113,8 @@ declare global {
             onUpdateError: (callback: (error: string) => void) => () => void;
             onUpdateDownloadProgress: (callback: (progress: any) => void) => () => void;
             onUpdateDownloaded: (callback: (info: any) => void) => () => void;
+            // 文件操作进度监听
+            onFileOperationProgress: (callback: (progress: FileOperationProgress) => void) => () => void;
         };
     }
 }
