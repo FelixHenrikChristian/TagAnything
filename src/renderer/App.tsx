@@ -8,10 +8,6 @@ import {
   Toolbar,
   Typography,
   Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   IconButton,
   Divider,
   Paper,
@@ -148,7 +144,7 @@ interface AppContentProps {
 const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
-  const [sidebarView, setSidebarView] = useState<'locations' | 'tags' | null>(null);
+  const [sidebarView, setSidebarView] = useState<'locations' | 'tags'>('locations');
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -406,17 +402,18 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
     setDarkMode(!darkMode);
   };
 
-  const menuItems = [
-    { id: 'locations', label: '位置管理', icon: <HomeIcon />, view: 'locations' as const },
-    { id: 'tags', label: '标签管理', icon: <LabelIcon />, view: 'tags' as const },
-  ];
+
+
+  const handleSwitchView = () => {
+    setSidebarView(prev => prev === 'locations' ? 'tags' : 'locations');
+  };
 
   const renderSidebarContent = () => {
     switch (sidebarView) {
       case 'locations':
-        return <LocationManager />;
+        return <LocationManager onSwitchView={handleSwitchView} />;
       case 'tags':
-        return <TagManager ref={tagManagerRef} />;
+        return <TagManager ref={tagManagerRef} onSwitchView={handleSwitchView} />;
       default:
         return null;
     }
@@ -485,38 +482,18 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
             '& .MuiDrawer-paper': {
               width: DRAWER_WIDTH,
               boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
             },
           }}
         >
           <Toolbar />
-          <Box sx={{ overflow: 'auto', p: 1 }}>
-            <List>
-              {menuItems.map((item) => (
-                <ListItem
-                  key={item.id}
-                  button
-                  selected={sidebarView === item.view}
-                  onClick={() => setSidebarView(sidebarView === item.view ? null : item.view)}
-                >
-                  <ListItemIcon sx={{ color: 'inherit' }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.label}
-                    primaryTypographyProps={{
-                      fontWeight: sidebarView === item.view ? 600 : 400,
-                    }}
-                  />
-                </ListItem>
-              ))}
-            </List>
+          {/* Fixed header section - buttons stay at top */}
 
-            <Divider sx={{ my: 2 }} />
 
-            {/* Sidebar Content */}
-            <Box sx={{ p: 1 }}>
-              {renderSidebarContent()}
-            </Box>
+          {/* Scrollable content section */}
+          <Box sx={{ flexGrow: 1, overflow: 'auto', px: 2, pt: 2, pb: 2 }}>
+            {renderSidebarContent()}
           </Box>
         </Drawer>
 

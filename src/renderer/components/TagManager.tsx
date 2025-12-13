@@ -25,6 +25,8 @@ import {
   Paper,
   Snackbar,
   Alert,
+  Tooltip,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -41,6 +43,7 @@ import {
   FilterList as FilterListIcon,
   Sort as SortIcon,
   DragIndicator as DragIndicatorIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
 import { Tag, TagGroup } from '../types';
 import { useDraggable, DragEndEvent, DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
@@ -242,7 +245,7 @@ const SortableTagItem = ({ tag, index }: { tag: Tag; index: number }) => {
   );
 };
 
-const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
+const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void }>(({ onSwitchView }, ref) => {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
 
   // 暴露 handleDragEnd 给父组件
@@ -663,25 +666,39 @@ const TagManager = React.forwardRef<TagManagerHandle, {}>((props, ref) => {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-          标签管理
-        </Typography>
-        <IconButton
-          onClick={(e) => setMainMenuAnchorEl(e.currentTarget)}
-          sx={{
-            bgcolor: 'transparent',
-            '&:hover': { bgcolor: 'transparent' },
-          }}
-        >
-          <MoreVertIcon sx={{ fontSize: 26 }} />
-        </IconButton>
+      {/* Header */}
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              标签管理
+            </Typography>
+            <Tooltip title="切换至位置管理">
+              <IconButton
+                size="small"
+                onClick={onSwitchView}
+                sx={{
+                  ml: 0.5,
+                  opacity: 0.6,
+                  '&:hover': { opacity: 1, bgcolor: 'action.hover' }
+                }}
+              >
+                <SwapHorizIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <IconButton
+            onClick={(e) => setMainMenuAnchorEl(e.currentTarget)}
+            sx={{
+              bgcolor: 'transparent',
+              '&:hover': { bgcolor: 'transparent' }
+            }}
+          >
+            <MoreVertIcon sx={{ fontSize: 26 }} />
+          </IconButton>
+        </Box>
+        <Divider />
       </Box>
-
-      {/* Description */}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        创建和管理您的标签组和标签，为文件添加有意义的分类和标识。
-      </Typography>
 
       {/* Search */}
       <TextField

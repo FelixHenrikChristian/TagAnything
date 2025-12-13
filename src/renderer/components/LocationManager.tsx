@@ -6,7 +6,7 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  ListItemSecondaryAction,
+
   IconButton,
   Button,
   Dialog,
@@ -22,6 +22,8 @@ import {
   Tooltip,
   Fab,
   Divider,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -31,16 +33,23 @@ import {
   FolderOpen as FolderOpenIcon,
   Storage as StorageIcon,
   Computer as ComputerIcon,
+  SwapHoriz as SwapHorizIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { Location } from '../types';
 
-const LocationManager: React.FC = () => {
+interface LocationManagerProps {
+  onSwitchView: () => void;
+}
+
+const LocationManager: React.FC<LocationManagerProps> = ({ onSwitchView }) => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [locationName, setLocationName] = useState('');
   const [selectedFolderPath, setSelectedFolderPath] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   // 加载保存的数据
   useEffect(() => {
@@ -60,6 +69,8 @@ const LocationManager: React.FC = () => {
   // 保存数据到localStorage
   useEffect(() => {
     localStorage.setItem('tagAnything_locations', JSON.stringify(locations));
+    // 通知其他组件位置列表已更新
+    window.dispatchEvent(new Event('ta:locations-updated'));
   }, [locations]);
 
   const handleSelectFolder = async () => {
@@ -154,6 +165,7 @@ const LocationManager: React.FC = () => {
     setEditingLocation(null);
     setLocationName('');
     setOpenDialog(true);
+    handleCloseMenu();
   };
 
   const handleCloseDialog = () => {
@@ -161,6 +173,14 @@ const LocationManager: React.FC = () => {
     setEditingLocation(null);
     setLocationName('');
     setSelectedFolderPath('');
+  };
+
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
   };
 
   const getLocationIcon = (path: string) => {
@@ -185,24 +205,56 @@ const LocationManager: React.FC = () => {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-          位置管理
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenDialog}
-          sx={{ borderRadius: 2 }}
-        >
-          添加位置
-        </Button>
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              位置管理
+            </Typography>
+            <Tooltip title="切换至标签管理">
+              <IconButton
+                size="small"
+                onClick={onSwitchView}
+                sx={{
+                  ml: 0.5,
+                  opacity: 0.6,
+                  '&:hover': { opacity: 1, bgcolor: 'action.hover' }
+                }}
+              >
+                <SwapHorizIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <IconButton
+            onClick={handleOpenMenu}
+            sx={{
+              bgcolor: 'transparent',
+              '&:hover': { bgcolor: 'transparent' }
+            }}
+          >
+            <MoreVertIcon sx={{ fontSize: 26 }} />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleCloseMenu}
+            PaperProps={{
+              elevation: 2,
+              sx: { minWidth: 180, mt: 1 }
+            }}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          >
+            <MenuItem onClick={handleOpenDialog}>
+              <ListItemIcon>
+                <AddIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>添加位置</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Box>
+        <Divider />
       </Box>
-
-      {/* Description */}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        管理您的文件位置，添加常用的文件夹以便快速访问和标签管理。
-      </Typography>
 
       {/* Locations Grid */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>

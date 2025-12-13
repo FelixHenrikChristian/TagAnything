@@ -409,9 +409,20 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
             const selectedLocation = event.detail;
             handleLocationSelect(selectedLocation);
         };
+
+        // Listen for locations updated event
+        const handleLocationsUpdated = () => {
+            const savedLocations = localStorage.getItem('tagAnything_locations');
+            if (savedLocations) {
+                setLocations(JSON.parse(savedLocations));
+            }
+        };
+
         window.addEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
+        window.addEventListener('ta:locations-updated', handleLocationsUpdated);
         return () => {
             window.removeEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
+            window.removeEventListener('ta:locations-updated', handleLocationsUpdated);
         };
     }, []);
 
