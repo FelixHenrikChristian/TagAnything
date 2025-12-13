@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Breadcrumbs, Link, Typography, Box } from '@mui/material';
 import { NavigateNext as NavigateNextIcon, Home as HomeIcon } from '@mui/icons-material';
 import { Location } from '../../types';
@@ -52,72 +52,97 @@ export const FileBreadcrumbs: React.FC<FileBreadcrumbsProps> = ({
     // Split into segments
     const segments = relativePart ? relativePart.split(/[/\\]/) : [];
 
+    // Ref for scroll container
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to the right when path changes
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+        }
+    }, [currentPath]);
+
     return (
-        <Box>
-            <Breadcrumbs
-                separator={<NavigateNextIcon fontSize="small" />}
-                aria-label="breadcrumb"
+        <Box sx={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+            <Box
+                ref={scrollContainerRef}
+                sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    overflowX: 'auto',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    scrollbarWidth: 'none',
+                    '&::-webkit-scrollbar': { display: 'none' },
+                }}
             >
-                {/* Root Location Node */}
-                {segments.length === 0 ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <HomeIcon fontSize="small" color="action" />
-                        <Typography color="text.primary" fontWeight="bold">
-                            {matchedLocation.name}
-                        </Typography>
-                    </Box>
-                ) : (
-                    <Link
-                        underline="hover"
-                        color="inherit"
-                        href="#"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            handleNavigate(matchedLocation.path);
-                        }}
-                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                    >
-                        <HomeIcon fontSize="small" sx={{ mr: 0.5 }} />
-                        {matchedLocation.name}
-                    </Link>
-                )}
-
-                {/* Path Segments */}
-                {segments.map((segment, index) => {
-                    const isLast = index === segments.length - 1;
-
-                    // Reconstruct the path for this segment
-                    // We need to be careful to use the correct separator or just append to the location path
-                    // A safer way is to take the substring of currentPath up to the end of this segment
-                    // But we need to find the correct index in the original string.
-
-                    // Alternative: Accumulate segments.
-                    // Since we split by / or \, we can just join them back with the system separator (or just / for now as it usually works)
-                    // But to be safe with Windows, let's try to grab the substring.
-
-                    // Let's use the accumulated path approach
-                    const segmentPath = matchedLocation.path + (matchedLocation.path.endsWith('\\') || matchedLocation.path.endsWith('/') ? '' : '\\') + segments.slice(0, index + 1).join('\\');
-
-                    return isLast ? (
-                        <Typography key={index} color="text.primary">
-                            {segment}
-                        </Typography>
+                <Breadcrumbs
+                    separator={<NavigateNextIcon fontSize="small" />}
+                    aria-label="breadcrumb"
+                    sx={{ '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' } }}
+                >
+                    {/* Root Location Node */}
+                    {segments.length === 0 ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <HomeIcon fontSize="small" color="action" />
+                            <Typography color="text.primary" fontWeight="bold">
+                                {matchedLocation.name}
+                            </Typography>
+                        </Box>
                     ) : (
                         <Link
-                            key={index}
                             underline="hover"
                             color="inherit"
                             href="#"
                             onClick={(e) => {
                                 e.preventDefault();
-                                handleNavigate(segmentPath);
+                                handleNavigate(matchedLocation.path);
                             }}
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                         >
-                            {segment}
+                            <HomeIcon fontSize="small" sx={{ mr: 0.5 }} />
+                            {matchedLocation.name}
                         </Link>
-                    );
-                })}
-            </Breadcrumbs>
+                    )}
+
+                    {/* Path Segments */}
+                    {segments.map((segment, index) => {
+                        const isLast = index === segments.length - 1;
+
+                        // Reconstruct the path for this segment
+                        // We need to be careful to use the correct separator or just append to the location path
+                        // A safer way is to take the substring of currentPath up to the end of this segment
+                        // But we need to find the correct index in the original string.
+
+                        // Alternative: Accumulate segments.
+                        // Since we split by / or \, we can just join them back with the system separator (or just / for now as it usually works)
+                        // But to be safe with Windows, let's try to grab the substring.
+
+                        // Let's use the accumulated path approach
+                        const segmentPath = matchedLocation.path + (matchedLocation.path.endsWith('\\') || matchedLocation.path.endsWith('/') ? '' : '\\') + segments.slice(0, index + 1).join('\\');
+
+                        return isLast ? (
+                            <Typography key={index} color="text.primary">
+                                {segment}
+                            </Typography>
+                        ) : (
+                            <Link
+                                key={index}
+                                underline="hover"
+                                color="inherit"
+                                href="#"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    handleNavigate(segmentPath);
+                                }}
+                            >
+                                {segment}
+                            </Link>
+                        );
+                    })}
+                </Breadcrumbs>
+            </Box>
         </Box>
     );
 };

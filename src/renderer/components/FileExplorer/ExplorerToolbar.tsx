@@ -184,7 +184,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                 </Box>
 
                 {/* Address Bar (Breadcrumbs) */}
-                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', bgcolor: 'action.hover', borderRadius: 1, px: 1, height: 32 }}>
+                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', bgcolor: 'action.hover', borderRadius: 1, px: 1, height: 32 }}>
                     <FileBreadcrumbs
                         currentPath={currentPath}
                         locations={locations}
