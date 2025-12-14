@@ -4,6 +4,45 @@ export interface Location {
     path: string;
 }
 
+export type ThemeName = 'classic' | 'neon-glass';
+export type ColorMode = 'light' | 'dark';
+
+export interface NeonGlassSettings {
+    // 统一色调 (0-360 HSL角度)
+    hue: number;
+    // 顶栏设置
+    topBar: {
+        opacity: number; // 0-100
+        blur: number;    // 0-50px
+    };
+    // 侧栏设置
+    sideBar: {
+        opacity: number;
+        blur: number;
+    };
+    // 文件浏览器背景设置
+    fileExplorer: {
+        opacity: number;
+        blur: number;
+    };
+}
+
+export const DEFAULT_NEON_GLASS_SETTINGS: NeonGlassSettings = {
+    hue: 180, // Cyan default
+    topBar: {
+        opacity: 50,
+        blur: 20,
+    },
+    sideBar: {
+        opacity: 40,
+        blur: 25,
+    },
+    fileExplorer: {
+        opacity: 20,
+        blur: 20,
+    },
+};
+
 export interface Tag {
     id: string;
     name: string;
@@ -64,6 +103,7 @@ declare global {
     interface Window {
         electron: {
             selectFolder: () => Promise<string>;
+            selectFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string>;
             getFiles: (folderPath: string) => Promise<FileItem[]>;
             getAllFiles: (folderPath: string) => Promise<FileItem[]>;
             searchFiles: (params: {

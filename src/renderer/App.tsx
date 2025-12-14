@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AppThemeProvider, useAppTheme } from './context/ThemeContext';
 import {
   ThemeProvider,
   createTheme,
@@ -71,79 +72,25 @@ import { useAppUpdate } from './hooks/useAppUpdate';
 
 const DRAWER_WIDTH = 280;
 
-// TagSpaces inspired themes
-const createAppTheme = (mode: 'light' | 'dark') => {
-  const isLight = mode === 'light';
 
-  return createTheme({
-    palette: {
-      mode,
-      primary: {
-        light: isLight ? '#a6def4' : '#a6def4',
-        main: isLight ? '#1dd19f' : '#3bc8ff',
-        dark: isLight ? '#1dd19f' : '#3bc8ff',
-      },
-      secondary: {
-        main: isLight ? '#777' : '#bbb',
-      },
-      background: {
-        default: isLight ? '#fafafa' : '#121212',
-        paper: isLight ? '#ffffff' : '#1e1e1e',
-      },
-      divider: isLight ? '#e0e0e0' : '#333',
-    },
-    typography: {
-      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-      h6: {
-        fontWeight: 600,
-      },
-    },
-    components: {
-      MuiCssBaseline: {
-        styleOverrides: {
-          body: {
-            scrollbarColor: isLight ? '#ccc transparent' : '#555 transparent',
-            '&::-webkit-scrollbar, & *::-webkit-scrollbar': {
-              width: '8px',
-              height: '8px',
-            },
-            '&::-webkit-scrollbar-thumb, & *::-webkit-scrollbar-thumb': {
-              borderRadius: 8,
-              backgroundColor: isLight ? '#ccc' : '#555',
-              minHeight: 24,
-            },
-            '&::-webkit-scrollbar-thumb:focus, & *::-webkit-scrollbar-thumb:focus': {
-              backgroundColor: isLight ? '#999' : '#777',
-            },
-            '&::-webkit-scrollbar-thumb:active, & *::-webkit-scrollbar-thumb:active': {
-              backgroundColor: isLight ? '#999' : '#777',
-            },
-            '&::-webkit-scrollbar-thumb:hover, & *::-webkit-scrollbar-thumb:hover': {
-              backgroundColor: isLight ? '#999' : '#777',
-            },
-            '&::-webkit-scrollbar-corner, & *::-webkit-scrollbar-corner': {
-              backgroundColor: 'transparent',
-            },
-          },
-        },
-      },
-    },
-  });
-};
 
+// Inner App Content Component
 interface TagFilterInfo {
   tagId: string;
   tagName: string;
 }
 
-interface AppContentProps {
-  darkMode: boolean;
-  setDarkMode: (mode: boolean) => void;
-}
-
-const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
+const AppContent: React.FC = () => {
   const theme = useTheme();
+  const { currentTheme, backgroundImage, setTheme, colorMode, setColorMode, neonGlassSettings } = useAppTheme();
   const { enqueueSnackbar } = useSnackbar();
+
+  // Determine effective dark mode for icons based on colorMode
+  const darkMode = colorMode === 'dark';
+
+
+
+
   const [sidebarView, setSidebarView] = useState<'locations' | 'tags'>('locations');
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -399,7 +346,7 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
   };
 
   const handleThemeToggle = () => {
-    setDarkMode(!darkMode);
+    setColorMode(darkMode ? 'light' : 'dark');
   };
 
 
@@ -436,6 +383,11 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.leavingScreen,
             }),
+            // Dynamic neon-glass styles
+            ...(currentTheme === 'neon-glass' && {
+              backgroundColor: `rgba(0, 0, 0, ${neonGlassSettings.topBar.opacity / 100})`,
+              backdropFilter: `blur(${neonGlassSettings.topBar.blur}px)`,
+            }),
           }}
         >
           <Toolbar>
@@ -453,9 +405,12 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
               TagAnything
             </Typography>
 
-            <IconButton color="inherit" onClick={handleThemeToggle}>
-              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
+            {/* Only show theme toggle button for classic theme */}
+            {currentTheme === 'classic' && (
+              <IconButton color="inherit" onClick={handleThemeToggle}>
+                {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            )}
 
             <IconButton
               color="inherit"
@@ -484,6 +439,11 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
               boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
+              // Dynamic neon-glass styles
+              ...(currentTheme === 'neon-glass' && {
+                backgroundColor: `rgba(10, 10, 10, ${neonGlassSettings.sideBar.opacity / 100})`,
+                backdropFilter: `blur(${neonGlassSettings.sideBar.blur}px)`,
+              }),
             },
           }}
         >
@@ -518,6 +478,11 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
                 height: '100%',
                 borderRadius: 2,
                 backgroundColor: theme.palette.background.paper,
+                // Dynamic neon-glass styles
+                ...(currentTheme === 'neon-glass' && {
+                  backgroundColor: `rgba(30, 30, 30, ${neonGlassSettings.fileExplorer.opacity / 100})`,
+                  backdropFilter: `blur(${neonGlassSettings.fileExplorer.blur}px)`,
+                }),
               }}
             >
               <FileExplorer ref={fileExplorerRef} tagDisplayStyle={tagDisplayStyle} />
@@ -688,23 +653,84 @@ const AppContent: React.FC<AppContentProps> = ({ darkMode, setDarkMode }) => {
 };
 
 const App: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  return (
+    <AppThemeProvider>
+      <InnerApp />
+    </AppThemeProvider>
+  );
+};
 
-  useEffect(() => {
-    setDarkMode(prefersDarkMode);
-  }, [prefersDarkMode]);
-
-  const theme = createAppTheme(darkMode ? 'dark' : 'light');
+const InnerApp: React.FC = () => {
+  const { muiTheme, backgroundImage, currentTheme } = useAppTheme();
 
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={muiTheme}>
       <CssBaseline />
-      <SnackbarProvider maxSnack={5} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} autoHideDuration={3000} disableWindowBlurListener>
-        <AppContent darkMode={darkMode} setDarkMode={setDarkMode} />
+      {/* Notistack custom styles for neon-glass theme */}
+      {currentTheme === 'neon-glass' && (
+        <style>{`
+          .notistack-MuiContent {
+            background-color: rgba(30, 30, 30, 0.65) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.02) !important;
+          }
+          .notistack-MuiContent-success {
+            background-color: rgba(46, 125, 50, 0.65) !important;
+          }
+          .notistack-MuiContent-error {
+            background-color: rgba(211, 47, 47, 0.65) !important;
+          }
+          .notistack-MuiContent-warning {
+            background-color: rgba(237, 108, 2, 0.65) !important;
+          }
+          .notistack-MuiContent-info {
+            background-color: rgba(2, 136, 209, 0.65) !important;
+          }
+        `}</style>
+      )}
+      {/* Global Background for Neon Glass Theme */}
+      {currentTheme === 'neon-glass' && backgroundImage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: `url("file://${backgroundImage.replace(/\\/g, '/')}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            zIndex: -1,
+          }}
+        />
+      )}
+      {/* Global Background Placeholder if no image set but theme active */}
+      {currentTheme === 'neon-glass' && !backgroundImage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: '#000',
+            zIndex: -1,
+          }}
+        />
+      )}
+      <SnackbarProvider
+        maxSnack={5}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        autoHideDuration={3000}
+        disableWindowBlurListener
+      >
+        <AppContent />
       </SnackbarProvider>
     </ThemeProvider>
   );
 };
 
 export default App;
+

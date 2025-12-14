@@ -149,6 +149,12 @@ const createWindow = async (): Promise<void> => {
  * Add event listeners...
  */
 
+// GPU acceleration for better rendering performance (glassmorphism, backdrop-filter, etc.)
+app.commandLine.appendSwitch('use-angle', 'gl');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even
   // after all windows have been closed
@@ -202,6 +208,14 @@ app.on('will-quit', () => {
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openDirectory'],
+  });
+  return result.filePaths[0];
+});
+
+ipcMain.handle('select-file', async (event, filters?: Electron.FileFilter[]) => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openFile'],
+    filters: filters // Allow passing filters
   });
   return result.filePaths[0];
 });

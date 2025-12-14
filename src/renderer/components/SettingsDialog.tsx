@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAppTheme } from '../context/ThemeContext';
+import { ThemeName } from '../types';
 import {
     Dialog,
     DialogTitle,
@@ -11,10 +13,22 @@ import {
     Switch,
     LinearProgress,
     CircularProgress,
+    FormControl,
+    FormLabel,
+    RadioGroup,
+    FormControlLabel,
+    Radio,
+    InputAdornment,
+    IconButton,
+    TextField,
+    Slider,
+    Divider,
 } from '@mui/material';
 import {
     Download as DownloadIcon,
     SystemUpdate as UpdateIcon,
+    FolderOpen as FolderOpenIcon,
+    Palette as PaletteIcon,
 } from '@mui/icons-material';
 
 interface UpdateState {
@@ -71,6 +85,30 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
         handleAutoUpdateToggle,
     } = updateActions;
 
+    const { currentTheme, setTheme, backgroundImage, setBackgroundImage, neonGlassSettings, updateNeonGlassSetting } = useAppTheme();
+
+    const handleThemeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setTheme(event.target.value as ThemeName);
+    };
+
+    const handleSelectBackgroundImage = async () => {
+        try {
+            const result = await window.electron.selectFile([
+                { name: 'Images', extensions: ['jpg', 'png', 'jpeg', 'webp', 'gif'] }
+            ]);
+            if (result) {
+                setBackgroundImage(result);
+            }
+        } catch (error) {
+            console.error('Failed to select background image:', error);
+            onShowSnackbar('选择背景图片失败', 'error');
+        }
+    };
+
+    const handleClearBackgroundImage = () => {
+        setBackgroundImage(null);
+    };
+
     // 获取应用版本号
     useEffect(() => {
         const getAppVersion = async () => {
@@ -123,6 +161,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 'tagAnything_currentPath',
                 'tagAnything_gridSize',
                 'autoUpdateEnabled',
+                // Theme settings
+                'app_theme',
+                'app_background_image',
+                'app_neon_glass_settings',
             ];
 
             keysToRemove.forEach(key => {
@@ -192,6 +234,228 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                 >
                                     重置窗口大小
                                 </Button>
+                            </Box>
+                        </Grid>
+
+                        {/* Theme Settings */}
+                        <Grid item xs={12}>
+                            <Box sx={{
+                                p: 3,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                            }}>
+                                <Typography variant="h6" sx={{
+                                    mb: 2,
+                                    color: 'secondary.main',
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1
+                                }}>
+                                    <PaletteIcon /> 主题设置
+                                </Typography>
+
+                                <FormControl component="fieldset">
+                                    <FormLabel component="legend">选择主题</FormLabel>
+                                    <RadioGroup
+                                        row
+                                        name="theme-radio-group"
+                                        value={currentTheme}
+                                        onChange={handleThemeChange}
+                                    >
+                                        <FormControlLabel value="classic" control={<Radio />} label="经典风格" />
+                                        <FormControlLabel value="neon-glass" control={<Radio />} label="霓虹玻璃" />
+                                    </RadioGroup>
+                                </FormControl>
+
+                                {currentTheme === 'neon-glass' && (
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                            背景图片
+                                        </Typography>
+                                        <Grid container spacing={2} alignItems="center">
+                                            <Grid item xs={9}>
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    value={backgroundImage || ''}
+                                                    placeholder="请选择背景图片..."
+                                                    InputProps={{
+                                                        readOnly: true,
+                                                        endAdornment: backgroundImage ? (
+                                                            <InputAdornment position="end">
+                                                                <IconButton size="small" onClick={handleClearBackgroundImage}>
+                                                                    ❌
+                                                                </IconButton>
+                                                            </InputAdornment>
+                                                        ) : null
+                                                    }}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={3}>
+                                                <Button
+                                                    variant="outlined"
+                                                    startIcon={<FolderOpenIcon />}
+                                                    onClick={handleSelectBackgroundImage}
+                                                    fullWidth
+                                                >
+                                                    选择
+                                                </Button>
+                                            </Grid>
+                                        </Grid>
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                            提示：选择一张本地图片作为毛玻璃效果的背景底图。
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {currentTheme === 'neon-glass' && (
+                                    <Box sx={{ mt: 3 }}>
+                                        <Divider sx={{ mb: 2 }} />
+                                        <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                                            主题自定义
+                                        </Typography>
+
+                                        {/* Hue Control */}
+                                        <Box sx={{ mb: 3 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                                                <Typography variant="body2">
+                                                    色调
+                                                </Typography>
+                                                <Box
+                                                    sx={{
+                                                        width: 24,
+                                                        height: 24,
+                                                        borderRadius: '50%',
+                                                        backgroundColor: `hsl(${neonGlassSettings.hue}, 100%, 50%)`,
+                                                        border: '2px solid rgba(255,255,255,0.3)',
+                                                        boxShadow: `0 0 8px hsla(${neonGlassSettings.hue}, 100%, 50%, 0.5)`,
+                                                    }}
+                                                />
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {neonGlassSettings.hue}°
+                                                </Typography>
+                                            </Box>
+                                            <Slider
+                                                value={neonGlassSettings.hue}
+                                                onChange={(_, value) => updateNeonGlassSetting('hue', value as number)}
+                                                min={0}
+                                                max={360}
+                                                sx={{
+                                                    '& .MuiSlider-track': {
+                                                        background: 'linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)',
+                                                    },
+                                                    '& .MuiSlider-rail': {
+                                                        background: 'linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)',
+                                                        opacity: 0.5,
+                                                    },
+                                                }}
+                                            />
+                                        </Box>
+
+                                        {/* Top Bar Settings */}
+                                        <Box sx={{ mb: 3 }}>
+                                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                顶栏
+                                            </Typography>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        不透明度: {neonGlassSettings.topBar.opacity}%
+                                                    </Typography>
+                                                    <Slider
+                                                        size="small"
+                                                        value={neonGlassSettings.topBar.opacity}
+                                                        onChange={(_, value) => updateNeonGlassSetting('topBar', { ...neonGlassSettings.topBar, opacity: value as number })}
+                                                        min={0}
+                                                        max={100}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        模糊度: {neonGlassSettings.topBar.blur}px
+                                                    </Typography>
+                                                    <Slider
+                                                        size="small"
+                                                        value={neonGlassSettings.topBar.blur}
+                                                        onChange={(_, value) => updateNeonGlassSetting('topBar', { ...neonGlassSettings.topBar, blur: value as number })}
+                                                        min={0}
+                                                        max={50}
+                                                    />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+
+                                        {/* Sidebar Settings */}
+                                        <Box sx={{ mb: 3 }}>
+                                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                侧栏
+                                            </Typography>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        不透明度: {neonGlassSettings.sideBar.opacity}%
+                                                    </Typography>
+                                                    <Slider
+                                                        size="small"
+                                                        value={neonGlassSettings.sideBar.opacity}
+                                                        onChange={(_, value) => updateNeonGlassSetting('sideBar', { ...neonGlassSettings.sideBar, opacity: value as number })}
+                                                        min={0}
+                                                        max={100}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        模糊度: {neonGlassSettings.sideBar.blur}px
+                                                    </Typography>
+                                                    <Slider
+                                                        size="small"
+                                                        value={neonGlassSettings.sideBar.blur}
+                                                        onChange={(_, value) => updateNeonGlassSetting('sideBar', { ...neonGlassSettings.sideBar, blur: value as number })}
+                                                        min={0}
+                                                        max={50}
+                                                    />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+
+                                        {/* File Explorer Settings */}
+                                        <Box>
+                                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                文件浏览器背景
+                                            </Typography>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        不透明度: {neonGlassSettings.fileExplorer.opacity}%
+                                                    </Typography>
+                                                    <Slider
+                                                        size="small"
+                                                        value={neonGlassSettings.fileExplorer.opacity}
+                                                        onChange={(_, value) => updateNeonGlassSetting('fileExplorer', { ...neonGlassSettings.fileExplorer, opacity: value as number })}
+                                                        min={0}
+                                                        max={100}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        模糊度: {neonGlassSettings.fileExplorer.blur}px
+                                                    </Typography>
+                                                    <Slider
+                                                        size="small"
+                                                        value={neonGlassSettings.fileExplorer.blur}
+                                                        onChange={(_, value) => updateNeonGlassSetting('fileExplorer', { ...neonGlassSettings.fileExplorer, blur: value as number })}
+                                                        min={0}
+                                                        max={50}
+                                                    />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                    </Box>
+                                )}
                             </Box>
                         </Grid>
 

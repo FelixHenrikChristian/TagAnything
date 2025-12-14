@@ -34,6 +34,7 @@ import {
     FolderOpen as FolderOpenIcon,
     ContentCopy as CopyIcon,
 } from '@mui/icons-material';
+import { useAppTheme } from '../../context/ThemeContext';
 import { FileItem, Tag, TagGroup, DraggedFile } from '../../types';
 import {
     FileOperationDialogState,
@@ -47,6 +48,7 @@ import {
     NewFolderDialogState,
 } from './types';
 import { formatFileSize } from '../../utils/fileTagParser';
+
 
 interface ExplorerDialogsProps {
     // Dialog States
@@ -150,6 +152,9 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     getEffectiveTagGroups,
     getFileTags,
 }) => {
+    // Get theme context for neon-glass styling
+    const { currentTheme, neonGlassSettings } = useAppTheme();
+
     return (
         <>
             {/* File Operation Dialog (Drag & Drop) */}
@@ -598,19 +603,36 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                     <Box
                         key={status.id}
                         sx={{
-                            backgroundColor: 'background.paper',
-                            borderRadius: 2,
+                            backgroundColor: currentTheme === 'neon-glass'
+                                ? 'rgba(30, 30, 30, 0.8)'
+                                : 'background.paper',
+                            borderRadius: currentTheme === 'neon-glass' ? 2 : 2,
                             p: 2,
-                            boxShadow: 3,
-                            minWidth: 300,
-                            border: 1,
-                            borderColor: 'divider',
-                            opacity: status.isOperating ? 1 : 0, // Should be always true if in list, but just in case
+                            boxShadow: currentTheme === 'neon-glass'
+                                ? `0 4px 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.02)`
+                                : 3,
+                            minWidth: 320,
+                            border: currentTheme === 'neon-glass'
+                                ? '1px solid rgba(255, 255, 255, 0.15)'
+                                : 1,
+                            borderColor: currentTheme === 'neon-glass'
+                                ? undefined
+                                : 'divider',
+                            backdropFilter: currentTheme === 'neon-glass'
+                                ? 'blur(20px)'
+                                : undefined,
+                            opacity: status.isOperating ? 1 : 0,
                             transition: 'all 0.3s ease',
                         }}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <CircularProgress size={20} />
+                            <CircularProgress
+                                size={20}
+                                sx={currentTheme === 'neon-glass' ? {
+                                    color: `hsl(${neonGlassSettings.hue}, 100%, 50%)`,
+                                    filter: `drop-shadow(0 0 4px hsl(${neonGlassSettings.hue}, 100%, 50%))`,
+                                } : undefined}
+                            />
                             <Typography variant="body2" fontWeight="medium">
                                 正在{status.operation === 'move' ? '移动' : '复制'}文件...
                             </Typography>
@@ -621,7 +643,19 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                         <LinearProgress
                             variant="determinate"
                             value={(status.completedFiles / status.totalFiles) * 100}
-                            sx={{ mt: 1 }}
+                            sx={{
+                                mt: 1,
+                                ...(currentTheme === 'neon-glass' && {
+                                    height: 6,
+                                    borderRadius: 3,
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    '& .MuiLinearProgress-bar': {
+                                        borderRadius: 3,
+                                        backgroundColor: `hsl(${neonGlassSettings.hue}, 100%, 50%)`,
+                                        boxShadow: `0 0 10px hsl(${neonGlassSettings.hue}, 100%, 50%)`,
+                                    },
+                                }),
+                            }}
                         />
                     </Box>
                 ))}
