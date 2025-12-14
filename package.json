@@ -1,6 +1,6 @@
 {
   "name": "taganything",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "开源文件标签管理工具 - A modern file tagging application inspired by TagSpaces",
   "main": "dist/main/main.js",
   "homepage": "https://github.com/FelixChristian011226/TagAnything",
