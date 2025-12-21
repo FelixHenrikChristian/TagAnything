@@ -85,7 +85,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
         handleAutoUpdateToggle,
     } = updateActions;
 
-    const { currentTheme, setTheme, backgroundImage, setBackgroundImage, neonGlassSettings, updateNeonGlassSetting } = useAppTheme();
+    const { currentTheme, setTheme, backgroundImage, setBackgroundImage, neonGlassSettings, updateNeonGlassSetting, displaySettings, updateDisplaySetting } = useAppTheme();
 
     const handleThemeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setTheme(event.target.value as ThemeName);
@@ -456,6 +456,44 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                         </Box>
                                     </Box>
                                 )}
+                            </Box>
+                        </Grid>
+
+                        {/* Display Settings */}
+                        <Grid item xs={12}>
+                            <Box sx={{
+                                p: 3,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                            }}>
+                                <Typography variant="h6" sx={{
+                                    mb: 2,
+                                    color: 'info.main',
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1
+                                }}>
+                                    📁 显示设置
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <Box>
+                                        <Typography variant="body2" color="text.primary">
+                                            在文件夹图标内显示名称
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                            启用后，文件夹图标内会叠加显示文件夹名称
+                                        </Typography>
+                                    </Box>
+                                    <Switch
+                                        checked={displaySettings.showFolderNameInIcon}
+                                        onChange={(e) => updateDisplaySetting('showFolderNameInIcon', e.target.checked)}
+                                        color="primary"
+                                    />
+                                </Box>
                             </Box>
                         </Grid>
 

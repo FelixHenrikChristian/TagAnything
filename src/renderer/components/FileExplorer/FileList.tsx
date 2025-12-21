@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import { FileItem, Tag } from '../../types';
 import { getDisplayName, getFileTypeColor, formatFileSize } from '../../utils/fileTagParser';
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface FileListProps {
     files: FileItem[];
@@ -45,6 +46,7 @@ export const FileList: React.FC<FileListProps> = ({
     selectedPaths,
     onFileClick,
 }) => {
+    const { displaySettings, currentTheme } = useAppTheme();
     const toFileUrl = (p: string) => 'file:///' + p.replace(/\\/g, '/');
 
     const getTagStyle = (tag: Tag) => {
@@ -107,7 +109,36 @@ export const FileList: React.FC<FileListProps> = ({
                     <ListItemAvatar>
                         <Avatar sx={{ bgcolor: 'transparent' }}>
                             {file.isDirectory ? (
-                                <FolderIcon sx={{ color: '#ffa726' }} />
+                                <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <FolderIcon sx={{ color: '#ffa726' }} />
+                                    {displaySettings.showFolderNameInIcon && (
+                                        <Typography
+                                            sx={{
+                                                position: 'absolute',
+                                                top: '50%',
+                                                left: '50%',
+                                                transform: 'translate(-50%, -30%)',
+                                                fontSize: 8,
+                                                fontWeight: 700,
+                                                maxWidth: 18,
+                                                overflow: 'hidden',
+                                                textOverflow: 'clip',
+                                                whiteSpace: 'nowrap',
+                                                textAlign: 'center',
+                                                pointerEvents: 'none',
+                                                userSelect: 'none',
+                                                ...(currentTheme === 'neon-glass' ? {
+                                                    color: '#fff',
+                                                    textShadow: '0 0 4px rgba(255, 166, 38, 0.8)',
+                                                } : {
+                                                    color: 'rgba(120, 70, 0, 0.9)',
+                                                }),
+                                            }}
+                                        >
+                                            {file.name.substring(0, 2)}
+                                        </Typography>
+                                    )}
+                                </Box>
                             ) : (
                                 videoThumbnails.has(file.path) ? (
                                     <Box

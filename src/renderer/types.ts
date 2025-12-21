@@ -43,6 +43,16 @@ export const DEFAULT_NEON_GLASS_SETTINGS: NeonGlassSettings = {
     },
 };
 
+// 显示设置
+export interface DisplaySettings {
+    // 在文件夹图标内显示名称
+    showFolderNameInIcon: boolean;
+}
+
+export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
+    showFolderNameInIcon: false,
+};
+
 export interface Tag {
     id: string;
     name: string;

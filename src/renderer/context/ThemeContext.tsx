@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { createTheme, ThemeOptions, Theme } from '@mui/material/styles';
-import { ThemeName, ColorMode, NeonGlassSettings, DEFAULT_NEON_GLASS_SETTINGS } from '../types';
+import { ThemeName, ColorMode, NeonGlassSettings, DEFAULT_NEON_GLASS_SETTINGS, DisplaySettings, DEFAULT_DISPLAY_SETTINGS } from '../types';
 import { createNeonGlassTheme } from '../themes/neonGlass';
 
 interface ThemeContextType {
@@ -16,6 +16,10 @@ interface ThemeContextType {
     neonGlassSettings: NeonGlassSettings;
     setNeonGlassSettings: (settings: NeonGlassSettings) => void;
     updateNeonGlassSetting: <K extends keyof NeonGlassSettings>(key: K, value: NeonGlassSettings[K]) => void;
+    // Display settings
+    displaySettings: DisplaySettings;
+    setDisplaySettings: (settings: DisplaySettings) => void;
+    updateDisplaySetting: <K extends keyof DisplaySettings>(key: K, value: DisplaySettings[K]) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -87,12 +91,14 @@ const createBaseTheme = (mode: 'light' | 'dark'): ThemeOptions => ({
 const NEON_GLASS_SETTINGS_KEY = 'app_neon_glass_settings';
 const THEME_KEY = 'app_theme';
 const COLOR_MODE_KEY = 'app_color_mode';
+const DISPLAY_SETTINGS_KEY = 'app_display_settings';
 
 export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentTheme, setCurrentTheme] = useState<ThemeName>('classic');
     const [colorMode, setColorModeState] = useState<ColorMode>('light');
     const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
     const [neonGlassSettings, setNeonGlassSettingsState] = useState<NeonGlassSettings>(DEFAULT_NEON_GLASS_SETTINGS);
+    const [displaySettings, setDisplaySettingsState] = useState<DisplaySettings>(DEFAULT_DISPLAY_SETTINGS);
 
     // Initial Load
     useEffect(() => {
@@ -135,6 +141,17 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 console.error('Failed to parse neon glass settings:', e);
             }
         }
+
+        // Load display settings
+        const savedDisplaySettings = localStorage.getItem(DISPLAY_SETTINGS_KEY);
+        if (savedDisplaySettings) {
+            try {
+                const parsed = JSON.parse(savedDisplaySettings);
+                setDisplaySettingsState({ ...DEFAULT_DISPLAY_SETTINGS, ...parsed });
+            } catch (e) {
+                console.error('Failed to parse display settings:', e);
+            }
+        }
     }, []);
 
     const handleSetTheme = (theme: ThemeName) => {
@@ -169,6 +186,19 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
     };
 
+    const handleSetDisplaySettings = (settings: DisplaySettings) => {
+        setDisplaySettingsState(settings);
+        localStorage.setItem(DISPLAY_SETTINGS_KEY, JSON.stringify(settings));
+    };
+
+    const handleUpdateDisplaySetting = <K extends keyof DisplaySettings>(key: K, value: DisplaySettings[K]) => {
+        setDisplaySettingsState(prev => {
+            const newSettings = { ...prev, [key]: value };
+            localStorage.setItem(DISPLAY_SETTINGS_KEY, JSON.stringify(newSettings));
+            return newSettings;
+        });
+    };
+
     // Construct MUI theme object - memoized to avoid unnecessary recalculations
     const muiTheme = useMemo(() => {
         if (currentTheme === 'neon-glass') {
@@ -189,6 +219,9 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         neonGlassSettings,
         setNeonGlassSettings: handleSetNeonGlassSettings,
         updateNeonGlassSetting: handleUpdateNeonGlassSetting,
+        displaySettings,
+        setDisplaySettings: handleSetDisplaySettings,
+        updateDisplaySetting: handleUpdateDisplaySetting,
     };
 
     return (

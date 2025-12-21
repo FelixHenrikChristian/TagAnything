@@ -16,6 +16,7 @@ import { getDisplayName, getFileTypeColor, formatFileSize, getFileExtension, for
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useAppTheme } from '../../context/ThemeContext';
 
 // Helper function
 const toFileUrl = (path: string) => {
@@ -128,6 +129,8 @@ const FileCard = ({
     isSelected = false,
     index,
     onFileClick,
+    showFolderNameInIcon,
+    currentTheme,
 }: {
     file: FileItem;
     handleNavigate: (path: string) => void;
@@ -145,6 +148,8 @@ const FileCard = ({
     isSelected?: boolean;
     index: number;
     onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
+    showFolderNameInIcon?: boolean;
+    currentTheme?: string;
 }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: file.path,
@@ -298,7 +303,36 @@ const FileCard = ({
                 }}
             >
                 {file.isDirectory ? (
-                    <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
+                    <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
+                        {showFolderNameInIcon && (
+                            <Typography
+                                sx={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -35%)',
+                                    fontSize: Math.max(10, iconSize * 0.18),
+                                    fontWeight: 600,
+                                    maxWidth: iconSize * 0.7,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    textAlign: 'center',
+                                    pointerEvents: 'none',
+                                    userSelect: 'none',
+                                    ...(currentTheme === 'neon-glass' ? {
+                                        color: '#fff',
+                                        textShadow: '0 0 8px rgba(255, 166, 38, 0.8), 0 0 4px rgba(255, 166, 38, 0.5)',
+                                    } : {
+                                        color: 'rgba(120, 70, 0, 0.9)',
+                                    }),
+                                }}
+                            >
+                                {file.name}
+                            </Typography>
+                        )}
+                    </Box>
                 ) : (() => {
                     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'];
                     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
@@ -426,6 +460,8 @@ export const FileGrid: React.FC<FileGridProps> = ({
     selectedPaths,
     onFileClick,
 }) => {
+    const { displaySettings, currentTheme } = useAppTheme();
+
     // Grid Layout Calculations
     const GRID_CONFIG = {
         MAX_GRID_SIZE: 17,
@@ -481,6 +517,8 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     isSelected={selectedPaths?.has(file.path)}
                     index={index}
                     onFileClick={onFileClick}
+                    showFolderNameInIcon={displaySettings.showFolderNameInIcon}
+                    currentTheme={currentTheme}
                 />
             ))}
         </Box>
