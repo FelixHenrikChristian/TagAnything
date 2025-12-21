@@ -140,7 +140,7 @@ export const FileList: React.FC<FileListProps> = ({
                                         cursor: 'pointer',
                                     }}
                                 >
-                                    {getDisplayName(file.name)}
+                                    {file.isDirectory ? file.name : getDisplayName(file.name)}
                                 </Typography>
                             </Tooltip>
                         }

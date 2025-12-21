@@ -366,7 +366,7 @@ const FileCard = ({
                                 cursor: 'pointer',
                             }}
                         >
-                            {getDisplayName(file.name)}
+                            {file.isDirectory ? file.name : getDisplayName(file.name)}
                         </Typography>
                     </Tooltip>
                 </Box>
