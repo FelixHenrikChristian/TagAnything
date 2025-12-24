@@ -23,7 +23,6 @@ interface UpdateDialogProps {
     updateProgress: number;
     onDownload: () => void;
     onInstall: () => void;
-    onOpenSettings?: () => void; // 点击"立即更新"后自动打开设置页面以显示下载进度
 }
 
 const UpdateDialog: React.FC<UpdateDialogProps> = ({
@@ -33,7 +32,6 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({
     updateDownloading,
     updateProgress,
     onDownload,
-    onOpenSettings,
 }) => {
     return (
         <Dialog
@@ -150,10 +148,6 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({
                     onClick={() => {
                         onClose();
                         onDownload();
-                        // 自动打开设置页面，让用户看到下载进度
-                        if (onOpenSettings) {
-                            onOpenSettings();
-                        }
                     }}
                     color="primary"
                     variant="contained"

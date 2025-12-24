@@ -63,7 +63,6 @@ export const useAppUpdate = ({ showSnackbar }: UseAppUpdateProps) => {
         const unsubscribeDownloaded = window.electron.onUpdateDownloaded(() => {
             setUpdateDownloading(false);
             setUpdateDownloaded(true);
-            showSnackbar('更新已下载完成，可以安装了！', 'success');
         });
 
         // 加载自动更新设置

@@ -68,6 +68,7 @@ import TagManager, { TagManagerHandle } from './components/TagManager';
 import FileExplorer, { FileExplorerHandle } from './components/FileExplorer';
 import SettingsDialog from './components/SettingsDialog';
 import UpdateDialog from './components/UpdateDialog';
+import DownloadProgressIndicator from './components/DownloadProgressIndicator';
 import { useAppUpdate } from './hooks/useAppUpdate';
 
 const DRAWER_WIDTH = 280;
@@ -196,6 +197,16 @@ const AppContent: React.FC = () => {
     handleDownloadUpdate,
     handleInstallUpdate,
   } = updateActions;
+
+  // State to track if user dismissed the download indicator
+  const [downloadIndicatorDismissed, setDownloadIndicatorDismissed] = useState(false);
+
+  // Reset dismissed state when a new download starts
+  React.useEffect(() => {
+    if (updateDownloading) {
+      setDownloadIndicatorDismissed(false);
+    }
+  }, [updateDownloading]);
 
   // Load tag display style from localStorage
   useEffect(() => {
@@ -563,8 +574,19 @@ const AppContent: React.FC = () => {
           updateProgress={updateProgress}
           onDownload={handleDownloadUpdate}
           onInstall={handleInstallUpdate}
-          onOpenSettings={() => setSettingsOpen(true)}
         />
+
+        {/* Download Progress Indicator (fixed bottom-right) */}
+        {!downloadIndicatorDismissed && (
+          <DownloadProgressIndicator
+            downloading={updateDownloading}
+            downloaded={updateState.updateDownloaded}
+            progress={updateProgress}
+            onInstall={handleInstallUpdate}
+            onDismiss={() => setDownloadIndicatorDismissed(true)}
+            version={updateInfo?.version}
+          />
+        )}
 
       </Box>
       <DragOverlay dropAnimation={null}>
