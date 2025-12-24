@@ -324,6 +324,8 @@ const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void
   // 保存数据到localStorage
   useEffect(() => {
     localStorage.setItem('tagAnything_tagGroups', JSON.stringify(tagGroups));
+    // 触发事件通知其他组件标签已更新
+    window.dispatchEvent(new CustomEvent('ta:tags-updated'));
   }, [tagGroups]);
 
   // 标签组管理函数

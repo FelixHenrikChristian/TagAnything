@@ -418,11 +418,21 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
             }
         };
 
+        // Listen for tags updated event (from TagManager)
+        const handleTagsUpdated = () => {
+            const savedTagGroups = localStorage.getItem('tagAnything_tagGroups');
+            if (savedTagGroups) {
+                setTagGroups(JSON.parse(savedTagGroups));
+            }
+        };
+
         window.addEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
         window.addEventListener('ta:locations-updated', handleLocationsUpdated);
+        window.addEventListener('ta:tags-updated', handleTagsUpdated);
         return () => {
             window.removeEventListener('locationSelected', handleLocationSelectedEvent as EventListener);
             window.removeEventListener('ta:locations-updated', handleLocationsUpdated);
+            window.removeEventListener('ta:tags-updated', handleTagsUpdated);
         };
     }, []);
 
