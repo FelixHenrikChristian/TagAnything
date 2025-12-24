@@ -875,6 +875,8 @@ ipcMain.handle('clear-all-cache', async () => {
 // 自动更新配置
 if (app.isPackaged) {
   autoUpdater.autoDownload = false;
+  // 禁止退出时自动安装更新，只在用户明确点击"安装更新"时才安装
+  autoUpdater.autoInstallOnAppQuit = false;
 
   // 配置更新服务器
   autoUpdater.setFeedURL({

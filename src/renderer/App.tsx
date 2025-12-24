@@ -585,6 +585,8 @@ const AppContent: React.FC = () => {
             onInstall={handleInstallUpdate}
             onDismiss={() => setDownloadIndicatorDismissed(true)}
             version={updateInfo?.version}
+            downloadDetails={updateState.downloadDetails}
+            fileIndex={updateState.downloadFileIndex}
           />
         )}
 

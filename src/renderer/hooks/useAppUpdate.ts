@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface UpdateInfo {
     version: string;
@@ -22,6 +22,15 @@ export const useAppUpdate = ({ showSnackbar }: UseAppUpdateProps) => {
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const [checkingForUpdates, setCheckingForUpdates] = useState(false);
     const [updateError, setUpdateError] = useState<string | null>(null);
+    // 下载详情状态
+    const [downloadDetails, setDownloadDetails] = useState<{
+        transferred: number;
+        total: number;
+        bytesPerSecond: number;
+    } | null>(null);
+    // 文件索引跟踪（用于区分多个文件下载）
+    const [downloadFileIndex, setDownloadFileIndex] = useState(1);
+    const lastTotalRef = useRef<number>(0);
 
     useEffect(() => {
         // 监听自动更新事件
@@ -57,7 +66,20 @@ export const useAppUpdate = ({ showSnackbar }: UseAppUpdateProps) => {
         });
 
         const unsubscribeProgress = window.electron.onUpdateDownloadProgress((progress: any) => {
+            const currentTotal = progress.total || 0;
+            // 检测是否开始下载新文件（total 大幅变化）
+            if (lastTotalRef.current > 0 && currentTotal > 0 &&
+                Math.abs(currentTotal - lastTotalRef.current) > 1000000) { // 差异超过1MB认为是新文件
+                setDownloadFileIndex(prev => prev + 1);
+            }
+            lastTotalRef.current = currentTotal;
+
             setUpdateProgress(progress.percent || 0);
+            setDownloadDetails({
+                transferred: progress.transferred || 0,
+                total: currentTotal,
+                bytesPerSecond: progress.bytesPerSecond || 0,
+            });
         });
 
         const unsubscribeDownloaded = window.electron.onUpdateDownloaded(() => {
@@ -118,6 +140,9 @@ export const useAppUpdate = ({ showSnackbar }: UseAppUpdateProps) => {
     const handleDownloadUpdate = async () => {
         setUpdateDownloading(true);
         setUpdateProgress(0);
+        // 重置文件索引
+        setDownloadFileIndex(1);
+        lastTotalRef.current = 0;
 
         try {
             const result = await window.electron.downloadUpdate();
@@ -165,6 +190,8 @@ export const useAppUpdate = ({ showSnackbar }: UseAppUpdateProps) => {
             updateDialogOpen,
             checkingForUpdates,
             updateError,
+            downloadDetails,
+            downloadFileIndex,
         },
         actions: {
             setUpdateDialogOpen,

@@ -23,7 +23,37 @@ interface DownloadProgressIndicatorProps {
     onInstall: () => void;
     onDismiss: () => void;
     version?: string;
+    downloadDetails?: {
+        transferred: number;
+        total: number;
+        bytesPerSecond: number;
+    } | null;
+    fileIndex?: number;
 }
+
+// 格式化文件大小
+const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+// 格式化速度
+const formatSpeed = (bytesPerSecond: number): string => {
+    return formatBytes(bytesPerSecond) + '/s';
+};
+
+// 获取文件描述
+const getFileDescription = (fileIndex: number, total: number): string => {
+    if (total > 100 * 1024 * 1024) { // > 100MB 是安装包
+        return '安装包';
+    } else if (total > 0) {
+        return '校验文件';
+    }
+    return `文件 ${fileIndex}`;
+};
 
 const DownloadProgressIndicator: React.FC<DownloadProgressIndicatorProps> = ({
     downloading,
@@ -32,6 +62,8 @@ const DownloadProgressIndicator: React.FC<DownloadProgressIndicatorProps> = ({
     onInstall,
     onDismiss,
     version,
+    downloadDetails,
+    fileIndex = 1,
 }) => {
     const [minimized, setMinimized] = useState(false);
 
@@ -109,14 +141,24 @@ const DownloadProgressIndicator: React.FC<DownloadProgressIndicatorProps> = ({
                 <Box sx={{ p: 2 }}>
                     {downloading && (
                         <>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                                 <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                                    {version ? `v${version}` : '正在下载...'}
+                                    {version ? `v${version}` : '更新'} - {getFileDescription(fileIndex, downloadDetails?.total || 0)}
                                 </Typography>
                                 <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 'bold' }}>
                                     {Math.round(progress)}%
                                 </Typography>
                             </Box>
+                            {downloadDetails && downloadDetails.total > 0 && (
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                    <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                                        {formatBytes(downloadDetails.transferred)} / {formatBytes(downloadDetails.total)}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                                        {formatSpeed(downloadDetails.bytesPerSecond)}
+                                    </Typography>
+                                </Box>
+                            )}
                             <LinearProgress
                                 variant="determinate"
                                 value={progress}
