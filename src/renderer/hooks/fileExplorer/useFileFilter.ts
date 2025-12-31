@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { FileItem, Tag, TagGroup } from '../../types';
+import { FileItem, Tag, TagGroup, DisplaySettings } from '../../types';
 import {
     parseTagsFromFilename,
     createTagsFromNames,
     createTemporaryTags,
 } from '../../utils/fileTagParser';
+import { matchWithChineseVariants } from '../../utils/chineseConverter';
 import {
     SortType,
     SortDirection,
@@ -33,7 +34,8 @@ export const useFileFilter = (
     getEffectiveTagGroups: () => TagGroup[],
     setFileTags: React.Dispatch<React.SetStateAction<Map<string, Tag[]>>>,
     generateVideoThumbnails: (files: FileItem[]) => Promise<void>,
-    fileTags: Map<string, Tag[]>
+    fileTags: Map<string, Tag[]>,
+    displaySettings: DisplaySettings
 ) => {
     // filterResultFiles stores the result when a filter is actively being applied
     const [filterResultFiles, setFilterResultFiles] = useState<FileItem[]>([]);
@@ -120,11 +122,14 @@ export const useFileFilter = (
             return filesToFilter;
         }
 
-        const lowerQuery = query.toLowerCase();
         return filesToFilter.filter(file =>
-            file.name.toLowerCase().includes(lowerQuery)
+            matchWithChineseVariants(
+                file.name,
+                query,
+                displaySettings.enableSimplifiedTraditionalSearch
+            )
         );
-    }, []);
+    }, [displaySettings.enableSimplifiedTraditionalSearch]);
 
     /**
      * Filter files by tag(s)
@@ -176,7 +181,8 @@ export const useFileFilter = (
                 tagGroups: getEffectiveTagGroups(),
                 tagIds,
                 query: filterState.nameFilterQuery || undefined,
-                matchAllTags: true
+                matchAllTags: true,
+                enableSimplifiedTraditionalSearch: displaySettings.enableSimplifiedTraditionalSearch
             });
 
             // Check again after await
@@ -294,7 +300,8 @@ export const useFileFilter = (
             const { files: resultFiles, fileTags: resultTags } = await window.electron.searchFiles({
                 rootPath: searchRoot,
                 tagGroups: getEffectiveTagGroups(),
-                query: query
+                query: query,
+                enableSimplifiedTraditionalSearch: displaySettings.enableSimplifiedTraditionalSearch
                 // No tagIds -> matches folders and files just by name
             });
 

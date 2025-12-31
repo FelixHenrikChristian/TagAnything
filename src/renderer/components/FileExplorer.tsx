@@ -16,6 +16,7 @@ import { FileGrid } from './FileExplorer/FileGrid';
 import { ExplorerDialogs } from './FileExplorer/ExplorerDialogs';
 import { ExplorerContextMenus } from './FileExplorer/ExplorerContextMenus';
 import { FileItem, Tag, TagGroup } from '../types';
+import { useAppTheme } from '../context/ThemeContext';
 
 interface FileExplorerProps {
   tagDisplayStyle?: 'original' | 'library';
@@ -55,6 +56,9 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     canGoUp,
   } = useFileExplorerState(tagDisplayStyle);
 
+  // Get display settings for simplified-traditional search
+  const { displaySettings } = useAppTheme();
+
   // 2. Filter Logic
   const {
     filteredFiles,
@@ -77,7 +81,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     getEffectiveTagGroups,
     setFileTags,
     generateVideoThumbnails,
-    fileTags
+    fileTags,
+    displaySettings
   );
 
 

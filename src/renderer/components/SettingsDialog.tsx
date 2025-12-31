@@ -494,6 +494,21 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                         color="primary"
                                     />
                                 </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+                                    <Box>
+                                        <Typography variant="body2" color="text.primary">
+                                            搜索时简繁共通
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                            搜索简体字可匹配繁体字，反之亦然
+                                        </Typography>
+                                    </Box>
+                                    <Switch
+                                        checked={displaySettings.enableSimplifiedTraditionalSearch}
+                                        onChange={(e) => updateDisplaySetting('enableSimplifiedTraditionalSearch', e.target.checked)}
+                                        color="primary"
+                                    />
+                                </Box>
                             </Box>
                         </Grid>
 

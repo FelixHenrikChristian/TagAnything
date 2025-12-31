@@ -284,14 +284,27 @@ interface LocalTagGroup {
 }
 
 // 搜索文件处理函数
+// 简繁转换器（lazy初始化）
+let s2tConverter: any = null;
+let t2sConverter: any = null;
+function getChineseConverters() {
+  if (!s2tConverter) {
+    const OpenCC = require('opencc-js');
+    s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+    t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' });
+  }
+  return { s2tConverter, t2sConverter };
+}
+
 ipcMain.handle('search-files', async (event, params: {
   rootPath: string;
   tagGroups: LocalTagGroup[];
   tagIds?: string[];
   query?: string;
   matchAllTags?: boolean;
+  enableSimplifiedTraditionalSearch?: boolean;
 }) => {
-  const { rootPath, tagGroups, tagIds, query, matchAllTags = true } = params;
+  const { rootPath, tagGroups, tagIds, query, matchAllTags = true, enableSimplifiedTraditionalSearch = false } = params;
   const fs = require('fs').promises;
   const path = require('path');
 
@@ -299,6 +312,17 @@ ipcMain.handle('search-files', async (event, params: {
   const fileTagsMap: Record<string, LocalTag[]> = {};
 
   const lowerQuery = query ? query.toLowerCase() : null;
+  // 准备简繁转换后的查询字符串
+  let traditionalQuery: string | null = null;
+  let simplifiedQuery: string | null = null;
+  if (lowerQuery && enableSimplifiedTraditionalSearch) {
+    const { s2tConverter, t2sConverter } = getChineseConverters();
+    traditionalQuery = s2tConverter(lowerQuery);
+    simplifiedQuery = t2sConverter(lowerQuery);
+    // 如果转换结果与原始相同，设为null避免重复匹配
+    if (traditionalQuery === lowerQuery) traditionalQuery = null;
+    if (simplifiedQuery === lowerQuery) simplifiedQuery = null;
+  }
   const hasTagFilter = tagIds && tagIds.length > 0;
 
   // 预先构建标签查找表，优化搜索速度 (O(M) -> O(1))
@@ -340,7 +364,10 @@ ipcMain.handle('search-files', async (event, params: {
           // 1. Filename Filter
           let nameMatch = true;
           if (lowerQuery) {
-            nameMatch = name.toLowerCase().includes(lowerQuery);
+            const lowerName = name.toLowerCase();
+            nameMatch = lowerName.includes(lowerQuery) ||
+              (traditionalQuery !== null && lowerName.includes(traditionalQuery)) ||
+              (simplifiedQuery !== null && lowerName.includes(simplifiedQuery));
           }
 
           if (isDirectory) {

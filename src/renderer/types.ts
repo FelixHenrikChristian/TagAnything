@@ -47,10 +47,13 @@ export const DEFAULT_NEON_GLASS_SETTINGS: NeonGlassSettings = {
 export interface DisplaySettings {
     // 在文件夹图标内显示名称
     showFolderNameInIcon: boolean;
+    // 搜索时启用简繁共通
+    enableSimplifiedTraditionalSearch: boolean;
 }
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     showFolderNameInIcon: false,
+    enableSimplifiedTraditionalSearch: false,
 };
 
 export interface Tag {
@@ -122,6 +125,7 @@ declare global {
                 tagIds?: string[];
                 query?: string;
                 matchAllTags?: boolean;
+                enableSimplifiedTraditionalSearch?: boolean;
             }) => Promise<{ files: FileItem[]; fileTags?: { [path: string]: Tag[] } }>;
             openFile: (filePath: string) => Promise<void>;
             createFolder: (parentPath: string, name: string) => Promise<{ success: boolean; path?: string; error?: string }>;
