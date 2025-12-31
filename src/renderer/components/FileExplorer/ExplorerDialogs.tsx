@@ -57,6 +57,7 @@ import {
     NewFolderDialogState,
 } from './types';
 import { formatFileSize } from '../../utils/fileTagParser';
+import { matchWithChineseVariants } from '../../utils/chineseConverter';
 
 
 interface ExplorerDialogsProps {
@@ -161,22 +162,26 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     getEffectiveTagGroups,
     getFileTags,
 }) => {
-    // Get theme context for neon-glass styling
-    const { currentTheme, neonGlassSettings } = useAppTheme();
+    // Get theme context for neon-glass styling and display settings
+    const { currentTheme, neonGlassSettings, displaySettings } = useAppTheme();
 
     // Filter picker directories based on search query (FileOperationDialog)
     const filteredPickerDirs = useMemo(() => {
-        const query = fileOperationDialog.pickerSearchQuery?.toLowerCase().trim();
+        const query = fileOperationDialog.pickerSearchQuery?.trim();
         if (!query) return pickerDirs;
-        return pickerDirs.filter(dir => dir.name.toLowerCase().includes(query));
-    }, [pickerDirs, fileOperationDialog.pickerSearchQuery]);
+        return pickerDirs.filter(dir =>
+            matchWithChineseVariants(dir.name, query, displaySettings.enableSimplifiedTraditionalSearch)
+        );
+    }, [pickerDirs, fileOperationDialog.pickerSearchQuery, displaySettings.enableSimplifiedTraditionalSearch]);
 
     // Filter picker directories based on search query (DirectOperationDialog)
     const filteredPickerDirectories = useMemo(() => {
-        const query = directOperationDialog.searchQuery?.toLowerCase().trim();
+        const query = directOperationDialog.searchQuery?.trim();
         if (!query) return pickerDirectories;
-        return pickerDirectories.filter(dir => dir.name.toLowerCase().includes(query));
-    }, [pickerDirectories, directOperationDialog.searchQuery]);
+        return pickerDirectories.filter(dir =>
+            matchWithChineseVariants(dir.name, query, displaySettings.enableSimplifiedTraditionalSearch)
+        );
+    }, [pickerDirectories, directOperationDialog.searchQuery, displaySettings.enableSimplifiedTraditionalSearch]);
 
     return (
         <>
