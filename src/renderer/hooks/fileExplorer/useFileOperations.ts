@@ -267,7 +267,7 @@ export const useFileOperations = (
         const root = norm(directOperationDialog.rootPath);
         const next = norm(path);
         if (next.startsWith(root)) {
-            setDirectOperationDialog(prev => ({ ...prev, browsePath: path }));
+            setDirectOperationDialog(prev => ({ ...prev, browsePath: path, searchQuery: '' }));
         }
     }, [directOperationDialog.rootPath]);
 
@@ -281,9 +281,9 @@ export const useFileOperations = (
         const parent = current.replace(/[\\/][^\\/]+$/, '');
         const parentNorm = normalize(parent);
         if (parentNorm.startsWith(rt)) {
-            setDirectOperationDialog(prev => ({ ...prev, browsePath: parent }));
+            setDirectOperationDialog(prev => ({ ...prev, browsePath: parent, searchQuery: '' }));
         } else {
-            setDirectOperationDialog(prev => ({ ...prev, browsePath: prev.rootPath }));
+            setDirectOperationDialog(prev => ({ ...prev, browsePath: prev.rootPath, searchQuery: '' }));
         }
     }, [directOperationDialog.browsePath, directOperationDialog.rootPath]);
 
@@ -387,7 +387,7 @@ export const useFileOperations = (
         const next = normalize(path);
 
         if (next.startsWith(root)) {
-            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: path }));
+            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: path, pickerSearchQuery: '' }));
         }
     }, [fileOperationDialog.pickerRoot]);
 
@@ -404,9 +404,9 @@ export const useFileOperations = (
         const parentNorm = normalize(parent);
 
         if (parentNorm.startsWith(rt)) {
-            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: parent }));
+            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: parent, pickerSearchQuery: '' }));
         } else {
-            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: prev.pickerRoot }));
+            setFileOperationDialog(prev => ({ ...prev, pickerBrowsePath: prev.pickerRoot, pickerSearchQuery: '' }));
         }
     }, [fileOperationDialog.pickerBrowsePath, fileOperationDialog.pickerRoot]);
 

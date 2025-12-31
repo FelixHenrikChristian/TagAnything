@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -27,6 +27,7 @@ import {
     Tooltip,
     Card,
     CardActionArea,
+    InputAdornment,
 } from '@mui/material';
 import {
     ArrowUpward as ArrowUpwardIcon,
@@ -39,6 +40,8 @@ import {
     ViewList as ViewListIcon,
     ViewModule as ViewModuleIcon,
     ChevronRight as ChevronRightIcon,
+    Search as SearchIcon,
+    Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useAppTheme } from '../../context/ThemeContext';
 import { FileItem, Tag, TagGroup, DraggedFile } from '../../types';
@@ -161,6 +164,20 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     // Get theme context for neon-glass styling
     const { currentTheme, neonGlassSettings } = useAppTheme();
 
+    // Filter picker directories based on search query (FileOperationDialog)
+    const filteredPickerDirs = useMemo(() => {
+        const query = fileOperationDialog.pickerSearchQuery?.toLowerCase().trim();
+        if (!query) return pickerDirs;
+        return pickerDirs.filter(dir => dir.name.toLowerCase().includes(query));
+    }, [pickerDirs, fileOperationDialog.pickerSearchQuery]);
+
+    // Filter picker directories based on search query (DirectOperationDialog)
+    const filteredPickerDirectories = useMemo(() => {
+        const query = directOperationDialog.searchQuery?.toLowerCase().trim();
+        if (!query) return pickerDirectories;
+        return pickerDirectories.filter(dir => dir.name.toLowerCase().includes(query));
+    }, [pickerDirectories, directOperationDialog.searchQuery]);
+
     return (
         <>
             {/* File Operation Dialog (Drag & Drop) */}
@@ -251,6 +268,32 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                     </IconButton>
                                 </Tooltip>
                             </Box>
+                            {/* 搜索框 */}
+                            <TextField
+                                size="small"
+                                placeholder="搜索文件夹..."
+                                value={fileOperationDialog.pickerSearchQuery || ''}
+                                onChange={(e) => setFileOperationDialog(prev => ({ ...prev, pickerSearchQuery: e.target.value }))}
+                                sx={{ mb: 2 }}
+                                fullWidth
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: fileOperationDialog.pickerSearchQuery ? (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => setFileOperationDialog(prev => ({ ...prev, pickerSearchQuery: '' }))}
+                                            >
+                                                <ClearIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                }}
+                            />
                             {pickerDirsError && (
                                 <Alert severity="error" sx={{ mb: 2 }}>{pickerDirsError}</Alert>
                             )}
@@ -281,13 +324,13 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                         overflowY: 'auto',
                                         p: 1,
                                     }}>
-                                        {pickerDirs.length === 0 && !pickerDirsLoading ? (
+                                        {filteredPickerDirs.length === 0 && !pickerDirsLoading ? (
                                             <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4, color: 'text.secondary' }}>
                                                 <Typography variant="body2">此目录下没有子文件夹</Typography>
                                                 <Typography variant="caption">你可以选择当前目录作为目标</Typography>
                                             </Box>
                                         ) : (
-                                            pickerDirs.map(dir => (
+                                            filteredPickerDirs.map(dir => (
                                                 <Card
                                                     key={dir.path}
                                                     variant="outlined"
@@ -323,12 +366,12 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                 ) : (
                                     /* List 视图 */
                                     <List dense sx={{ height: '100%', overflowY: 'auto' }}>
-                                        {pickerDirs.length === 0 && !pickerDirsLoading && (
+                                        {filteredPickerDirs.length === 0 && !pickerDirsLoading && (
                                             <ListItem>
                                                 <ListItemText primary="此目录下没有子文件夹" secondary="你可以选择当前目录作为目标" />
                                             </ListItem>
                                         )}
-                                        {pickerDirs.map(dir => (
+                                        {filteredPickerDirs.map(dir => (
                                             <ListItem
                                                 key={dir.path}
                                                 button
@@ -504,6 +547,32 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                             </IconButton>
                         </Tooltip>
                     </Box>
+                    {/* 搜索框 */}
+                    <TextField
+                        size="small"
+                        placeholder="搜索文件夹..."
+                        value={directOperationDialog.searchQuery || ''}
+                        onChange={(e) => setDirectOperationDialog(prev => ({ ...prev, searchQuery: e.target.value }))}
+                        sx={{ mb: 2 }}
+                        fullWidth
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                </InputAdornment>
+                            ),
+                            endAdornment: directOperationDialog.searchQuery ? (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => setDirectOperationDialog(prev => ({ ...prev, searchQuery: '' }))}
+                                    >
+                                        <ClearIcon sx={{ fontSize: 18 }} />
+                                    </IconButton>
+                                </InputAdornment>
+                            ) : null,
+                        }}
+                    />
                     {pickerError && (
                         <Alert severity="error" sx={{ mb: 2 }}>{pickerError}</Alert>
                     )}
@@ -525,13 +594,13 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                             borderColor: 'divider',
                             borderRadius: 1,
                         }}>
-                            {pickerDirectories.length === 0 ? (
+                            {filteredPickerDirectories.length === 0 ? (
                                 <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4, color: 'text.secondary' }}>
                                     <Typography variant="body2">此目录下没有子文件夹</Typography>
                                     <Typography variant="caption">你可以选择当前目录作为目标</Typography>
                                 </Box>
                             ) : (
-                                pickerDirectories.map(dir => (
+                                filteredPickerDirectories.map(dir => (
                                     <Card
                                         key={dir.path}
                                         variant="outlined"
@@ -575,7 +644,7 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                             borderRadius: 1,
                         }}>
                             <List dense disablePadding>
-                                {pickerDirectories.length === 0 ? (
+                                {filteredPickerDirectories.length === 0 ? (
                                     <ListItem>
                                         <ListItemText
                                             primary="此目录下没有子文件夹"
@@ -583,7 +652,7 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                         />
                                     </ListItem>
                                 ) : (
-                                    pickerDirectories.map(dir => (
+                                    filteredPickerDirectories.map(dir => (
                                         <ListItem
                                             key={dir.path}
                                             button

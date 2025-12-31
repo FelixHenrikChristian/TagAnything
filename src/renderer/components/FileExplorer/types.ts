@@ -59,6 +59,7 @@ export interface FileOperationDialogState {
     pickerRoot?: string;         // 选择器根路径（位置根目录）
     pickerBrowsePath?: string;   // 选择器当前浏览路径
     pickerViewMode?: 'list' | 'grid'; // 选择器视图模式
+    pickerSearchQuery?: string;  // 目录搜索关键词
 }
 
 // 添加文件操作状态接口
@@ -109,6 +110,7 @@ export interface DirectOperationDialogState {
     rootPath: string; // 限制范围（currentLocation.path）
     browsePath: string; // 当前浏览目录
     viewMode?: 'list' | 'grid'; // 视图模式
+    searchQuery?: string;  // 目录搜索关键词
 }
 
 export interface DeleteConfirmDialogState {
