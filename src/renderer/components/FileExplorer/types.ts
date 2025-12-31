@@ -58,6 +58,7 @@ export interface FileOperationDialogState {
     pickerMode?: boolean;        // 是否显示内置目录选择器
     pickerRoot?: string;         // 选择器根路径（位置根目录）
     pickerBrowsePath?: string;   // 选择器当前浏览路径
+    pickerViewMode?: 'list' | 'grid'; // 选择器视图模式
 }
 
 // 添加文件操作状态接口
@@ -107,6 +108,7 @@ export interface DirectOperationDialogState {
     files: DraggedFile[];
     rootPath: string; // 限制范围（currentLocation.path）
     browsePath: string; // 当前浏览目录
+    viewMode?: 'list' | 'grid'; // 视图模式
 }
 
 export interface DeleteConfirmDialogState {

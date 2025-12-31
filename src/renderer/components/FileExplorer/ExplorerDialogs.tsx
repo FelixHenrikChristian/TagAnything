@@ -11,8 +11,7 @@ import {
     Alert,
     List,
     ListItem,
-    ListItemAvatar,
-    Avatar,
+    ListItemIcon,
     ListItemText,
     TableContainer,
     Table,
@@ -24,6 +23,10 @@ import {
     Chip,
     CircularProgress,
     LinearProgress,
+    IconButton,
+    Tooltip,
+    Card,
+    CardActionArea,
 } from '@mui/material';
 import {
     ArrowUpward as ArrowUpwardIcon,
@@ -33,6 +36,9 @@ import {
     InsertDriveFile as FileIcon,
     FolderOpen as FolderOpenIcon,
     ContentCopy as CopyIcon,
+    ViewList as ViewListIcon,
+    ViewModule as ViewModuleIcon,
+    ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useAppTheme } from '../../context/ThemeContext';
 import { FileItem, Tag, TagGroup, DraggedFile } from '../../types';
@@ -200,21 +206,50 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                     ) : (
                         // Picker mode: Show directory picker
                         <Box sx={{ mb: 3 }}>
-                            <Box sx={{ mb: 2 }}>
-                                <Typography variant="subtitle2" color="text.secondary">根目录：</Typography>
-                                <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{fileOperationDialog.pickerRoot}</Typography>
-                            </Box>
+                            {/* 导航栏 */}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                                 <Button
                                     variant="outlined"
+                                    size="small"
                                     startIcon={<BackIcon />}
                                     onClick={handlePickerNavigateUp}
                                     disabled={fileOperationDialog.pickerBrowsePath === fileOperationDialog.pickerRoot}
                                 >
                                     返回上级
                                 </Button>
-                                <Typography variant="subtitle2">当前目录：</Typography>
-                                <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{fileOperationDialog.pickerBrowsePath}</Typography>
+                                <Chip
+                                    icon={<FolderOpenIcon />}
+                                    label={fileOperationDialog.pickerBrowsePath}
+                                    sx={{
+                                        maxWidth: 'calc(100% - 200px)',
+                                        '& .MuiChip-label': {
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.875rem',
+                                        }
+                                    }}
+                                />
+                                <Box sx={{ flex: 1 }} />
+                                {/* 视图切换 */}
+                                <Tooltip title="列表视图">
+                                    <IconButton
+                                        size="small"
+                                        color={fileOperationDialog.pickerViewMode !== 'grid' ? 'primary' : 'default'}
+                                        onClick={() => setFileOperationDialog(prev => ({ ...prev, pickerViewMode: 'list' }))}
+                                    >
+                                        <ViewListIcon />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title="网格视图">
+                                    <IconButton
+                                        size="small"
+                                        color={fileOperationDialog.pickerViewMode === 'grid' ? 'primary' : 'default'}
+                                        onClick={() => setFileOperationDialog(prev => ({ ...prev, pickerViewMode: 'grid' }))}
+                                    >
+                                        <ViewModuleIcon />
+                                    </IconButton>
+                                </Tooltip>
                             </Box>
                             {pickerDirsError && (
                                 <Alert severity="error" sx={{ mb: 2 }}>{pickerDirsError}</Alert>
@@ -236,23 +271,83 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                         <CircularProgress />
                                     </Box>
                                 )}
-                                <List sx={{ height: '100%', overflowY: 'auto' }}>
-                                    {pickerDirs.length === 0 && !pickerDirsLoading && (
-                                        <ListItem>
-                                            <ListItemText primary="此目录下没有子文件夹" secondary="你可以选择当前目录作为目标" />
-                                        </ListItem>
-                                    )}
-                                    {pickerDirs.map(dir => (
-                                        <ListItem key={dir.path} button onClick={() => handlePickerNavigateTo(dir.path)}>
-                                            <ListItemAvatar>
-                                                <Avatar>
-                                                    <FolderIcon />
-                                                </Avatar>
-                                            </ListItemAvatar>
-                                            <ListItemText primary={dir.name} secondary={dir.path} />
-                                        </ListItem>
-                                    ))}
-                                </List>
+                                {fileOperationDialog.pickerViewMode === 'grid' ? (
+                                    /* Grid 视图 */
+                                    <Box sx={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                        gap: 1.5,
+                                        height: '100%',
+                                        overflowY: 'auto',
+                                        p: 1,
+                                    }}>
+                                        {pickerDirs.length === 0 && !pickerDirsLoading ? (
+                                            <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                                                <Typography variant="body2">此目录下没有子文件夹</Typography>
+                                                <Typography variant="caption">你可以选择当前目录作为目标</Typography>
+                                            </Box>
+                                        ) : (
+                                            pickerDirs.map(dir => (
+                                                <Card
+                                                    key={dir.path}
+                                                    variant="outlined"
+                                                    sx={{
+                                                        transition: 'all 0.2s',
+                                                        '&:hover': {
+                                                            borderColor: 'primary.main',
+                                                            transform: 'translateY(-2px)',
+                                                            boxShadow: 2,
+                                                        }
+                                                    }}
+                                                >
+                                                    <CardActionArea
+                                                        onClick={() => handlePickerNavigateTo(dir.path)}
+                                                        sx={{ p: 1.5, textAlign: 'center' }}
+                                                    >
+                                                        <FolderIcon sx={{ fontSize: 40, color: 'warning.main', mb: 0.5 }} />
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                            }}
+                                                        >
+                                                            {dir.name}
+                                                        </Typography>
+                                                    </CardActionArea>
+                                                </Card>
+                                            ))
+                                        )}
+                                    </Box>
+                                ) : (
+                                    /* List 视图 */
+                                    <List dense sx={{ height: '100%', overflowY: 'auto' }}>
+                                        {pickerDirs.length === 0 && !pickerDirsLoading && (
+                                            <ListItem>
+                                                <ListItemText primary="此目录下没有子文件夹" secondary="你可以选择当前目录作为目标" />
+                                            </ListItem>
+                                        )}
+                                        {pickerDirs.map(dir => (
+                                            <ListItem
+                                                key={dir.path}
+                                                button
+                                                onClick={() => handlePickerNavigateTo(dir.path)}
+                                                sx={{
+                                                    '&:hover': {
+                                                        backgroundColor: 'action.hover',
+                                                    },
+                                                }}
+                                            >
+                                                <ListItemIcon sx={{ minWidth: 40 }}>
+                                                    <FolderIcon sx={{ color: 'warning.main' }} />
+                                                </ListItemIcon>
+                                                <ListItemText primary={dir.name} />
+                                                <ChevronRightIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                )}
                             </Box>
                             <Box sx={{ mt: 2 }}>
                                 <Button variant="contained" onClick={handleConfirmPickerPath}>
@@ -364,14 +459,50 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
             <Dialog open={directOperationDialog.open} onClose={closeDirectOperationDialog} maxWidth="md" fullWidth>
                 <DialogTitle>{directOperationDialog.operation === 'move' ? '移动到' : '复制到'}</DialogTitle>
                 <DialogContent>
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary">根目录：</Typography>
-                        <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{directOperationDialog.rootPath}</Typography>
-                    </Box>
+                    {/* 导航栏 */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                        <Button variant="outlined" startIcon={<BackIcon />} onClick={navigatePickerUp} disabled={directOperationDialog.browsePath === directOperationDialog.rootPath}>返回上级</Button>
-                        <Typography variant="subtitle2">当前目录：</Typography>
-                        <Typography sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{directOperationDialog.browsePath}</Typography>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<BackIcon />}
+                            onClick={navigatePickerUp}
+                            disabled={directOperationDialog.browsePath === directOperationDialog.rootPath}
+                        >
+                            返回上级
+                        </Button>
+                        <Chip
+                            icon={<FolderOpenIcon />}
+                            label={directOperationDialog.browsePath}
+                            sx={{
+                                maxWidth: 'calc(100% - 200px)',
+                                '& .MuiChip-label': {
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.875rem',
+                                }
+                            }}
+                        />
+                        <Box sx={{ flex: 1 }} />
+                        {/* 视图切换 */}
+                        <Tooltip title="列表视图">
+                            <IconButton
+                                size="small"
+                                color={directOperationDialog.viewMode !== 'grid' ? 'primary' : 'default'}
+                                onClick={() => setDirectOperationDialog(prev => ({ ...prev, viewMode: 'list' }))}
+                            >
+                                <ViewListIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="网格视图">
+                            <IconButton
+                                size="small"
+                                color={directOperationDialog.viewMode === 'grid' ? 'primary' : 'default'}
+                                onClick={() => setDirectOperationDialog(prev => ({ ...prev, viewMode: 'grid' }))}
+                            >
+                                <ViewModuleIcon />
+                            </IconButton>
+                        </Tooltip>
                     </Box>
                     {pickerError && (
                         <Alert severity="error" sx={{ mb: 2 }}>{pickerError}</Alert>
@@ -380,24 +511,99 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                             <CircularProgress />
                         </Box>
-                    ) : (
-                        <List>
-                            {pickerDirectories.length === 0 && (
-                                <ListItem>
-                                    <ListItemText primary="此目录下没有子文件夹" secondary="你可以选择当前目录作为目标" />
-                                </ListItem>
+                    ) : directOperationDialog.viewMode === 'grid' ? (
+                        /* Grid 视图 */
+                        <Box sx={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                            gap: 1.5,
+                            minHeight: 200,
+                            maxHeight: 300,
+                            overflowY: 'auto',
+                            p: 1,
+                            border: 1,
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                        }}>
+                            {pickerDirectories.length === 0 ? (
+                                <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                                    <Typography variant="body2">此目录下没有子文件夹</Typography>
+                                    <Typography variant="caption">你可以选择当前目录作为目标</Typography>
+                                </Box>
+                            ) : (
+                                pickerDirectories.map(dir => (
+                                    <Card
+                                        key={dir.path}
+                                        variant="outlined"
+                                        sx={{
+                                            transition: 'all 0.2s',
+                                            '&:hover': {
+                                                borderColor: 'primary.main',
+                                                transform: 'translateY(-2px)',
+                                                boxShadow: 2,
+                                            }
+                                        }}
+                                    >
+                                        <CardActionArea
+                                            onClick={() => navigatePickerTo(dir.path)}
+                                            sx={{ p: 1.5, textAlign: 'center' }}
+                                        >
+                                            <FolderIcon sx={{ fontSize: 40, color: 'warning.main', mb: 0.5 }} />
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                            >
+                                                {dir.name}
+                                            </Typography>
+                                        </CardActionArea>
+                                    </Card>
+                                ))
                             )}
-                            {pickerDirectories.map(dir => (
-                                <ListItem key={dir.path} button onClick={() => navigatePickerTo(dir.path)}>
-                                    <ListItemAvatar>
-                                        <Avatar>
-                                            <FolderIcon />
-                                        </Avatar>
-                                    </ListItemAvatar>
-                                    <ListItemText primary={dir.name} secondary={dir.path} />
-                                </ListItem>
-                            ))}
-                        </List>
+                        </Box>
+                    ) : (
+                        /* List 视图 */
+                        <Box sx={{
+                            minHeight: 200,
+                            maxHeight: 300,
+                            overflowY: 'auto',
+                            border: 1,
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                        }}>
+                            <List dense disablePadding>
+                                {pickerDirectories.length === 0 ? (
+                                    <ListItem>
+                                        <ListItemText
+                                            primary="此目录下没有子文件夹"
+                                            secondary="你可以选择当前目录作为目标"
+                                        />
+                                    </ListItem>
+                                ) : (
+                                    pickerDirectories.map(dir => (
+                                        <ListItem
+                                            key={dir.path}
+                                            button
+                                            onClick={() => navigatePickerTo(dir.path)}
+                                            sx={{
+                                                '&:hover': {
+                                                    backgroundColor: 'action.hover',
+                                                },
+                                            }}
+                                        >
+                                            <ListItemIcon sx={{ minWidth: 40 }}>
+                                                <FolderIcon sx={{ color: 'warning.main' }} />
+                                            </ListItemIcon>
+                                            <ListItemText primary={dir.name} />
+                                            <ChevronRightIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                        </ListItem>
+                                    ))
+                                )}
+                            </List>
+                        </Box>
                     )}
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="subtitle2">待{directOperationDialog.operation === 'move' ? '移动' : '复制'}文件：</Typography>
