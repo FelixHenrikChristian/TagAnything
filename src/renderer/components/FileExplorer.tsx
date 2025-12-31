@@ -48,12 +48,14 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     getEffectiveTagGroups,
     setFileTags,
     generateVideoThumbnails,
+    pushHistory,
     goBack,
     goForward,
     goUp,
     canGoBack,
     canGoForward,
     canGoUp,
+    isNavigatingHistory,
   } = useFileExplorerState(tagDisplayStyle);
 
   // Get display settings for simplified-traditional search
@@ -68,6 +70,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleMultiTagFilter,
     handleFilenameSearch,
     clearFilter,
+    restoreFilterState,
     sortType,
     setSortType,
     sortDirection,
@@ -84,6 +87,40 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     fileTags,
     displaySettings
   );
+
+  // Track previous filter state for history management
+  const prevFilterStateRef = useRef(filterState);
+
+  // Push history entry when filter state changes (not during history navigation)
+  useEffect(() => {
+    // Skip if we're navigating through history
+    if (isNavigatingHistory.current) return;
+
+    const prevState = prevFilterStateRef.current;
+    const hasFilterChanged =
+      JSON.stringify(prevState) !== JSON.stringify(filterState);
+
+    if (hasFilterChanged && currentPath) {
+      pushHistory(currentPath, filterState);
+      prevFilterStateRef.current = filterState;
+    }
+  }, [filterState, currentPath, pushHistory, isNavigatingHistory]);
+
+  // Wrapper for back navigation that also restores filter state
+  const handleGoBack = useCallback(() => {
+    const entry = goBack();
+    if (entry) {
+      restoreFilterState(entry.filterState);
+    }
+  }, [goBack, restoreFilterState]);
+
+  // Wrapper for forward navigation that also restores filter state
+  const handleGoForward = useCallback(() => {
+    const entry = goForward();
+    if (entry) {
+      restoreFilterState(entry.filterState);
+    }
+  }, [goForward, restoreFilterState]);
 
 
 
@@ -195,7 +232,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
   const { selectedFiles, clearSelection, setSelectedIndices } = useKeyboardNavigation({
     files: filteredFiles,
     gridContainerRef: containerRef,
-    goBack,
+    goBack: handleGoBack,
     handleRefresh: async () => { await refreshCore(isFiltering, filteredFiles); },
     handleNavigate: (path: string) => { clearFilter(); handleNavigate(path); },
     handleFileOpen,
@@ -437,8 +474,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         handleLocationSelect={onLocationSelect}
         handleRefresh={onRefresh}
         handleNavigate={onNavigate}
-        goBack={goBack}
-        goForward={goForward}
+        goBack={handleGoBack}
+        goForward={handleGoForward}
         goUp={goUp}
         canGoBack={canGoBack}
         canGoForward={canGoForward}

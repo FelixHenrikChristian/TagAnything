@@ -578,6 +578,106 @@ export const useFileFilter = (
     }, [files, currentPath]);
 
     /**
+     * Restore filter state from a history entry.
+     * Used when navigating back/forward in history.
+     */
+    const restoreFilterState = useCallback((state: FilterState) => {
+        console.log('🔄 恢复筛选状态:', state);
+
+        // Clear timers first
+        if (searchDebounceTimer.current) {
+            clearTimeout(searchDebounceTimer.current);
+        }
+        if (filterDebounceTimer.current) {
+            clearTimeout(filterDebounceTimer.current);
+        }
+
+        // Generate new request ID
+        const requestId = Date.now();
+        filterRequestRef.current = requestId;
+
+        // Set the state first
+        setFilterState(state);
+
+        // Now execute the appropriate search based on the restored state
+        if (state.tagFilter) {
+            const origin = state.tagFilter.origin || 'fileExplorer';
+            if (origin === 'tagManager') {
+                const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
+                let searchRoot = currentPath;
+                if (savedLocation) {
+                    try {
+                        const location = JSON.parse(savedLocation);
+                        searchRoot = location.path;
+                    } catch (e) { }
+                }
+                setIsFiltering(true);
+                performRecursiveSearch([state.tagFilter.tagId], searchRoot, requestId);
+            } else {
+                setIsFiltering(true);
+                performCurrentDirectorySearch([state.tagFilter.tagId], requestId);
+            }
+
+            // Dispatch event for AppBar sync
+            window.dispatchEvent(new CustomEvent('tagFilter', { detail: state.tagFilter }));
+
+        } else if (state.multiTagFilter) {
+            const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
+            let searchRoot = currentPath;
+            if (savedLocation) {
+                try {
+                    const location = JSON.parse(savedLocation);
+                    searchRoot = location.path;
+                } catch (e) { }
+            }
+            setIsFiltering(true);
+            performRecursiveSearch(state.multiTagFilter.tagIds, searchRoot, requestId);
+
+            // Dispatch event for AppBar sync
+            window.dispatchEvent(new CustomEvent('multiTagFilter', { detail: state.multiTagFilter }));
+
+        } else if (state.nameFilterQuery) {
+            if (state.isGlobalSearch) {
+                setIsFiltering(true);
+                performGlobalFilenameSearch(state.nameFilterQuery, requestId);
+            } else {
+                setIsFiltering(true);
+                const result = filterByFilename(files, state.nameFilterQuery);
+                const sorted = sortFiles(result);
+                setFilterResultFiles(sorted);
+            }
+
+            // Dispatch event for AppBar sync
+            const detail: FilenameSearchFilter = {
+                type: 'filename',
+                query: state.nameFilterQuery,
+                timestamp: Date.now(),
+                origin: 'fileExplorer',
+                currentPath,
+                isGlobal: state.isGlobalSearch,
+            };
+            window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
+
+        } else {
+            // No filters - clear everything
+            setIsFiltering(false);
+            setIsSearching(false);
+            setFilterResultFiles([]);
+
+            // Dispatch clear event
+            const detail: FilenameSearchFilter = {
+                type: 'filename',
+                query: '',
+                timestamp: Date.now(),
+                origin: 'fileExplorer',
+                currentPath,
+                clearAll: true,
+            };
+            window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
+        }
+    }, [currentPath, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch]);
+
+    /**
      * Listen to external filter events (from TagManager, AppBar)
      */
     useEffect(() => {
@@ -729,6 +829,7 @@ export const useFileFilter = (
         handleMultiTagFilter,
         handleFilenameSearch,
         clearFilter,
+        restoreFilterState,
         sortType,
         setSortType,
         sortDirection,

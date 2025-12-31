@@ -44,6 +44,13 @@ export interface FilterState {
     isGlobalSearch: boolean;
 }
 
+// 历史记录条目，用于后退/前进功能
+export interface HistoryEntry {
+    path: string;
+    filterState: FilterState;
+    timestamp: number;
+}
+
 export interface FileOperationDialogState {
     open: boolean;
     files: DraggedFile[];
