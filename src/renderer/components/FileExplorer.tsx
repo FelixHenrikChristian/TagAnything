@@ -194,7 +194,17 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     },
     getEffectiveTagGroups,
     getFileTags,
-    (targetPaths) => setPendingSelection(targetPaths)
+    (targetPaths) => {
+      if (displaySettings.navigateToTargetAfterOperation && targetPaths.length > 0) {
+        // Extract target directory from the first target path
+        const targetDir = targetPaths[0].replace(/[/\\][^/\\]+$/, '');
+        // Clear filters and navigate to target directory
+        clearFilter();
+        handleNavigate(targetDir);
+      }
+      // Set pending selection so files get selected after navigation
+      setPendingSelection(targetPaths);
+    }
   );
 
   // 4. Context Menus

@@ -509,6 +509,21 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                         color="primary"
                                     />
                                 </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+                                    <Box>
+                                        <Typography variant="body2" color="text.primary">
+                                            操作后导航到目标目录
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                            移动/复制文件后自动导航到目标目录并选中文件
+                                        </Typography>
+                                    </Box>
+                                    <Switch
+                                        checked={displaySettings.navigateToTargetAfterOperation}
+                                        onChange={(e) => updateDisplaySetting('navigateToTargetAfterOperation', e.target.checked)}
+                                        color="primary"
+                                    />
+                                </Box>
                             </Box>
                         </Grid>
 

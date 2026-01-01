@@ -49,11 +49,14 @@ export interface DisplaySettings {
     showFolderNameInIcon: boolean;
     // 搜索时启用简繁共通
     enableSimplifiedTraditionalSearch: boolean;
+    // 移动/复制操作后自动导航到目标目录
+    navigateToTargetAfterOperation: boolean;
 }
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     showFolderNameInIcon: false,
     enableSimplifiedTraditionalSearch: false,
+    navigateToTargetAfterOperation: false,
 };
 
 export interface Tag {
