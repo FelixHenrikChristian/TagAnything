@@ -183,6 +183,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     pickerDirs,
     pickerDirsLoading,
     pickerDirsError,
+    showNotification,
   } = useFileOperations(
     currentPath,
     currentLocation,
@@ -246,6 +247,19 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleRefresh: async () => { await refreshCore(isFiltering, filteredFiles); },
     handleNavigate: (path: string) => { clearFilter(); handleNavigate(path); },
     handleFileOpen,
+    onPaste: (files, operation) => {
+      if (currentPath) {
+        handleFileOperation(
+          operation === 'cut' ? 'move' : 'copy',
+          files.map(f => ({ name: f.name, path: f.path, size: f.size })),
+          currentPath
+        );
+      }
+    },
+    onDelete: (files) => {
+      openDeleteConfirmDialog(files.map(f => ({ name: f.name, path: f.path, size: f.size })));
+    },
+    showNotification,
     enabled: !!currentLocation,
   });
 

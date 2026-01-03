@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FileItem } from '../../types';
 
+// Clipboard state for cut/copy operations
+interface ClipboardState {
+    files: FileItem[];
+    operation: 'copy' | 'cut';
+}
+
 interface UseKeyboardNavigationOptions {
     files: FileItem[];
     gridContainerRef: React.RefObject<HTMLElement>;
@@ -8,6 +14,9 @@ interface UseKeyboardNavigationOptions {
     handleRefresh: () => Promise<void>;
     handleNavigate: (path: string) => void;
     handleFileOpen: (file: FileItem) => void;
+    onPaste?: (files: FileItem[], operation: 'copy' | 'cut') => void;
+    onDelete?: (files: FileItem[]) => void;
+    showNotification?: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
     enabled?: boolean;
 }
 
@@ -16,6 +25,8 @@ interface UseKeyboardNavigationResult {
     selectedFiles: FileItem[];
     setSelectedIndices: (indices: Set<number>) => void;
     clearSelection: () => void;
+    clipboardState: ClipboardState | null;
+    hasClipboard: boolean;
 }
 
 /**
@@ -34,10 +45,14 @@ export const useKeyboardNavigation = ({
     handleRefresh,
     handleNavigate,
     handleFileOpen,
+    onPaste,
+    onDelete,
+    showNotification,
     enabled = true,
 }: UseKeyboardNavigationOptions): UseKeyboardNavigationResult => {
     const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+    const [clipboardState, setClipboardState] = useState<ClipboardState | null>(null);
 
     // Calculate the selected files based on indices
     const selectedFiles = useMemo(() => {
@@ -127,6 +142,62 @@ export const useKeyboardNavigation = ({
                 return;
             }
 
+            // Ctrl+A: Select all
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+                event.preventDefault();
+                const allIndices = new Set<number>();
+                for (let i = 0; i < files.length; i++) {
+                    allIndices.add(i);
+                }
+                setSelectedIndices(allIndices);
+                if (files.length > 0) {
+                    setFocusedIndex(0);
+                }
+                return;
+            }
+
+            // Ctrl+C: Copy
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
+                if (selectedFiles.length > 0) {
+                    event.preventDefault();
+                    setClipboardState({ files: [...selectedFiles], operation: 'copy' });
+                    showNotification?.(`已复制 ${selectedFiles.length} 个文件`, 'info');
+                }
+                return;
+            }
+
+            // Ctrl+X: Cut
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'x') {
+                if (selectedFiles.length > 0) {
+                    event.preventDefault();
+                    setClipboardState({ files: [...selectedFiles], operation: 'cut' });
+                    showNotification?.(`已剪切 ${selectedFiles.length} 个文件`, 'info');
+                }
+                return;
+            }
+
+            // Ctrl+V: Paste
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
+                if (clipboardState && clipboardState.files.length > 0 && onPaste) {
+                    event.preventDefault();
+                    onPaste(clipboardState.files, clipboardState.operation);
+                    // Clear clipboard after cut operation
+                    if (clipboardState.operation === 'cut') {
+                        setClipboardState(null);
+                    }
+                }
+                return;
+            }
+
+            // Delete: Delete selected files
+            if (event.key === 'Delete') {
+                if (selectedFiles.length > 0 && onDelete) {
+                    event.preventDefault();
+                    onDelete(selectedFiles);
+                }
+                return;
+            }
+
             switch (event.key) {
                 case 'ArrowUp':
                 case 'ArrowDown':
@@ -211,6 +282,10 @@ export const useKeyboardNavigation = ({
         handleRefresh,
         handleNavigate,
         handleFileOpen,
+        clipboardState,
+        onPaste,
+        onDelete,
+        showNotification,
     ]);
 
     return {
@@ -230,5 +305,7 @@ export const useKeyboardNavigation = ({
             }
         },
         clearSelection,
+        clipboardState,
+        hasClipboard: clipboardState !== null && clipboardState.files.length > 0,
     };
 };
