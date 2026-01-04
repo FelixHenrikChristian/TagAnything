@@ -1,198 +1,176 @@
-# TagAnything
+<p align="center">
+  <img src="build/icon.ico" alt="TagAnything Logo" width="128" height="128">
+</p>
 
-A modern, powerful file tagging and organization application inspired by TagSpaces, built with Electron and React. TagAnything helps you organize your files with tags, making it easy to find and manage your documents, images, and other files across multiple locations.
+<h1 align="center">TagAnything</h1>
 
-## ✨ Features
+<p align="center">
+  <strong>🏷️ 一个现代化、功能强大的开源文件标签管理工具</strong>
+</p>
 
-### 🏷️ **Smart File Tagging**
-- Add, remove, and manage tags directly in filenames
-- Support for both embedded tags and library-based tag management
-- Automatic tag parsing from existing filenames
-- Color-coded tag system for better visual organization
+<div align="center">
+  <img src="https://img.shields.io/github/v/release/FelixChristian011226/TagAnything">
+  <img src="https://img.shields.io/github/license/FelixChristian011226/TagAnything">
+  <img src="https://img.shields.io/github/downloads/FelixChristian011226/TagAnything/total">
+  <img src="https://img.shields.io/github/stars/FelixChristian011226/TagAnything">
+</div>
 
-### 📁 **Multi-Location File Management**
-- Manage multiple file locations simultaneously
-- Quick location switching with breadcrumb navigation
-- Support for nested folder structures
-- Real-time file system monitoring
-
-### 🎨 **Modern User Interface**
-- Beautiful Material-UI design with light/dark theme support
-- Responsive grid and list view modes
-- Customizable zoom levels (Ctrl + Mouse Wheel or zoom slider)
-- Intuitive drag-and-drop file operations
-- Keyboard navigation support for efficient browsing
-
-### 🔍 **Advanced File Explorer**
-- High-performance file browsing with thumbnail support
-- Image and video thumbnail generation for media files
-- Multiple sorting options (name, date, type, size)
-- Advanced filtering by tags and file types
-- Search functionality across all locations
-- In-app directory picker for file operations
-
-### 🎯 **Tag Management System**
-- Centralized tag library with color coding
-- Custom tag colors and font color settings
-- Tag groups for better organization
-- Bulk tag operations
-- Tag usage statistics and management
-
-### ⚡ **Performance & Reliability**
-- Fast file operations with progress tracking
-- Efficient caching system with complete cache clearing
-- Auto-save functionality
-- Robust error handling and recovery
-
-### ⌨️ **Keyboard Shortcuts**
-| Shortcut | Action |
-|----------|--------|
-| ↑ / ↓ / ← / → | Navigate between file cards |
-| Enter | Open selected file or enter folder |
-| Backspace | Go back to parent directory |
-| ESC | Deselect current file |
-| F5 | Refresh file list |
-| Ctrl + Scroll | Zoom in/out |
-
-### 🛠️ **File Operations**
-- Copy, move, and rename files
-- Batch file operations
-- File operation history
-- Undo/redo support
-
-## 🚀 Getting Started
-
-### System Requirements
-- Windows 10/11 (64-bit)
-- 4GB RAM minimum
-- 100MB free disk space
-
-### Installation
-
-#### Option 1: Download Release (Recommended)
-1. Go to the [Releases](https://github.com/FelixChristian011226/TagAnything/releases) page
-2. Download the latest `TagAnything-Setup-x.x.x.exe`
-3. Run the installer and follow the setup wizard
-4. Launch TagAnything from the Start Menu or Desktop
-
-#### Option 2: Build from Source
-1. Clone the repository:
-```bash
-git clone https://github.com/FelixChristian011226/TagAnything.git
-cd TagAnything
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Build the application:
-```bash
-npm run build
-```
-
-4. Start the application:
-```bash
-npm start
-```
-
-## 📖 Usage Guide
-
-### First Time Setup
-1. **Add a Location**: Click the "+" button to add your first file location
-2. **Browse Files**: Navigate through your files using the file explorer
-3. **Add Tags**: Right-click on files to add tags or use the tag panel
-4. **Organize**: Use the tag manager to organize and color-code your tags
-
-### Tagging Files
-- **Inline Tags**: Tags are embedded directly in filenames (e.g., `document[tag1][tag2].pdf`)
-- **Library Mode**: Tags are stored separately and linked to files
-- **Bulk Operations**: Select multiple files to apply tags in batch
-
-### Navigation
-- **Breadcrumbs**: Click on folder names in the breadcrumb bar to navigate
-- **Back/Forward**: Use navigation buttons or keyboard shortcuts
-- **Quick Access**: Pin frequently used locations for quick access
-
-## 🛠️ Development
-
-### Technology Stack
-- **Frontend**: React 18, TypeScript, Material-UI v5
-- **Backend**: Electron 28, Node.js
-- **Build Tools**: Webpack 5, TypeScript Compiler
-- **Media Processing**: FFmpeg for video thumbnails
-- **Storage**: electron-store for settings and cache
-
-### Project Structure
-```
-TagAnything/
-├── src/
-│   ├── main/           # Electron main process
-│   │   ├── main.ts     # Main application logic
-│   │   ├── preload.ts  # Preload scripts
-│   │   └── util.ts     # Utility functions
-│   ├── renderer/       # React renderer process
-│   │   ├── App.tsx     # Main application component
-│   │   ├── components/ # React components
-│   │   ├── utils/      # Utility functions
-│   │   └── types.ts    # TypeScript definitions
-│   └── shared/         # Shared utilities
-├── build/              # Build assets
-├── release/            # Distribution packages
-└── dist/               # Build output
-```
-
-### Available Scripts
-- `npm run dev` - Development mode with hot reload
-- `npm run build:main` - Build main process
-- `npm run build:renderer` - Build renderer process  
-- `npm run build` - Build both processes
-- `npm start` - Start the Electron application
-- `npm run package` - Create distribution packages
-- `npm run lint` - Run ESLint
-- `npm run test` - Run tests
-
-### Development Setup
-1. Install Node.js (v16 or higher)
-2. Clone the repository and install dependencies
-3. Run `npm run dev` for development mode
-4. The application will start with hot reload enabled
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Contribution Guidelines
-- Follow the existing code style and conventions
-- Add tests for new features
-- Update documentation as needed
-- Ensure all tests pass before submitting
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by [TagSpaces](https://github.com/tagspaces/tagspaces) - The original file tagging solution
-- Built with [Electron](https://electronjs.org/) - Cross-platform desktop app framework
-- UI components from [Material-UI](https://mui.com/) - React component library
-- Media processing powered by [FFmpeg](https://ffmpeg.org/)
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-- Check the [Issues](https://github.com/FelixChristian011226/TagAnything/issues) page
-- Create a new issue with detailed information
-- Join our community discussions
+<p align="center">
+  <a href="README-en.md">English</a> | <strong>中文</strong>
+</p>
 
 ---
 
-**TagAnything** - Organize your files with the power of tags! 🏷️✨
+## ✨ 功能亮点
+
+### 🏷️ 智能标签系统
+- **文件名嵌入标签** - 标签直接保存在文件名中（如 `[标签1 标签2] 文件名.拓展名`），无需数据库，跨设备同步
+- **标签分组管理** - 支持创建标签组，按类别组织标签
+- **彩色标签** - 自定义标签背景颜色和文字颜色，便于识别
+- **拖拽添加标签** - 从侧边栏拖拽标签到文件卡片即可添加
+- **快捷标签操作** - 点击文件卡片上的标签可快速筛选或删除
+- **标签库导入/导出** - 支持导入导出标签库，方便备份和迁移
+
+### 📁 高效文件管理
+- **多位置管理** - 同时管理多个文件夹位置，快速切换
+- **网格/列表视图** - 自由切换查看模式
+- **可调节网格大小** - 通过滑块或放大镜按钮调节卡片大小
+- **缩略图预览** - 图片、视频文件自动生成缩略图
+- **拖放文件操作** - 拖放移动/复制文件到目标文件夹
+- **丰富的右键菜单** - 在资源管理器中打开、重命名、移动、复制、删除、查看属性
+- **新建文件夹** - 右键空白区域可新建文件夹
+
+### 🔍 强大搜索功能
+- **双模式搜索** - 支持当前目录搜索和全局递归搜索，点击图标切换
+- **多标签筛选** - 点击筛选按钮，选择多个标签进行交叉筛选
+- **简繁通搜** - 搜索时自动匹配简体/繁体中文（设置中开启）
+- **多种排序** - 按名称、大小、类型、修改日期排序，支持升序/降序
+
+### 🧭 便捷导航
+- **面包屑导航** - 点击路径中的任意位置快速跳转
+- **前进/后退/上级** - 完整的浏览历史支持，包括筛选状态
+- **全局搜索定位** - 全局搜索结果可右键导航到文件所在目录
+
+### 🎨 现代化界面
+- **经典风格** - 简洁清爽的默认主题
+- **霓虹玻璃主题** - 独特的毛玻璃效果，可自定义：
+  - 背景图片
+  - 主题色调（0°-360° 色相）
+  - 顶栏/侧栏/文件浏览器的不透明度和模糊度
+
+### ⚙️ 更多设置
+- **窗口大小记忆** - 自动保存窗口大小，支持一键重置
+- **简繁共通搜索** - 搜索时同时匹配简繁体
+- **操作后自动导航** - 移动/复制后自动跳转到目标目录
+- **文件夹图标名称** - 在文件夹图标内显示名称
+- **缓存管理** - 清除缩略图缓存释放空间
+- **自动更新** - 内置更新检查，一键升级新版本
+
+### ⌨️ 键盘快捷键
+
+| 快捷键 | 功能 |
+|--------|------|
+| `↑` `↓` `←` `→` | 在文件卡片间导航 |
+| `Enter` | 打开文件 / 进入文件夹 |
+| `Backspace` | 返回上级目录 |
+| `Ctrl + A` | 全选文件 |
+| `Ctrl + C` | 复制选中文件 |
+| `Ctrl + X` | 剪切选中文件 |
+| `Ctrl + V` | 粘贴文件 |
+| `Delete` | 删除选中文件 |
+| `F5` | 刷新文件列表 |
+| `Esc` | 取消选中 |
+| `Ctrl + 滚轮` | 调节网格大小 |
+
+---
+
+## 📦 安装
+
+### 方式一：下载安装包（推荐）
+
+1. 访问 [Releases 页面](https://github.com/FelixChristian011226/TagAnything/releases)
+2. 下载最新版 `TagAnything-Setup-x.x.x.exe`
+3. 运行安装程序，按向导完成安装
+
+### 方式二：从源码构建
+
+```bash
+# 克隆仓库
+git clone https://github.com/FelixChristian011226/TagAnything.git
+cd TagAnything
+
+# 安装依赖
+npm install
+
+# 构建并启动应用
+npm run build
+npm start
+
+# 或打包发布版本
+npm run package
+```
+
+### 系统要求
+- **操作系统**：Windows 10/11 (64位)
+- **内存**：4GB RAM 或以上
+- **存储**：900MB 可用空间
+
+---
+
+## 🚀 快速开始
+
+### 1️⃣ 添加位置
+在左侧边栏的**位置管理**页面，点击 **"+"** 按钮添加要管理的文件夹，或展开右上角菜单添加位置。
+
+### 2️⃣ 浏览文件
+点击位置列表中的任意位置，即可在右侧文件浏览器中浏览文件。
+
+### 3️⃣ 管理标签库
+点击侧边栏底部切换到**标签管理**页面：
+- 可导入/导出标签库进行备份
+- 点击 **"创建标签组"** 添加分类、设置标签默认颜色
+- 在标签组菜单中可添加标签、设置标签背景色和文字颜色
+- 点击标签可进行编辑或删除
+
+### 4️⃣ 为文件添加标签
+- **拖拽方式**：从侧边栏拖拽标签到文件卡片上
+- 标签会自动添加到文件名前缀
+
+### 5️⃣ 使用标签筛选
+- **单标签筛选**：点击文件卡片上的标签，选择 **"显示此标签文件"**
+- **多标签筛选**：点击工具栏的筛选按钮，选择多个标签进行交叉筛选
+
+### 6️⃣ 搜索与排序
+- 在搜索框输入关键词即可实时搜索
+- 点击搜索框右侧图标切换 **当前目录** / **全局递归** 搜索模式
+- 点击排序按钮选择排序方式和顺序
+- 拖动缩放滑块或点击放大镜调整卡片大小
+- 切换网格/列表视图
+
+---
+
+## 🤝 贡献
+
+欢迎贡献代码！请遵循以下步骤：
+
+1. Fork 本仓库
+2. 创建功能分支：`git checkout -b feature/新功能`
+3. 提交更改：`git commit -m '添加新功能'`
+4. 推送分支：`git push origin feature/新功能`
+5. 发起 Pull Request
+
+---
+
+## 📄 许可证
+
+本项目采用 [MIT 许可证](LICENSE) 开源。
+
+---
+
+<p align="center">
+  <strong>TagAnything</strong> - 用标签的力量，组织你的数字生活 🏷️✨
+</p>
+
+<p align="center">
+  ⭐ 如果觉得有用，欢迎 Star 支持 ⭐
+</p>
