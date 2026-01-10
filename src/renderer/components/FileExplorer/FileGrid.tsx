@@ -339,8 +339,25 @@ const FileCard = ({
                     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'];
                     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
                     const isImageFile = imageExtensions.includes(ext);
+                    // 视频或图像都可以有缩略图
+                    const hasThumbnail = videoThumbnails.has(file.path);
 
-                    if (isImageFile && !imageError) {
+                    if (hasThumbnail) {
+                        // 优先使用缩略图（无论是视频还是图像）
+                        return (
+                            <Box
+                                component="img"
+                                src={toFileUrl(videoThumbnails.get(file.path) as string)}
+                                alt={file.name}
+                                sx={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                }}
+                            />
+                        );
+                    } else if (isImageFile && !imageError) {
+                        // 缩略图还未生成时，显示原始图像（可能会卡顿，但缩略图生成后会自动更新）
                         return (
                             <Box
                                 component="img"
@@ -352,19 +369,6 @@ const FileCard = ({
                                     objectFit: 'cover',
                                 }}
                                 onError={() => setImageError(true)}
-                            />
-                        );
-                    } else if (videoThumbnails.has(file.path)) {
-                        return (
-                            <Box
-                                component="img"
-                                src={toFileUrl(videoThumbnails.get(file.path) as string)}
-                                alt={file.name}
-                                sx={{
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                }}
                             />
                         );
                     } else {

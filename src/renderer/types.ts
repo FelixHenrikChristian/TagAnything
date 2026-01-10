@@ -140,6 +140,8 @@ declare global {
             showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>;
             generateVideoThumbnail: (videoPath: string) => Promise<string>;
             isVideoFile: (filePath: string) => Promise<boolean>;
+            generateImageThumbnail: (imagePath: string) => Promise<string>;
+            isImageFile: (filePath: string) => Promise<boolean>;
             resetWindowSize: () => Promise<{ width: number; height: number } | null>;
             performFileOperation: (request: FileOperationRequest) => Promise<FileOperationResult>;
             deleteFiles: (request: { mode: 'trash' | 'permanent'; files: string[] }) => Promise<{

@@ -172,32 +172,52 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         videoThumbnailsRef.current = videoThumbnails;
     }, [videoThumbnails]);
 
-    const generateVideoThumbnailsImpl = useCallback(async (fileList: FileItem[]) => {
-        const videoFiles = fileList.filter(file => !file.isDirectory);
+    // 统一的缩略图生成函数，同时处理视频和图像文件
+    const generateThumbnailsImpl = useCallback(async (fileList: FileItem[]) => {
+        const mediaFiles = fileList.filter(file => !file.isDirectory);
 
-        for (const file of videoFiles) {
+        for (const file of mediaFiles) {
             // 使用 ref 获取最新的 thumbnails 状态，避免闭包陷阱
             if (videoThumbnailsRef.current.has(file.path)) continue;
 
             try {
+                // 检查是否为视频文件
                 const isVideo = await window.electron.isVideoFile(file.path);
-                if (!isVideo) continue;
+                if (isVideo) {
+                    const thumbnailPath = await window.electron.generateVideoThumbnail(file.path);
+                    if (thumbnailPath) {
+                        // 每生成一张缩略图就立即更新状态，实现渐进式加载
+                        setVideoThumbnails(prev => {
+                            const updated = new Map(prev);
+                            updated.set(file.path, thumbnailPath);
+                            saveThumbnailsToCache(updated);
+                            return updated;
+                        });
+                    }
+                    continue;
+                }
 
-                const thumbnailPath = await window.electron.generateVideoThumbnail(file.path);
-                if (thumbnailPath) {
-                    // 每生成一张缩略图就立即更新状态，实现渐进式加载
-                    setVideoThumbnails(prev => {
-                        const updated = new Map(prev);
-                        updated.set(file.path, thumbnailPath);
-                        saveThumbnailsToCache(updated);
-                        return updated;
-                    });
+                // 检查是否为图像文件
+                const isImage = await window.electron.isImageFile(file.path);
+                if (isImage) {
+                    const thumbnailPath = await window.electron.generateImageThumbnail(file.path);
+                    if (thumbnailPath) {
+                        setVideoThumbnails(prev => {
+                            const updated = new Map(prev);
+                            updated.set(file.path, thumbnailPath);
+                            saveThumbnailsToCache(updated);
+                            return updated;
+                        });
+                    }
                 }
             } catch (error) {
                 console.error(`Error generating thumbnail for ${file.path}:`, error);
             }
         }
     }, [saveThumbnailsToCache]);
+
+    // 保持向后兼容的别名
+    const generateVideoThumbnailsImpl = generateThumbnailsImpl;
 
     const loadFiles = useCallback(async (path: string, groups?: TagGroup[], silent: boolean = false) => {
         try {

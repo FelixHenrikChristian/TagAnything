@@ -577,6 +577,51 @@ ipcMain.handle('is-video-file', async (event, filePath: string) => {
   return videoExtensions.includes(ext);
 });
 
+// 检查是否为图像文件
+ipcMain.handle('is-image-file', async (event, filePath: string) => {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif'];
+  const ext = path.extname(filePath).toLowerCase();
+  return imageExtensions.includes(ext);
+});
+
+// 生成图像缩略图 - 使用FFmpeg
+ipcMain.handle('generate-image-thumbnail', async (event, imagePath: string) => {
+  try {
+    const thumbnailsDir = path.join(app.getPath('userData'), 'thumbnails');
+    if (!fs.existsSync(thumbnailsDir)) {
+      fs.mkdirSync(thumbnailsDir, { recursive: true });
+    }
+
+    const imageName = path.basename(imagePath, path.extname(imagePath));
+    // 使用 img_ 前缀区分图像缩略图和视频缩略图
+    const thumbnailPath = path.join(thumbnailsDir, `img_${imageName}.jpg`);
+
+    if (fs.existsSync(thumbnailPath)) {
+      return thumbnailPath;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      fluentFfmpeg(imagePath)
+        .on('error', (err: any) => {
+          console.error('FFmpeg image thumbnail error:', err);
+          reject(err);
+        })
+        .on('end', () => resolve())
+        .outputOptions([
+          '-vf', 'scale=200:-1',  // 宽度 200px，高度按比例
+          '-q:v', '2'             // 高质量 JPEG
+        ])
+        .output(thumbnailPath)
+        .run();
+    });
+
+    return thumbnailPath;
+  } catch (error) {
+    console.error('Error generating image thumbnail:', error);
+    throw error;
+  }
+});
+
 // 重置窗口大小到默认值
 ipcMain.handle('reset-window-size', async () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
