@@ -35,7 +35,7 @@ const electronHandler = {
   resetWindowSize: () => ipcRenderer.invoke('reset-window-size'),
   performFileOperation: (request: any) => ipcRenderer.invoke('perform-file-operation', request),
   deleteFiles: (request: { mode: 'trash' | 'permanent'; files: string[] }) => ipcRenderer.invoke('delete-files', request),
-  renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('rename-file', oldPath, newPath),
+  renameFile: (oldPath: string, newPath: string, forceAutoRename?: boolean) => ipcRenderer.invoke('rename-file', oldPath, newPath, forceAutoRename),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   getVersion: () => ipcRenderer.invoke('get-version'),
   // 设置相关 API

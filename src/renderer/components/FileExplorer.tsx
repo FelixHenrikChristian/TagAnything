@@ -183,6 +183,9 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     pickerDirs,
     pickerDirsLoading,
     pickerDirsError,
+    renameConflictDialog,
+    closeRenameConflictDialog,
+    confirmRenameWithAutoRename,
     showNotification,
   } = useFileOperations(
     currentPath,
@@ -658,6 +661,9 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         pickerDirsError={pickerDirsError}
         getEffectiveTagGroups={getEffectiveTagGroups}
         getFileTags={getFileTags}
+        renameConflictDialog={renameConflictDialog}
+        closeRenameConflictDialog={closeRenameConflictDialog}
+        confirmRenameWithAutoRename={confirmRenameWithAutoRename}
       />
 
       {/* Context Menus */}

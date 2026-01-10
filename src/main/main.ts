@@ -761,8 +761,40 @@ ipcMain.handle('perform-file-operation', async (event, request: {
 });
 
 // 添加文件重命名处理器
-ipcMain.handle('rename-file', async (event, oldPath: string, newPath: string) => {
+ipcMain.handle('rename-file', async (event, oldPath: string, newPath: string, forceAutoRename?: boolean) => {
   try {
+    // 如果是相同路径，直接返回成功（没有实际改变）
+    if (oldPath === newPath) {
+      return { success: true };
+    }
+
+    // 检查目标文件是否已存在
+    try {
+      await fsPromises.access(newPath);
+      // 目标文件存在
+      if (forceAutoRename) {
+        // 用户选择了自动重命名，生成唯一的文件名
+        const fileName = path.basename(newPath);
+        const targetDir = path.dirname(newPath);
+        const autoRenamePath = await generateUniqueFileName(targetDir, fileName);
+        await fsPromises.rename(oldPath, autoRenamePath);
+        return { success: true, actualPath: autoRenamePath };
+      } else {
+        // 返回冲突状态，让用户决定
+        const fileName = path.basename(newPath);
+        const targetDir = path.dirname(newPath);
+        const suggestedPath = await generateUniqueFileName(targetDir, fileName);
+        return {
+          success: false,
+          conflict: true,
+          suggestedPath,
+          error: '目标文件已存在'
+        };
+      }
+    } catch {
+      // 目标文件不存在，可以直接重命名
+    }
+
     await fsPromises.rename(oldPath, newPath);
     return { success: true };
   } catch (error) {

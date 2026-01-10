@@ -56,6 +56,14 @@ export const useFileOperations = (
     const [newFolderDialog, setNewFolderDialog] = useState<NewFolderDialogState>({ open: false, inputName: '' });
     const [deleteDialog, setDeleteDialog] = useState<DeleteConfirmDialogState>({ open: false, files: [] });
 
+    // 重命名冲突确认对话框状态
+    const [renameConflictDialog, setRenameConflictDialog] = useState<{
+        open: boolean;
+        oldPath: string;
+        newPath: string;
+        suggestedPath: string;
+    }>({ open: false, oldPath: '', newPath: '', suggestedPath: '' });
+
     const [pickerDirectories, setPickerDirectories] = useState<FileItem[]>([]);
     const [pickerLoading, setPickerLoading] = useState<boolean>(false);
     const [pickerError, setPickerError] = useState<string | null>(null);
@@ -165,32 +173,49 @@ export const useFileOperations = (
 
             const res = await window.electron.renameFile(file.path, newPath);
             if (res.success) {
-                closeRenameDialog(); // Close immediately
+                closeRenameDialog();
                 showNotification('重命名成功', 'success');
                 await handleRefresh();
+            } else if (res.conflict && res.suggestedPath) {
+                // 文件名冲突，弹出确认对话框
+                closeRenameDialog();
+                setRenameConflictDialog({
+                    open: true,
+                    oldPath: file.path,
+                    newPath: newPath,
+                    suggestedPath: res.suggestedPath
+                });
             } else {
                 showNotification(`重命名失败：${res.error}`, 'error');
-                // Keep dialog open on failure to allow user to edit
             }
         } catch (e) {
             showNotification(`重命名失败：${e instanceof Error ? e.message : String(e)}`, 'error');
-            closeRenameDialog(); // Close on exception? Or keeps open?
-            // If it's a critical error, maybe close. If it is validation, keep open.
-            // For now, let's follow the pattern of closing if we can't recover easily.
-            // But usually we want to let user retry. 
-            // Original code had `closeRenameDialog()` in finally, so it ALWAYS closed.
-            // I will maintain the "Always Close" behavior for now to be safe, 
-            // BUT for success case, it is closed earlier.
-        } finally {
-            // If we closed it earlier, this is redundant but harmless.
-            // But if we want it to ONLY close on success, we shouldn't have it here.
-            // Wait, user wants better responsiveness. Closing on error is also responsive?
-            // Generally, you want to keep dialog open on error.
-            // BUT, the original code decided to CLOSE IT ALL THE TIME.
-            // I should probably respect the original intent to close it, but just do it FASTER on success.
-            if (renameDialog.open) closeRenameDialog();
+            closeRenameDialog();
         }
     }, [renameDialog, handleRefresh, showNotification, closeRenameDialog]);
+
+    // 关闭重命名冲突对话框
+    const closeRenameConflictDialog = useCallback(() => {
+        setRenameConflictDialog({ open: false, oldPath: '', newPath: '', suggestedPath: '' });
+    }, []);
+
+    // 确认使用自动重命名
+    const confirmRenameWithAutoRename = useCallback(async () => {
+        const { oldPath, newPath } = renameConflictDialog;
+        closeRenameConflictDialog();
+        try {
+            const res = await window.electron.renameFile(oldPath, newPath, true);
+            if (res.success) {
+                const actualName = res.actualPath ? res.actualPath.split(/[\\/]/).pop() : '';
+                showNotification(`已重命名为：${actualName}`, 'success');
+                await handleRefresh();
+            } else {
+                showNotification(`重命名失败：${res.error}`, 'error');
+            }
+        } catch (e) {
+            showNotification(`重命名失败：${e instanceof Error ? e.message : String(e)}`, 'error');
+        }
+    }, [renameConflictDialog, handleRefresh, showNotification, closeRenameConflictDialog]);
 
     // Delete
     const openDeleteConfirmDialog = useCallback((files: DraggedFile[]) => {
@@ -716,5 +741,8 @@ export const useFileOperations = (
         pickerDirs,
         pickerDirsLoading,
         pickerDirsError,
+        renameConflictDialog,
+        closeRenameConflictDialog,
+        confirmRenameWithAutoRename,
     };
 };

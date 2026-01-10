@@ -111,6 +111,16 @@ interface ExplorerDialogsProps {
     pickerDirsError: string | null; // For FileOperationDialog picker
     getEffectiveTagGroups: () => TagGroup[];
     getFileTags: (file: FileItem) => Tag[];
+
+    // Rename Conflict Dialog
+    renameConflictDialog: {
+        open: boolean;
+        oldPath: string;
+        newPath: string;
+        suggestedPath: string;
+    };
+    closeRenameConflictDialog: () => void;
+    confirmRenameWithAutoRename: () => void;
 }
 
 export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
@@ -161,6 +171,9 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     pickerDirsError,
     getEffectiveTagGroups,
     getFileTags,
+    renameConflictDialog,
+    closeRenameConflictDialog,
+    confirmRenameWithAutoRename,
 }) => {
     // Get theme context for neon-glass styling and display settings
     const { currentTheme, neonGlassSettings, displaySettings } = useAppTheme();
@@ -940,6 +953,54 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                     </Box>
                 ))}
             </Box>
+
+            {/* Rename Conflict Dialog */}
+            <Dialog open={renameConflictDialog.open} onClose={closeRenameConflictDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>文件名冲突</DialogTitle>
+                <DialogContent>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        目标位置已存在同名文件。你可以选择自动重命名，或者取消操作。
+                    </Alert>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                        原文件：
+                    </Typography>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            fontFamily: 'monospace',
+                            backgroundColor: 'action.hover',
+                            p: 1,
+                            borderRadius: 1,
+                            wordBreak: 'break-all',
+                            mb: 2,
+                        }}
+                    >
+                        {renameConflictDialog.oldPath.split(/[\\/]/).pop()}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                        建议的新名称：
+                    </Typography>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            fontFamily: 'monospace',
+                            backgroundColor: 'action.hover',
+                            p: 1,
+                            borderRadius: 1,
+                            wordBreak: 'break-all',
+                            color: 'primary.main',
+                        }}
+                    >
+                        {renameConflictDialog.suggestedPath.split(/[\\/]/).pop()}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={closeRenameConflictDialog}>取消</Button>
+                    <Button onClick={confirmRenameWithAutoRename} variant="contained" color="primary">
+                        使用自动重命名
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };

@@ -145,7 +145,7 @@ declare global {
                 failedFiles?: { path: string; error: string }[];
                 error?: string;
             }>;
-            renameFile: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>;
+            renameFile: (oldPath: string, newPath: string, forceAutoRename?: boolean) => Promise<{ success: boolean; error?: string; conflict?: boolean; suggestedPath?: string; actualPath?: string }>;
             openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
             getVersion: () => Promise<string>;
             // 设置相关 API
