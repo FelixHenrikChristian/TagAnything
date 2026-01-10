@@ -557,7 +557,7 @@ ipcMain.handle('generate-video-thumbnail', async (event, videoPath: string) => {
           folder: thumbnailsDir,
           filename: `${videoName}.jpg`,
           timestamps: ['10%'],
-          size: '200x?'
+          size: '400x?'
         });
     });
 
@@ -608,7 +608,7 @@ ipcMain.handle('generate-image-thumbnail', async (event, imagePath: string) => {
         })
         .on('end', () => resolve())
         .outputOptions([
-          '-vf', 'scale=200:-1',  // 宽度 200px，高度按比例
+          '-vf', 'scale=400:-1',  // 宽度 400px，高度按比例
           '-q:v', '2'             // 高质量 JPEG
         ])
         .output(thumbnailPath)
