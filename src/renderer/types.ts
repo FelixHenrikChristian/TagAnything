@@ -51,12 +51,15 @@ export interface DisplaySettings {
     enableSimplifiedTraditionalSearch: boolean;
     // 移动/复制操作后自动导航到目标目录
     navigateToTargetAfterOperation: boolean;
+    // 隐藏文件后缀名
+    hideFileExtension: boolean;
 }
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     showFolderNameInIcon: false,
     enableSimplifiedTraditionalSearch: false,
     navigateToTargetAfterOperation: false,
+    hideFileExtension: false,
 };
 
 export interface Tag {

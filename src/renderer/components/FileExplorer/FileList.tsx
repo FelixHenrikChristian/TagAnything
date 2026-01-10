@@ -18,7 +18,7 @@ import {
     Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { FileItem, Tag } from '../../types';
-import { getDisplayName, getFileTypeColor, formatFileSize } from '../../utils/fileTagParser';
+import { getDisplayName, getDisplayNameWithoutExtension, getFileTypeColor, formatFileSize } from '../../utils/fileTagParser';
 import { useAppTheme } from '../../context/ThemeContext';
 
 interface FileListProps {
@@ -171,7 +171,7 @@ export const FileList: React.FC<FileListProps> = ({
                                         cursor: 'pointer',
                                     }}
                                 >
-                                    {file.isDirectory ? file.name : getDisplayName(file.name)}
+                                    {file.isDirectory ? file.name : (displaySettings.hideFileExtension ? getDisplayNameWithoutExtension(file.name) : getDisplayName(file.name))}
                                 </Typography>
                             </Tooltip>
                         }

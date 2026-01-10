@@ -524,6 +524,21 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                         color="primary"
                                     />
                                 </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+                                    <Box>
+                                        <Typography variant="body2" color="text.primary">
+                                            隐藏文件后缀名
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                            开启后，文件卡片仅显示名称，重命名时也仅修改前缀
+                                        </Typography>
+                                    </Box>
+                                    <Switch
+                                        checked={displaySettings.hideFileExtension === true}
+                                        onChange={(e) => updateDisplaySetting('hideFileExtension', e.target.checked)}
+                                        color="primary"
+                                    />
+                                </Box>
                             </Box>
                         </Grid>
 

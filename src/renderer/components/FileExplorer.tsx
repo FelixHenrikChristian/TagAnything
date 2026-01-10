@@ -208,7 +208,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
       }
       // Set pending selection so files get selected after navigation
       setPendingSelection(targetPaths);
-    }
+    },
+    !displaySettings.hideFileExtension
   );
 
   // 4. Context Menus

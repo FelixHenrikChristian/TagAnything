@@ -140,6 +140,21 @@ export function getDisplayName(filename: string): string {
 }
 
 /**
+ * 获取文件的显示名称（去除标签部分和后缀名）
+ * @param filename 原始文件名
+ * @returns 显示用的文件名（不含后缀）
+ */
+export function getDisplayNameWithoutExtension(filename: string): string {
+  const displayName = getDisplayName(filename);
+  // 移除后缀名
+  const lastDotIndex = displayName.lastIndexOf('.');
+  if (lastDotIndex > 0) {
+    return displayName.substring(0, lastDotIndex);
+  }
+  return displayName;
+}
+
+/**
  * 根据文件扩展名获取文件类型颜色
  * @param extension 文件扩展名
  * @returns 颜色值

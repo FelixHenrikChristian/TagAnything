@@ -12,7 +12,7 @@ import {
     InsertDriveFile as FileIcon,
 } from '@mui/icons-material';
 import { FileItem, Tag } from '../../types';
-import { getDisplayName, getFileTypeColor, formatFileSize, getFileExtension, formatModifiedDate } from '../../utils/fileTagParser';
+import { getDisplayName, getDisplayNameWithoutExtension, getFileTypeColor, formatFileSize, getFileExtension, formatModifiedDate } from '../../utils/fileTagParser';
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -130,6 +130,7 @@ const FileCard = ({
     index,
     onFileClick,
     showFolderNameInIcon,
+    showFileExtension,
     currentTheme,
 }: {
     file: FileItem;
@@ -149,6 +150,7 @@ const FileCard = ({
     index: number;
     onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
     showFolderNameInIcon?: boolean;
+    showFileExtension?: boolean;
     currentTheme?: string;
 }) => {
     const { setNodeRef, isOver } = useDroppable({
@@ -400,7 +402,7 @@ const FileCard = ({
                                 cursor: 'pointer',
                             }}
                         >
-                            {file.isDirectory ? file.name : getDisplayName(file.name)}
+                            {file.isDirectory ? file.name : (showFileExtension ? getDisplayName(file.name) : getDisplayNameWithoutExtension(file.name))}
                         </Typography>
                     </Tooltip>
                 </Box>
@@ -518,6 +520,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     index={index}
                     onFileClick={onFileClick}
                     showFolderNameInIcon={displaySettings.showFolderNameInIcon}
+                    showFileExtension={!displaySettings.hideFileExtension}
                     currentTheme={currentTheme}
                 />
             ))}

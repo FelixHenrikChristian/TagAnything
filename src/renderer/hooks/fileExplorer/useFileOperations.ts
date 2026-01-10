@@ -12,7 +12,7 @@ import {
     DeleteConfirmDialogState,
     NewFolderDialogState,
 } from '../../components/FileExplorer/types';
-import { getDisplayName, parseTagsFromFilename } from '../../utils/fileTagParser';
+import { getDisplayName, getDisplayNameWithoutExtension, getFileExtension, parseTagsFromFilename } from '../../utils/fileTagParser';
 
 export const useFileOperations = (
     currentPath: string,
@@ -20,7 +20,8 @@ export const useFileOperations = (
     handleRefresh: (silent?: boolean) => Promise<void>,
     getEffectiveTagGroups: () => TagGroup[],
     getFileTags: (file: FileItem) => Tag[],
-    onOperationSuccess?: (targetPaths: string[]) => void
+    onOperationSuccess?: (targetPaths: string[]) => void,
+    showFileExtension: boolean = true
 ) => {
     const { enqueueSnackbar } = useSnackbar();
 
@@ -148,9 +149,12 @@ export const useFileOperations = (
 
     // Rename
     const openRenameDialog = useCallback((file: FileItem) => {
-        const defaultName = getDisplayName(file.name);
+        // 根据设置决定是否显示后缀名
+        const defaultName = showFileExtension
+            ? getDisplayName(file.name)
+            : getDisplayNameWithoutExtension(file.name);
         setRenameDialog({ open: true, file, inputName: defaultName });
-    }, []);
+    }, [showFileExtension]);
 
     const closeRenameDialog = useCallback(() => setRenameDialog({ open: false, file: null, inputName: '' }), []);
 
@@ -160,10 +164,19 @@ export const useFileOperations = (
         if (!file || !input) { closeRenameDialog(); return; }
         try {
             let newFileName = input;
+
+            // 如果隐藏后缀名，需要自动附加原始后缀名
+            if (!showFileExtension && !file.isDirectory) {
+                const originalExt = getFileExtension(getDisplayName(file.name));
+                if (originalExt) {
+                    newFileName = `${input}.${originalExt}`;
+                }
+            }
+
             if (!file.isDirectory) {
                 const tagNames = parseTagsFromFilename(file.name);
                 if (tagNames.length > 0) {
-                    newFileName = `[${tagNames.join(' ')}] ${input}`;
+                    newFileName = `[${tagNames.join(' ')}] ${newFileName}`;
                 }
             }
             const separator = file.path.includes('\\') ? '\\' : '/';
@@ -192,7 +205,7 @@ export const useFileOperations = (
             showNotification(`重命名失败：${e instanceof Error ? e.message : String(e)}`, 'error');
             closeRenameDialog();
         }
-    }, [renameDialog, handleRefresh, showNotification, closeRenameDialog]);
+    }, [renameDialog, handleRefresh, showNotification, closeRenameDialog, showFileExtension]);
 
     // 关闭重命名冲突对话框
     const closeRenameConflictDialog = useCallback(() => {
