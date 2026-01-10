@@ -129,7 +129,7 @@ export const useKeyboardNavigation = ({
 
     // Handle keyboard events
     useEffect(() => {
-        if (!enabled || files.length === 0) return;
+        if (!enabled) return;
 
         const handleKeyDown = (event: KeyboardEvent) => {
             // Ignore if focus is on input elements
@@ -142,15 +142,15 @@ export const useKeyboardNavigation = ({
                 return;
             }
 
-            // Ctrl+A: Select all
+            // Ctrl+A: Select all (only if there are files)
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-                event.preventDefault();
-                const allIndices = new Set<number>();
-                for (let i = 0; i < files.length; i++) {
-                    allIndices.add(i);
-                }
-                setSelectedIndices(allIndices);
                 if (files.length > 0) {
+                    event.preventDefault();
+                    const allIndices = new Set<number>();
+                    for (let i = 0; i < files.length; i++) {
+                        allIndices.add(i);
+                    }
+                    setSelectedIndices(allIndices);
                     setFocusedIndex(0);
                 }
                 return;
@@ -176,7 +176,7 @@ export const useKeyboardNavigation = ({
                 return;
             }
 
-            // Ctrl+V: Paste
+            // Ctrl+V: Paste (works even in empty directories)
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
                 if (clipboardState && clipboardState.files.length > 0 && onPaste) {
                     event.preventDefault();
@@ -197,6 +197,9 @@ export const useKeyboardNavigation = ({
                 }
                 return;
             }
+
+            // The following operations require files to be present
+            if (files.length === 0) return;
 
             switch (event.key) {
                 case 'ArrowUp':
