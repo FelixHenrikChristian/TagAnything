@@ -599,15 +599,65 @@ ipcMain.handle('reset-window-size', async () => {
   return null;
 });
 
+// 生成唯一文件名的辅助函数（类似 Windows 11 的命名规则）
+async function generateUniqueFileName(targetPath: string, fileName: string): Promise<string> {
+  const ext = path.extname(fileName);
+  const baseName = path.basename(fileName, ext);
+
+  let targetFilePath = path.join(targetPath, fileName);
+
+  // 如果文件不存在，直接返回原名
+  try {
+    await fsPromises.access(targetFilePath);
+  } catch {
+    return targetFilePath;
+  }
+
+  // 文件存在，尝试生成唯一名称
+  // Windows 11 风格: "文件 - 副本.ext", "文件 - 副本 (2).ext", "文件 - 副本 (3).ext"
+  let counter = 1;
+  let newFileName: string;
+
+  // 先尝试 "文件 - 副本.ext"
+  newFileName = `${baseName} - 副本${ext}`;
+  targetFilePath = path.join(targetPath, newFileName);
+
+  try {
+    await fsPromises.access(targetFilePath);
+  } catch {
+    return targetFilePath;
+  }
+
+  // 如果 "文件 - 副本.ext" 也存在，尝试 "文件 - 副本 (n).ext"
+  counter = 2;
+  while (counter < 1000) { // 防止无限循环
+    newFileName = `${baseName} - 副本 (${counter})${ext}`;
+    targetFilePath = path.join(targetPath, newFileName);
+
+    try {
+      await fsPromises.access(targetFilePath);
+      counter++;
+    } catch {
+      return targetFilePath;
+    }
+  }
+
+  // 如果超过 1000 个副本，使用时间戳
+  newFileName = `${baseName} - 副本 (${Date.now()})${ext}`;
+  return path.join(targetPath, newFileName);
+}
+
 // 文件操作处理器（移动/复制文件）
 ipcMain.handle('perform-file-operation', async (event, request: {
   operation: 'move' | 'copy';
   files: string[];
   targetPath: string;
   operationId?: string;
+  autoRename?: boolean; // 新增：是否自动重命名同名文件
 }) => {
-  const { operation, files, targetPath, operationId } = request;
+  const { operation, files, targetPath, operationId, autoRename = false } = request;
   const processedFiles: string[] = [];
+  const resultPaths: string[] = []; // 新增：记录实际目标路径（可能被重命名）
   const failedFiles: { path: string; error: string }[] = [];
 
   try {
@@ -644,16 +694,23 @@ ipcMain.handle('perform-file-operation', async (event, request: {
         }
 
         const fileName = path.basename(filePath);
-        const targetFilePath = path.join(targetPath, fileName);
+        let targetFilePath = path.join(targetPath, fileName);
 
         // 检查目标文件是否已存在
         try {
           await fsPromises.access(targetFilePath);
-          failedFiles.push({
-            path: filePath,
-            error: '目标位置已存在同名文件'
-          });
-          continue;
+          // 目标文件存在
+          if (autoRename) {
+            // 自动重命名
+            targetFilePath = await generateUniqueFileName(targetPath, fileName);
+          } else {
+            // 不自动重命名，报错
+            failedFiles.push({
+              path: filePath,
+              error: '目标位置已存在同名文件'
+            });
+            continue;
+          }
         } catch {
           // 目标文件不存在，可以继续操作
         }
@@ -667,12 +724,13 @@ ipcMain.handle('perform-file-operation', async (event, request: {
         }
 
         processedFiles.push(filePath);
+        resultPaths.push(targetFilePath);
 
         // Send progress update
         if (operationId && mainWindow) {
           mainWindow.webContents.send('file-operation-progress', {
             operationId,
-            currentFile: fileName,
+            currentFile: path.basename(targetFilePath),
             processedCount: processedFiles.length,
             totalCount: files.length,
             processedSize: 0, // TODO: Add size tracking if needed
@@ -690,6 +748,7 @@ ipcMain.handle('perform-file-operation', async (event, request: {
     return {
       success: failedFiles.length === 0,
       processedFiles,
+      resultPaths, // 新增：返回实际的目标路径
       failedFiles: failedFiles.length > 0 ? failedFiles : undefined,
       error: failedFiles.length > 0 ? `${failedFiles.length} 个文件操作失败` : undefined
     };

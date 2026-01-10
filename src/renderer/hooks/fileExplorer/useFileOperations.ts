@@ -287,7 +287,7 @@ export const useFileOperations = (
         }
     }, [directOperationDialog.browsePath, directOperationDialog.rootPath]);
 
-    const handleFileOperation = useCallback(async (operation: 'move' | 'copy', files: DraggedFile[], targetPath: string) => {
+    const handleFileOperation = useCallback(async (operation: 'move' | 'copy', files: DraggedFile[], targetPath: string, autoRename: boolean = false) => {
         const operationId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
         // 立即关闭对话框
@@ -336,7 +336,8 @@ export const useFileOperations = (
                         operation,
                         files: files.map(f => f.path),
                         targetPath,
-                        operationId
+                        operationId,
+                        autoRename
                     });
 
                     cleanup();
@@ -346,12 +347,17 @@ export const useFileOperations = (
                         showNotification(`${files.length} 个文件${operation === 'move' ? '移动' : '复制'}成功！`, 'success');
 
                         // Call success callback with destination paths
+                        // 优先使用后端返回的 resultPaths（可能包含重命名后的路径）
                         if (onOperationSuccess && files.length > 0) {
-                            const separator = targetPath.includes('\\') ? '\\' : '/';
-                            const cleanTarget = targetPath.replace(/[\\/]$/, '');
-
-                            const expectedPaths = files.map(file => `${cleanTarget}${separator}${file.name}`);
-                            onOperationSuccess(expectedPaths);
+                            if (result.resultPaths && result.resultPaths.length > 0) {
+                                onOperationSuccess(result.resultPaths);
+                            } else {
+                                // 兼容旧逻辑
+                                const separator = targetPath.includes('\\') ? '\\' : '/';
+                                const cleanTarget = targetPath.replace(/[\\/]$/, '');
+                                const expectedPaths = files.map(file => `${cleanTarget}${separator}${file.name}`);
+                                onOperationSuccess(expectedPaths);
+                            }
                         }
                     } else {
                         showNotification(`文件${operation === 'move' ? '移动' : '复制'}失败: ${result.error}`, 'error');

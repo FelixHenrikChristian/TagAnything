@@ -249,10 +249,12 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleFileOpen,
     onPaste: (files, operation) => {
       if (currentPath) {
+        // 键盘快捷键粘贴时启用自动重命名，同名文件会生成"文件 - 副本.ext"
         handleFileOperation(
           operation === 'cut' ? 'move' : 'copy',
           files.map(f => ({ name: f.name, path: f.path, size: f.size })),
-          currentPath
+          currentPath,
+          true // autoRename: 启用自动重命名
         );
       }
     },

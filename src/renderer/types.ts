@@ -97,12 +97,14 @@ export interface FileOperationRequest {
     files: string[]; // 源文件路径数组
     targetPath: string; // 目标目录路径
     operationId?: string; // 用于进度追踪的ID
+    autoRename?: boolean; // 是否自动重命名同名文件
 }
 
 export interface FileOperationResult {
     success: boolean;
     error?: string;
     processedFiles?: string[]; // 成功处理的文件路径
+    resultPaths?: string[]; // 实际目标路径（可能包含重命名后的路径）
     failedFiles?: { path: string; error: string }[]; // 失败的文件及错误信息
 }
 
