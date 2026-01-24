@@ -137,9 +137,9 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                         <ListItemText>在资源管理器中打开</ListItemText>
                     </MenuItem>
                 )}
-                {/* Navigate to file directory - only show in global search or multi-tag filter */}
+                {/* Navigate to file directory - only show in global search or recursive tag filter */}
                 {fileContextMenu?.file && (
-                    filterState.multiTagFilter !== null ||
+                    (filterState.tagFilter?.searchScope === 'recursive') ||
                     (filterState.isGlobalSearch && filterState.nameFilterQuery)
                 ) && (
                         <MenuItem onClick={() => { setFileMenuOpen(false); handleNavigateToDirectory(fileContextMenu.file); }}>
@@ -214,9 +214,9 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                         <ListItemText>在资源管理器中打开</ListItemText>
                     </MenuItem>
                 )}
-                {/* Navigate to folder's parent directory - only show in global search or multi-tag filter */}
+                {/* Navigate to folder's parent directory - only show in global search or recursive tag filter */}
                 {folderContextMenu?.file && (
-                    filterState.multiTagFilter !== null ||
+                    (filterState.tagFilter?.searchScope === 'recursive') ||
                     (filterState.isGlobalSearch && filterState.nameFilterQuery)
                 ) && (
                         <MenuItem onClick={() => { setFolderMenuOpen(false); handleNavigateToDirectory(folderContextMenu.file); }}>

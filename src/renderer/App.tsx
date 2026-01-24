@@ -230,19 +230,22 @@ const AppContent: React.FC = () => {
         const saved = localStorage.getItem('tagAnything_filter');
         if (saved) {
           const data = JSON.parse(saved);
-          if (data && data.tagId && data.tagName) {
+          // Handle unified TagFilter format
+          if (data && Array.isArray(data.tagIds)) {
+            if (data.tagIds.length === 1 && data.tagNames?.[0]) {
+              setActiveTagFilter({ tagId: data.tagIds[0], tagName: data.tagNames[0] });
+              setActiveMultiTagIds([]);
+            } else if (data.tagIds.length > 1) {
+              setActiveMultiTagIds(data.tagIds);
+              setActiveTagFilter(null);
+            }
+          } else if (data && data.tagId && data.tagName) {
+            // Legacy format
             setActiveTagFilter({ tagId: data.tagId, tagName: data.tagName });
+            setActiveMultiTagIds([]);
           }
         } else {
           setActiveTagFilter(null);
-        }
-        const savedMulti = localStorage.getItem('tagAnything_multiFilter');
-        if (savedMulti) {
-          const d = JSON.parse(savedMulti);
-          if (Array.isArray(d?.tagIds)) {
-            setActiveMultiTagIds(d.tagIds);
-          }
-        } else {
           setActiveMultiTagIds([]);
         }
       } catch {
@@ -254,11 +257,25 @@ const AppContent: React.FC = () => {
     const onTagFilter = (e: Event) => {
       const ce = e as CustomEvent;
       const d: any = ce.detail;
+
+      // Handle unified TagFilter format (with tagIds array)
+      if (d && Array.isArray(d.tagIds)) {
+        if (d.tagIds.length === 1 && d.tagNames?.[0]) {
+          // Single tag filter
+          setActiveTagFilter({ tagId: d.tagIds[0], tagName: d.tagNames[0] });
+          setActiveMultiTagIds([]);
+        } else if (d.tagIds.length > 1) {
+          // Multi-tag filter
+          setActiveMultiTagIds(d.tagIds);
+          setActiveTagFilter(null);
+        }
+        return;
+      }
+
+      // Handle legacy single tag format (backward compatibility)
       if (d && d.tagId && d.tagName) {
         setActiveTagFilter({ tagId: d.tagId, tagName: d.tagName });
-        // 与多标签筛选互斥：清除多标签状态与存储
         setActiveMultiTagIds([]);
-        try { localStorage.removeItem('tagAnything_multiFilter'); } catch { }
       }
     };
     const onMultiTagFilter = (e: Event) => {
@@ -277,9 +294,6 @@ const AppContent: React.FC = () => {
       const saved = localStorage.getItem('tagAnything_filter');
       if (!saved) {
         setActiveTagFilter(null);
-      }
-      const savedMulti = localStorage.getItem('tagAnything_multiFilter');
-      if (!savedMulti) {
         setActiveMultiTagIds([]);
       }
     };

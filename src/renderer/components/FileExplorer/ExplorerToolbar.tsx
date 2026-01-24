@@ -32,7 +32,7 @@ import {
     Folder as FolderIcon,
 } from '@mui/icons-material';
 import { Location, TagGroup } from '../../types';
-import { SortType, SortDirection, FilterState, MultiTagFilter } from './types';
+import { SortType, SortDirection, FilterState, TagFilter } from './types';
 import { SortMenu } from './SortMenu';
 import { FileBreadcrumbs } from './FileBreadcrumbs';
 
@@ -58,7 +58,7 @@ interface ExplorerToolbarProps {
     sortDirection: SortDirection;
     setSortDirection: (direction: SortDirection) => void;
     filterState: FilterState;
-    handleMultiTagFilter: (filter: MultiTagFilter) => void;
+    handleMultiTagFilter: (filter: { tagIds: string[], tagNames?: string[] }) => void;
     handleFilenameSearch: (query: string) => void;
     clearFilter: (opts?: { notify?: boolean }) => void;
     tagGroups: TagGroup[];
@@ -108,14 +108,14 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
         setSearchQuery(filterState.nameFilterQuery || '');
     }, [filterState.nameFilterQuery]);
 
-    // Sync selected tags with filter state
+    // Sync selected tags with filter state (tagFilter now handles both single and multi)
     useEffect(() => {
-        if (filterState.multiTagFilter) {
-            setSelectedTagIds(filterState.multiTagFilter.tagIds);
+        if (filterState.tagFilter) {
+            setSelectedTagIds(filterState.tagFilter.tagIds);
         } else {
             setSelectedTagIds([]);
         }
-    }, [filterState.multiTagFilter]);
+    }, [filterState.tagFilter]);
 
     const handleSearchChange = (value: string) => {
         setSearchQuery(value);
@@ -137,8 +137,8 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
     const handleOpenFilterPopover = (event: React.MouseEvent<HTMLButtonElement>) => {
         setFilterAnchorEl(event.currentTarget);
         // Initialize with current filter
-        if (filterState.multiTagFilter) {
-            setSelectedTagIds(filterState.multiTagFilter.tagIds);
+        if (filterState.tagFilter) {
+            setSelectedTagIds(filterState.tagFilter.tagIds);
         }
     };
 
@@ -247,25 +247,25 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                         <IconButton
                             size="small"
                             onClick={handleOpenFilterPopover}
-                            color={filterState.multiTagFilter ? 'primary' : 'default'}
+                            color={(filterState.tagFilter && filterState.tagFilter.tagIds.length > 1) ? 'primary' : 'default'}
                         >
                             <FilterListIcon fontSize="small" />
                         </IconButton>
                     </Tooltip>
 
                     {/* Active Filter Chips */}
-                    {filterState.tagFilter && (
+                    {filterState.tagFilter && filterState.tagFilter.tagIds.length === 1 && (
                         <Chip
-                            label={`标签: ${filterState.tagFilter.tagName}`}
+                            label={`标签: ${filterState.tagFilter.tagNames?.[0] || filterState.tagFilter.tagIds[0]}`}
                             onDelete={handleClearAllFilters}
                             color="primary"
                             size="small"
                             icon={<FilterListIcon />}
                         />
                     )}
-                    {filterState.multiTagFilter && (
+                    {filterState.tagFilter && filterState.tagFilter.tagIds.length > 1 && (
                         <Chip
-                            label={`多标签 (${filterState.multiTagFilter.tagIds.length})`}
+                            label={`多标签 (${filterState.tagFilter.tagIds.length})`}
                             onDelete={handleClearAllFilters}
                             color="primary"
                             size="small"
@@ -375,15 +375,18 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                                                     setSelectedTagIds(newSelectedIds);
 
                                                     if (newSelectedIds.length > 0) {
-                                                        const currentPath = localStorage.getItem('tagAnything_currentPath') || '';
-                                                        const filter: MultiTagFilter = {
-                                                            type: 'multiTag',
+                                                        // Get tag names for the selected IDs
+                                                        const newSelectedNames = newSelectedIds.map(id => {
+                                                            for (const g of tagGroups) {
+                                                                const t = g.tags.find(t => t.id === id);
+                                                                if (t) return t.name;
+                                                            }
+                                                            return id;
+                                                        });
+                                                        handleMultiTagFilter({
                                                             tagIds: newSelectedIds,
-                                                            timestamp: Date.now(),
-                                                            origin: 'fileExplorer',
-                                                            currentPath,
-                                                        };
-                                                        handleMultiTagFilter(filter);
+                                                            tagNames: newSelectedNames,
+                                                        });
                                                     } else {
                                                         clearFilter();
                                                     }

@@ -4,30 +4,31 @@ import { FileItem, DraggedFile, Tag } from '../../types';
 export type SortType = 'name' | 'modified' | 'type' | 'size';
 export type SortDirection = 'asc' | 'desc';
 
-// 筛选类型接口
+// 搜索范围类型
+export type SearchScope = 'current' | 'recursive';
+// 标签匹配模式
+export type TagMatchMode = 'all' | 'any';
+
+// 统一的标签筛选接口（合并了单标签和多标签筛选）
 export interface TagFilter {
     type: 'tag';
-    tagId: string;
-    tagName: string;
+    tagIds: string[];           // 单标签时为 [id]，多标签时为 [id1, id2, ...]
+    tagNames?: string[];        // 用于显示
+    matchMode: TagMatchMode;    // 'all' = AND逻辑, 'any' = OR逻辑
+    searchScope: SearchScope;   // 显式指定搜索范围
     timestamp: number;
-    origin?: 'fileExplorer' | 'tagManager';
     currentPath?: string;
 }
 
-export interface MultiTagFilter {
-    type: 'multiTag';
-    tagIds: string[];
-    tagNames?: string[];
-    timestamp: number;
-    origin?: 'appBar' | 'fileExplorer' | 'tagManager';
-    currentPath?: string;
-}
+// 保留 MultiTagFilter 类型别名以兼容旧代码
+/** @deprecated Use TagFilter with tagIds array instead */
+export type MultiTagFilter = TagFilter;
 
+// 文件名搜索筛选
 export interface FilenameSearchFilter {
     type: 'filename';
     query: string;
     timestamp: number;
-    origin?: 'appBar' | 'fileExplorer';
     currentPath?: string;
     // 是否要求立即执行（用于输入法组合结束时）
     immediate?: boolean;
@@ -37,9 +38,9 @@ export interface FilenameSearchFilter {
     isGlobal?: boolean;
 }
 
+// 简化的筛选状态（统一了单标签和多标签筛选）
 export interface FilterState {
     tagFilter: TagFilter | null;
-    multiTagFilter: MultiTagFilter | null;
     nameFilterQuery: string | null;
     isGlobalSearch: boolean;
 }

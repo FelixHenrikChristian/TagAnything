@@ -11,8 +11,8 @@ import {
     SortDirection,
     FilterState,
     TagFilter,
-    MultiTagFilter,
     FilenameSearchFilter,
+    SearchScope,
 } from '../../components/FileExplorer/types';
 
 /**
@@ -43,7 +43,6 @@ export const useFileFilter = (
     const [isSearching, setIsSearching] = useState(false);
     const [filterState, setFilterState] = useState<FilterState>({
         tagFilter: null,
-        multiTagFilter: null,
         nameFilterQuery: null,
         isGlobalSearch: false,
     });
@@ -345,100 +344,84 @@ export const useFileFilter = (
     }, [currentPath, sortFiles, generateVideoThumbnails, getEffectiveTagGroups, setFileTags]);
 
     /**
-     * Handle single tag filter
+     * 获取搜索根目录
      */
-    const handleFilterByTag = useCallback((tag: Tag, origin: 'tagManager' | 'fileExplorer' = 'fileExplorer') => {
-        console.log('🏷️ 单标签筛选:', { tag, origin });
-
-        const filter: TagFilter = {
-            type: 'tag',
-            tagId: tag.id,
-            tagName: tag.name,
-            timestamp: Date.now(),
-            origin,
-            currentPath,
-        };
-
-        // Clear other filters
-        setFilterState(prev => ({
-            tagFilter: filter,
-            multiTagFilter: null,
-            nameFilterQuery: null,
-            isGlobalSearch: prev.isGlobalSearch,
-        }));
-
-        // Save to localStorage
-        localStorage.setItem('tagAnything_filter', JSON.stringify(filter));
-        localStorage.removeItem('tagAnything_multiFilter');
-
-        // Dispatch event for AppBar sync
-        window.dispatchEvent(new CustomEvent('tagFilter', { detail: filter }));
-
-        // Generate new request ID
-        const requestId = Date.now();
-        filterRequestRef.current = requestId;
-
-        // Perform search based on origin
-        if (origin === 'tagManager') {
-            // Recursive search from location root
-            const locationRoot = localStorage.getItem('tagAnything_currentPath') || currentPath;
-            const rootPath = locationRoot.split(/[/\\]/)[0] + '\\'; // Get drive root or location root
-            // Actually, we should use the current location's root path
-            const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-            let searchRoot = currentPath;
-            if (savedLocation) {
-                try {
-                    const location = JSON.parse(savedLocation);
-                    searchRoot = location.path;
-                } catch (e) {
-                    console.warn('Failed to parse location:', e);
-                }
-            }
-            performRecursiveSearch([tag.id], searchRoot, requestId);
-        } else {
-            // Current directory only
-            performCurrentDirectorySearch([tag.id], requestId);
-        }
-    }, [currentPath, performRecursiveSearch, performCurrentDirectorySearch]);
-
-    /**
-     * Handle multi-tag filter
-     */
-    const handleMultiTagFilter = useCallback((filter: MultiTagFilter) => {
-        console.log('🏷️ 多标签筛选:', filter);
-
-        setFilterState(prev => ({
-            tagFilter: null,
-            multiTagFilter: filter,
-            nameFilterQuery: null,
-            isGlobalSearch: prev.isGlobalSearch,
-        }));
-
-        // Save to localStorage
-        localStorage.setItem('tagAnything_multiFilter', JSON.stringify(filter));
-        localStorage.removeItem('tagAnything_filter');
-
-        // Dispatch event for AppBar sync
-        window.dispatchEvent(new CustomEvent('multiTagFilter', { detail: filter }));
-
-        // Always use recursive search for multi-tag filter
+    const getSearchRoot = useCallback(() => {
         const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-        let searchRoot = currentPath;
         if (savedLocation) {
             try {
                 const location = JSON.parse(savedLocation);
-                searchRoot = location.path;
+                return location.path;
             } catch (e) {
                 console.warn('Failed to parse location:', e);
             }
         }
+        return currentPath;
+    }, [currentPath]);
 
-        // Generate new request ID
+    /**
+     * 统一的标签筛选处理函数
+     */
+    const handleTagFilter = useCallback((filter: TagFilter) => {
+        console.log('🏷️ 标签筛选:', filter);
+
+        // 更新筛选状态
+        setFilterState(prev => ({
+            tagFilter: filter,
+            nameFilterQuery: null,
+            isGlobalSearch: prev.isGlobalSearch,
+        }));
+
+        // 保存到 localStorage
+        localStorage.setItem('tagAnything_filter', JSON.stringify(filter));
+
+        // 派发事件供 AppBar 同步
+        window.dispatchEvent(new CustomEvent('tagFilter', { detail: filter }));
+
+        // 生成新的请求ID
         const requestId = Date.now();
         filterRequestRef.current = requestId;
 
-        performRecursiveSearch(filter.tagIds, searchRoot, requestId);
-    }, [currentPath, performRecursiveSearch]);
+        // 根据 searchScope 执行搜索
+        if (filter.searchScope === 'recursive') {
+            const searchRoot = getSearchRoot();
+            performRecursiveSearch(filter.tagIds, searchRoot, requestId);
+        } else {
+            performCurrentDirectorySearch(filter.tagIds, requestId);
+        }
+    }, [getSearchRoot, performRecursiveSearch, performCurrentDirectorySearch]);
+
+    /**
+     * 单标签筛选（向后兼容包装器）
+     */
+    const handleFilterByTag = useCallback((tag: Tag, origin: 'tagManager' | 'fileExplorer' = 'fileExplorer') => {
+        const searchScope: SearchScope = origin === 'tagManager' ? 'recursive' : 'current';
+
+        handleTagFilter({
+            type: 'tag',
+            tagIds: [tag.id],
+            tagNames: [tag.name],
+            matchMode: 'all',
+            searchScope,
+            timestamp: Date.now(),
+            currentPath,
+        });
+    }, [currentPath, handleTagFilter]);
+
+    /**
+     * 多标签筛选（向后兼容包装器，接受旧格式参数）
+     */
+    const handleMultiTagFilter = useCallback((legacyFilter: { tagIds: string[], tagNames?: string[] }) => {
+        handleTagFilter({
+            type: 'tag',
+            tagIds: legacyFilter.tagIds,
+            tagNames: legacyFilter.tagNames,
+            matchMode: 'all',
+            searchScope: 'recursive',  // 多标签始终递归搜索
+            timestamp: Date.now(),
+            currentPath,
+        });
+    }, [currentPath, handleTagFilter]);
 
     /**
      * Handle filename search with debouncing
@@ -464,7 +447,6 @@ export const useFileFilter = (
                 type: 'filename',
                 query,
                 timestamp: Date.now(),
-                origin: 'fileExplorer',
                 currentPath,
                 isGlobal: useGlobalSearch,
             };
@@ -478,30 +460,12 @@ export const useFileFilter = (
 
             // If there's an active tag filter, re-apply it with new search query
             if (filterState.tagFilter) {
-                const origin = filterState.tagFilter.origin || 'fileExplorer';
-                if (origin === 'tagManager') {
-                    const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-                    let searchRoot = currentPath;
-                    if (savedLocation) {
-                        try {
-                            const location = JSON.parse(savedLocation);
-                            searchRoot = location.path;
-                        } catch (e) { }
-                    }
-                    performRecursiveSearch([filterState.tagFilter.tagId], searchRoot, requestId);
+                if (filterState.tagFilter.searchScope === 'recursive') {
+                    const searchRoot = getSearchRoot();
+                    performRecursiveSearch(filterState.tagFilter.tagIds, searchRoot, requestId);
                 } else {
-                    performCurrentDirectorySearch([filterState.tagFilter.tagId], requestId);
+                    performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId);
                 }
-            } else if (filterState.multiTagFilter) {
-                const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-                let searchRoot = currentPath;
-                if (savedLocation) {
-                    try {
-                        const location = JSON.parse(savedLocation);
-                        searchRoot = location.path;
-                    } catch (e) { }
-                }
-                performRecursiveSearch(filterState.multiTagFilter.tagIds, searchRoot, requestId);
             } else if (useGlobalSearch) {
                 // Global filename search
                 performGlobalFilenameSearch(query, requestId);
@@ -513,7 +477,7 @@ export const useFileFilter = (
                 setFilterResultFiles(sorted);
             }
         }, 300); // 300ms debounce
-    }, [currentPath, filterState, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch]);
+    }, [currentPath, filterState, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch, getSearchRoot]);
 
     /**
      * Toggle global search mode
@@ -550,7 +514,6 @@ export const useFileFilter = (
 
         setFilterState(prev => ({
             tagFilter: null,
-            multiTagFilter: null,
             nameFilterQuery: null,
             isGlobalSearch: prev.isGlobalSearch,
         }));
@@ -561,7 +524,6 @@ export const useFileFilter = (
 
         // Clear localStorage
         localStorage.removeItem('tagAnything_filter');
-        localStorage.removeItem('tagAnything_multiFilter');
 
         // Notify AppBar if requested
         if (opts?.notify !== false) {
@@ -569,7 +531,6 @@ export const useFileFilter = (
                 type: 'filename',
                 query: '',
                 timestamp: Date.now(),
-                origin: 'fileExplorer',
                 currentPath,
                 clearAll: true,
             };
@@ -601,40 +562,16 @@ export const useFileFilter = (
 
         // Now execute the appropriate search based on the restored state
         if (state.tagFilter) {
-            const origin = state.tagFilter.origin || 'fileExplorer';
-            if (origin === 'tagManager') {
-                const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-                let searchRoot = currentPath;
-                if (savedLocation) {
-                    try {
-                        const location = JSON.parse(savedLocation);
-                        searchRoot = location.path;
-                    } catch (e) { }
-                }
-                setIsFiltering(true);
-                performRecursiveSearch([state.tagFilter.tagId], searchRoot, requestId);
+            setIsFiltering(true);
+            if (state.tagFilter.searchScope === 'recursive') {
+                const searchRoot = getSearchRoot();
+                performRecursiveSearch(state.tagFilter.tagIds, searchRoot, requestId);
             } else {
-                setIsFiltering(true);
-                performCurrentDirectorySearch([state.tagFilter.tagId], requestId);
+                performCurrentDirectorySearch(state.tagFilter.tagIds, requestId);
             }
 
             // Dispatch event for AppBar sync
             window.dispatchEvent(new CustomEvent('tagFilter', { detail: state.tagFilter }));
-
-        } else if (state.multiTagFilter) {
-            const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-            let searchRoot = currentPath;
-            if (savedLocation) {
-                try {
-                    const location = JSON.parse(savedLocation);
-                    searchRoot = location.path;
-                } catch (e) { }
-            }
-            setIsFiltering(true);
-            performRecursiveSearch(state.multiTagFilter.tagIds, searchRoot, requestId);
-
-            // Dispatch event for AppBar sync
-            window.dispatchEvent(new CustomEvent('multiTagFilter', { detail: state.multiTagFilter }));
 
         } else if (state.nameFilterQuery) {
             if (state.isGlobalSearch) {
@@ -652,7 +589,6 @@ export const useFileFilter = (
                 type: 'filename',
                 query: state.nameFilterQuery,
                 timestamp: Date.now(),
-                origin: 'fileExplorer',
                 currentPath,
                 isGlobal: state.isGlobalSearch,
             };
@@ -669,13 +605,12 @@ export const useFileFilter = (
                 type: 'filename',
                 query: '',
                 timestamp: Date.now(),
-                origin: 'fileExplorer',
                 currentPath,
                 clearAll: true,
             };
             window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
         }
-    }, [currentPath, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch]);
+    }, [currentPath, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch, getSearchRoot]);
 
     /**
      * Listen to external filter events (from TagManager, AppBar)
@@ -683,6 +618,14 @@ export const useFileFilter = (
     useEffect(() => {
         const handleTagFilterEvent = (event: Event) => {
             const detail = (event as CustomEvent).detail;
+
+            // Handle unified TagFilter format (new)
+            if (detail && detail.tagIds && Array.isArray(detail.tagIds)) {
+                handleTagFilter(detail as TagFilter);
+                return;
+            }
+
+            // Handle legacy single tag format (backward compatibility)
             if (detail && detail.tagId && detail.tagName) {
                 const tag: Tag = {
                     id: detail.tagId,
@@ -717,7 +660,7 @@ export const useFileFilter = (
             window.removeEventListener('multiTagFilter', handleMultiTagFilterEvent);
             window.removeEventListener('filenameSearch', handleFilenameSearchEvent);
         };
-    }, [handleFilterByTag, handleMultiTagFilter, clearFilter]);
+    }, [handleFilterByTag, handleMultiTagFilter, handleTagFilter, clearFilter]);
 
     /**
      * Refresh the current active filter.
@@ -732,47 +675,23 @@ export const useFileFilter = (
         console.log('🔄 刷新当前筛选...', filterState);
 
         if (filterState.tagFilter) {
-            const origin = filterState.tagFilter.origin || 'fileExplorer';
-            if (origin === 'tagManager') {
-                const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-                let searchRoot = currentPath;
-                if (savedLocation) {
-                    try {
-                        const location = JSON.parse(savedLocation);
-                        searchRoot = location.path;
-                    } catch (e) { }
-                }
-                await performRecursiveSearch([filterState.tagFilter.tagId], searchRoot, requestId);
+            if (filterState.tagFilter.searchScope === 'recursive') {
+                const searchRoot = getSearchRoot();
+                await performRecursiveSearch(filterState.tagFilter.tagIds, searchRoot, requestId);
             } else {
-                performCurrentDirectorySearch([filterState.tagFilter.tagId], requestId);
+                performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId);
             }
-        } else if (filterState.multiTagFilter) {
-            const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-            let searchRoot = currentPath;
-            if (savedLocation) {
-                try {
-                    const location = JSON.parse(savedLocation);
-                    searchRoot = location.path;
-                } catch (e) { }
-            }
-            await performRecursiveSearch(filterState.multiTagFilter.tagIds, searchRoot, requestId);
         } else if (filterState.nameFilterQuery && filterState.isGlobalSearch) {
             await performGlobalFilenameSearch(filterState.nameFilterQuery, requestId);
         } else {
-            // Local filter - usually re-evaluates automatically when 'files' prop updates,
-            // but we can force a re-run logic if needed. 
-            // Since local filter depends on `files`, and `handleRefresh` in parent updates `files`,
-            // this branch might just need to ensure `filteredFiles` gets updated.
-            // Our useMemo for `filteredFiles` handles it.
-            // But if we want to be explicit or if we have side effects:
+            // Local filter - usually re-evaluates automatically when 'files' prop updates
             if (filterState.nameFilterQuery) {
-                // Re-run local filename filter logic just in case
                 const result = filterByFilename(files, filterState.nameFilterQuery);
                 const sorted = sortFiles(result);
                 setFilterResultFiles(sorted);
             }
         }
-    }, [isFiltering, filterState, currentPath, files, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch, filterByFilename, sortFiles]);
+    }, [isFiltering, filterState, files, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch, filterByFilename, sortFiles, getSearchRoot]);
 
     /**
      * Synchronously compute sorted files for non-filtering case using useMemo.
@@ -787,7 +706,7 @@ export const useFileFilter = (
      * This ensures sorting works even when filters are active.
      */
     useEffect(() => {
-        if (isFiltering || filterState.tagFilter || filterState.multiTagFilter || filterState.nameFilterQuery) {
+        if (isFiltering || filterState.tagFilter || filterState.nameFilterQuery) {
             // Re-sort the current filtered files when sort changes
             const sorted = sortFiles(filterResultFiles);
             setFilterResultFiles(sorted);
@@ -801,7 +720,7 @@ export const useFileFilter = (
      * - When not filtering, return sortedBaseFiles (synchronously computed)
      */
     const filteredFiles = useMemo(() => {
-        if (isFiltering || filterState.tagFilter || filterState.multiTagFilter || filterState.nameFilterQuery) {
+        if (isFiltering || filterState.tagFilter || filterState.nameFilterQuery) {
             return filterResultFiles;
         }
         return sortedBaseFiles;
