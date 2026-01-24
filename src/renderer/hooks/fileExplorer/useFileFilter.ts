@@ -287,23 +287,11 @@ export const useFileFilter = (
             setIsFiltering(true);
             setIsSearching(true);
 
-            console.log('🌐 开始全局文件名搜索 (IPC):', { query, requestId });
+            console.log('🌐 开始递归文件名搜索 (IPC):', { query, currentPath, requestId });
 
-            // Get search root from current location
-            const savedLocation = localStorage.getItem('tagAnything_selectedLocation');
-            let searchRoot = currentPath;
-            if (savedLocation) {
-                try {
-                    const location = JSON.parse(savedLocation);
-                    searchRoot = location.path;
-                } catch (e) {
-                    console.warn('Failed to parse location:', e);
-                }
-            }
-
-            // Perform IPC search
+            // Perform IPC search from current directory
             const { files: resultFiles, fileTags: resultTags } = await window.electron.searchFiles({
-                rootPath: searchRoot,
+                rootPath: currentPath,
                 tagGroups: getEffectiveTagGroups(),
                 query: query,
                 enableSimplifiedTraditionalSearch: displaySettings.enableSimplifiedTraditionalSearch
