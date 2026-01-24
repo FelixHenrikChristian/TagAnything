@@ -8,6 +8,7 @@ import { useFileOperations } from '../hooks/fileExplorer/useFileOperations';
 import { useFileContextMenu } from '../hooks/fileExplorer/useFileContextMenu';
 import { useFileDrag } from '../hooks/fileExplorer/useFileDrag';
 import { useKeyboardNavigation } from '../hooks/fileExplorer/useKeyboardNavigation';
+import { useNavigationHistory, createEmptyFilterState } from '../hooks/fileExplorer/useNavigationHistory';
 
 import { ExplorerToolbar } from './FileExplorer/ExplorerToolbar';
 import { ExplorerStatusBar } from './FileExplorer/ExplorerStatusBar';
@@ -42,24 +43,29 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     fileTags,
     videoThumbnails,
     handleLocationSelect,
-    handleNavigate,
+    navigateTo,
     handleRefresh: refreshCore,
     getFileTags,
     getEffectiveTagGroups,
     setFileTags,
     generateVideoThumbnails,
-    pushHistory,
-    goBack,
-    goForward,
     goUp,
-    canGoBack,
-    canGoForward,
     canGoUp,
-    isNavigatingHistory,
   } = useFileExplorerState(tagDisplayStyle);
 
   // Get display settings for simplified-traditional search
   const { displaySettings } = useAppTheme();
+
+  // 1.5 Navigation History (new Hook)
+  const {
+    navigate: pushNavigation,
+    goBack,
+    goForward,
+    finishNavigation,
+    canGoBack,
+    canGoForward,
+    isNavigatingRef,
+  } = useNavigationHistory();
 
   // 2. Filter Logic
   const {
@@ -90,37 +96,51 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
 
   // Track previous filter state for history management
   const prevFilterStateRef = useRef(filterState);
+  const prevPathRef = useRef(currentPath);
 
-  // Push history entry when filter state changes (not during history navigation)
+  // Push history entry when path or filter state changes (not during history navigation)
   useEffect(() => {
     // Skip if we're navigating through history
-    if (isNavigatingHistory.current) return;
+    if (isNavigatingRef.current) return;
 
     const prevState = prevFilterStateRef.current;
-    const hasFilterChanged =
-      JSON.stringify(prevState) !== JSON.stringify(filterState);
+    const prevPath = prevPathRef.current;
 
-    if (hasFilterChanged && currentPath) {
-      pushHistory(currentPath, filterState);
+    const hasFilterChanged = JSON.stringify(prevState) !== JSON.stringify(filterState);
+    const hasPathChanged = prevPath !== currentPath;
+
+    if ((hasFilterChanged || hasPathChanged) && currentPath) {
+      pushNavigation({ path: currentPath, filterState });
       prevFilterStateRef.current = filterState;
+      prevPathRef.current = currentPath;
     }
-  }, [filterState, currentPath, pushHistory, isNavigatingHistory]);
+  }, [filterState, currentPath, pushNavigation, isNavigatingRef]);
 
   // Wrapper for back navigation that also restores filter state
-  const handleGoBack = useCallback(() => {
-    const entry = goBack();
-    if (entry) {
-      restoreFilterState(entry.filterState);
+  const handleGoBack = useCallback(async () => {
+    const state = goBack();
+    if (state) {
+      await navigateTo(state.path);
+      restoreFilterState(state.filterState);
+      finishNavigation();
     }
-  }, [goBack, restoreFilterState]);
+  }, [goBack, navigateTo, restoreFilterState, finishNavigation]);
 
   // Wrapper for forward navigation that also restores filter state
-  const handleGoForward = useCallback(() => {
-    const entry = goForward();
-    if (entry) {
-      restoreFilterState(entry.filterState);
+  const handleGoForward = useCallback(async () => {
+    const state = goForward();
+    if (state) {
+      await navigateTo(state.path);
+      restoreFilterState(state.filterState);
+      finishNavigation();
     }
-  }, [goForward, restoreFilterState]);
+  }, [goForward, navigateTo, restoreFilterState, finishNavigation]);
+
+  // Unified navigate handler that clears filter and pushes history
+  const handleNavigate = useCallback(async (path: string) => {
+    clearFilter();
+    await navigateTo(path);
+  }, [clearFilter, navigateTo]);
 
 
 
@@ -353,7 +373,6 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
 
   // 8. Handlers Wrapper
   const onNavigate = (path: string) => {
-    clearFilter();
     handleNavigate(path);
   };
 

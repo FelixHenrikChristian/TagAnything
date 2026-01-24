@@ -5,10 +5,6 @@ import {
     createTagsFromNames,
     createTemporaryTags,
 } from '../../utils/fileTagParser';
-import { HistoryEntry, FilterState } from '../../components/FileExplorer/types';
-
-// 历史记录最大条目数
-const MAX_HISTORY_SIZE = 50;
 
 export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = 'original') => {
     const [locations, setLocations] = useState<Location[]>([]);
@@ -22,11 +18,7 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
     const [fileTags, setFileTags] = useState<Map<string, Tag[]>>(new Map());
     const [videoThumbnails, setVideoThumbnails] = useState<Map<string, string>>(new Map());
 
-    // History State - now stores full HistoryEntry with filter state
-    const [history, setHistory] = useState<HistoryEntry[]>([]);
-    const [historyIndex, setHistoryIndex] = useState<number>(-1);
-    // Flag to prevent creating history entry during history navigation
-    const isNavigatingHistory = useRef<boolean>(false);
+
 
     // Load/Save Grid Size
     useEffect(() => {
@@ -305,101 +297,15 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         await scanAllFilesForTags(location.path, effectiveGroups);
     }, [getEffectiveTagGroups, loadFiles, scanAllFilesForTags]);
 
-    const handleHistoryNavigate = useCallback(async (entry: HistoryEntry) => {
-        isNavigatingHistory.current = true;
-        setCurrentPath(entry.path);
-        await loadFiles(entry.path);
-        isNavigatingHistory.current = false;
-    }, [loadFiles]);
-
-    // Push a new history entry (used when filter state changes)
-    const pushHistory = useCallback((path: string, filterState: FilterState) => {
-        // Don't push if we're navigating through history
-        if (isNavigatingHistory.current) return;
-
-        const entry: HistoryEntry = {
-            path,
-            filterState,
-            timestamp: Date.now(),
-        };
-
-        setHistory(prev => {
-            // Truncate future entries if we're in the middle of history
-            let newHistory = prev.slice(0, historyIndex + 1);
-
-            // Check if this is essentially the same state as current
-            const current = newHistory[newHistory.length - 1];
-            if (current &&
-                current.path === path &&
-                JSON.stringify(current.filterState) === JSON.stringify(filterState)) {
-                return prev; // No change needed
-            }
-
-            newHistory.push(entry);
-
-            // Limit history size
-            if (newHistory.length > MAX_HISTORY_SIZE) {
-                newHistory = newHistory.slice(newHistory.length - MAX_HISTORY_SIZE);
-            }
-            return newHistory;
-        });
-        setHistoryIndex(prev => Math.min(prev + 1, MAX_HISTORY_SIZE - 1));
-    }, [historyIndex]);
-
-    const handleNavigate = useCallback(async (path: string, filterState?: FilterState) => {
-        // If path is same as current, do nothing
+    /**
+     * 导航到指定路径（纯路径切换，不处理历史记录）
+     * 历史记录由 useNavigationHistory Hook 管理
+     */
+    const navigateTo = useCallback(async (path: string) => {
         if (path === currentPath) return;
-
-        const defaultFilterState: FilterState = filterState || {
-            tagFilter: null,
-            multiTagFilter: null,
-            nameFilterQuery: null,
-            isGlobalSearch: false,
-        };
-
-        const entry: HistoryEntry = {
-            path,
-            filterState: defaultFilterState,
-            timestamp: Date.now(),
-        };
-
-        setHistory(prev => {
-            let newHistory = prev.slice(0, historyIndex + 1);
-            newHistory.push(entry);
-            if (newHistory.length > MAX_HISTORY_SIZE) {
-                newHistory = newHistory.slice(newHistory.length - MAX_HISTORY_SIZE);
-            }
-            return newHistory;
-        });
-        setHistoryIndex(prev => Math.min(prev + 1, MAX_HISTORY_SIZE - 1));
-
         setCurrentPath(path);
         await loadFiles(path);
-    }, [currentPath, historyIndex, loadFiles]);
-
-    // Returns the entry to navigate to, caller is responsible for restoring filter state
-    const goBack = useCallback((): HistoryEntry | null => {
-        if (historyIndex > 0) {
-            const newIndex = historyIndex - 1;
-            const entry = history[newIndex];
-            setHistoryIndex(newIndex);
-            handleHistoryNavigate(entry);
-            return entry;
-        }
-        return null;
-    }, [history, historyIndex, handleHistoryNavigate]);
-
-    // Returns the entry to navigate to, caller is responsible for restoring filter state
-    const goForward = useCallback((): HistoryEntry | null => {
-        if (historyIndex < history.length - 1) {
-            const newIndex = historyIndex + 1;
-            const entry = history[newIndex];
-            setHistoryIndex(newIndex);
-            handleHistoryNavigate(entry);
-            return entry;
-        }
-        return null;
-    }, [history, historyIndex, handleHistoryNavigate]);
+    }, [currentPath, loadFiles]);
 
     const canGoUp = useMemo(() => {
         if (!currentPath) return false;
@@ -430,10 +336,10 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
             if (parentPath.endsWith(':')) parentPath += '\\'; // Fix drive root C: -> C:\
 
             if (parentPath && parentPath !== currentPath) {
-                handleNavigate(parentPath);
+                navigateTo(parentPath);
             }
         }
-    }, [currentPath, handleNavigate, canGoUp]);
+    }, [currentPath, navigateTo, canGoUp]);
 
     const handleRefresh = useCallback(async (isFiltering: boolean, filteredFiles: FileItem[], silent: boolean = false) => {
         if (currentLocation) {
@@ -522,23 +428,7 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         };
     }, []);
 
-    // Initialize history with first path
-    useEffect(() => {
-        if (currentPath && history.length === 0) {
-            const initialEntry: HistoryEntry = {
-                path: currentPath,
-                filterState: {
-                    tagFilter: null,
-                    multiTagFilter: null,
-                    nameFilterQuery: null,
-                    isGlobalSearch: false,
-                },
-                timestamp: Date.now(),
-            };
-            setHistory([initialEntry]);
-            setHistoryIndex(0);
-        }
-    }, [currentPath]);
+
 
     const getFileTags = useCallback((file: FileItem): Tag[] => {
         return fileTags.get(file.path) || [];
@@ -564,20 +454,13 @@ export const useFileExplorerState = (tagDisplayStyle: 'original' | 'library' = '
         setFileTags,
         videoThumbnails,
         handleLocationSelect,
-        handleNavigate,
+        navigateTo,
         handleRefresh,
         loadFiles,
         getFileTags,
         getEffectiveTagGroups,
         generateVideoThumbnails: generateVideoThumbnailsImpl,
-        // History exports
-        pushHistory,
-        goBack,
-        goForward,
         goUp,
-        canGoBack: historyIndex > 0,
-        canGoForward: historyIndex < history.length - 1,
         canGoUp,
-        isNavigatingHistory,
     };
 };
