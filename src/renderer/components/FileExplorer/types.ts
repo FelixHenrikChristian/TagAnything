@@ -15,7 +15,6 @@ export interface TagFilter {
     tagIds: string[];           // 单标签时为 [id]，多标签时为 [id1, id2, ...]
     tagNames?: string[];        // 用于显示
     matchMode: TagMatchMode;    // 'all' = AND逻辑, 'any' = OR逻辑
-    searchScope: SearchScope;   // 显式指定搜索范围
     timestamp: number;
     currentPath?: string;
 }
@@ -34,15 +33,13 @@ export interface FilenameSearchFilter {
     immediate?: boolean;
     // 是否清除所有筛选与搜索（用于地址栏点击/切换目录/清除按钮）
     clearAll?: boolean;
-    // 是否全局搜索（搜索所有子目录）
-    isGlobal?: boolean;
 }
 
 // 简化的筛选状态（统一了单标签和多标签筛选）
 export interface FilterState {
     tagFilter: TagFilter | null;
     nameFilterQuery: string | null;
-    isGlobalSearch: boolean;
+    isRecursive: boolean;  // 是否递归搜索（适用于标签和文件名筛选）
 }
 
 // 历史记录条目，用于后退/前进功能

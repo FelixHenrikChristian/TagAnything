@@ -20,7 +20,7 @@ const MAX_HISTORY_SIZE = 50;
 export const createEmptyFilterState = (): FilterState => ({
     tagFilter: null,
     nameFilterQuery: null,
-    isGlobalSearch: false,
+    isRecursive: false,
 });
 
 /**

@@ -139,8 +139,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                 )}
                 {/* Navigate to file directory - only show in global search or recursive tag filter */}
                 {fileContextMenu?.file && (
-                    (filterState.tagFilter?.searchScope === 'recursive') ||
-                    (filterState.isGlobalSearch && filterState.nameFilterQuery)
+                    filterState.isRecursive && (filterState.tagFilter || filterState.nameFilterQuery)
                 ) && (
                         <MenuItem onClick={() => { setFileMenuOpen(false); handleNavigateToDirectory(fileContextMenu.file); }}>
                             <ListItemIcon>
@@ -216,8 +215,7 @@ export const ExplorerContextMenus: React.FC<ExplorerContextMenusProps> = ({
                 )}
                 {/* Navigate to folder's parent directory - only show in global search or recursive tag filter */}
                 {folderContextMenu?.file && (
-                    (filterState.tagFilter?.searchScope === 'recursive') ||
-                    (filterState.isGlobalSearch && filterState.nameFilterQuery)
+                    filterState.isRecursive && (filterState.tagFilter || filterState.nameFilterQuery)
                 ) && (
                         <MenuItem onClick={() => { setFolderMenuOpen(false); handleNavigateToDirectory(folderContextMenu.file); }}>
                             <ListItemIcon>

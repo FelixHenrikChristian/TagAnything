@@ -62,7 +62,7 @@ interface ExplorerToolbarProps {
     handleFilenameSearch: (query: string) => void;
     clearFilter: (opts?: { notify?: boolean }) => void;
     tagGroups: TagGroup[];
-    setGlobalSearchMode: (isGlobal: boolean) => void;
+    setRecursiveMode: (isRecursive: boolean) => void;
 }
 
 const GRID_CONFIG = {
@@ -95,7 +95,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
     handleFilenameSearch,
     clearFilter,
     tagGroups,
-    setGlobalSearchMode,
+    setRecursiveMode,
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLButtonElement | null>(null);
@@ -225,20 +225,20 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                         }}
                     />
 
-                    {/* Global Search Toggle */}
-                    <Tooltip title={filterState.isGlobalSearch ? "全局搜索（点击切换为当前目录）" : "当前目录搜索（点击切换为全局）"}>
+                    {/* Recursive Search Toggle */}
+                    <Tooltip title={filterState.isRecursive ? "递归搜索（包含子目录）" : "当前目录搜索（点击切换为递归）"}>
                         <IconButton
                             size="small"
-                            onClick={() => setGlobalSearchMode(!filterState.isGlobalSearch)}
-                            color={filterState.isGlobalSearch ? 'primary' : 'default'}
+                            onClick={() => setRecursiveMode(!filterState.isRecursive)}
+                            color={filterState.isRecursive ? 'primary' : 'default'}
                             sx={{
                                 transition: 'all 0.2s',
                                 '&:hover': {
-                                    bgcolor: filterState.isGlobalSearch ? 'primary.light' : 'action.hover',
+                                    bgcolor: filterState.isRecursive ? 'primary.light' : 'action.hover',
                                 },
                             }}
                         >
-                            {filterState.isGlobalSearch ? <PublicIcon fontSize="small" /> : <FolderIcon fontSize="small" />}
+                            {filterState.isRecursive ? <PublicIcon fontSize="small" /> : <FolderIcon fontSize="small" />}
                         </IconButton>
                     </Tooltip>
 
