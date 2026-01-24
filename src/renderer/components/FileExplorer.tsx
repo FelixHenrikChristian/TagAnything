@@ -76,6 +76,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     handleMultiTagFilter,
     handleFilenameSearch,
     clearFilter,
+    clearTagFilter,
     restoreFilterState,
     sortType,
     setSortType,
@@ -537,6 +538,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         handleMultiTagFilter={handleMultiTagFilter}
         handleFilenameSearch={handleFilenameSearch}
         clearFilter={clearFilter}
+        clearTagFilter={clearTagFilter}
         tagGroups={tagGroups}
         sortType={sortType}
         setSortType={setSortType}

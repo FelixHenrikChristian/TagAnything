@@ -159,8 +159,12 @@ export const useFileFilter = (
 
     /**
      * Perform recursive file search with tag filtering
+     * @param tagIds - Tag IDs to filter by
+     * @param rootPath - Root path to search from
+     * @param requestId - Request ID for race condition prevention
+     * @param nameQuery - Explicit name query (to avoid stale closure)
      */
-    const performRecursiveSearch = useCallback(async (tagIds: string[], rootPath: string, requestId: number) => {
+    const performRecursiveSearch = useCallback(async (tagIds: string[], rootPath: string, requestId: number, nameQuery: string | null) => {
         try {
             if (requestId !== filterRequestRef.current) {
                 console.log('🚫 忽略过期的搜索请求:', requestId);
@@ -171,15 +175,14 @@ export const useFileFilter = (
             setIsFiltering(true);
             setIsSearching(true);
 
-            console.log('🔍 开始递归搜索 (IPC):', { tagIds, rootPath, requestId });
+            console.log('🔍 开始递归搜索 (IPC):', { tagIds, rootPath, requestId, nameQuery });
 
             // Call Main Process to search
-            // Pass current name filter query to optimize search
             const { files: resultFiles, fileTags: resultTags } = await window.electron.searchFiles({
                 rootPath,
                 tagGroups: getEffectiveTagGroups(),
                 tagIds,
-                query: filterState.nameFilterQuery || undefined,
+                query: nameQuery || undefined,
                 matchAllTags: true,
                 enableSimplifiedTraditionalSearch: displaySettings.enableSimplifiedTraditionalSearch
             });
@@ -229,26 +232,29 @@ export const useFileFilter = (
                 setIsSearching(false);
             }
         }
-    }, [filterState.nameFilterQuery, getEffectiveTagGroups, setFileTags, sortFiles, generateVideoThumbnails]);
+    }, [getEffectiveTagGroups, setFileTags, sortFiles, generateVideoThumbnails]);
 
     /**
      * Perform current directory only search
+     * @param tagIds - Tag IDs to filter by
+     * @param requestId - Request ID for race condition prevention
+     * @param nameQuery - Explicit name query (to avoid stale closure)
      */
-    const performCurrentDirectorySearch = useCallback((tagIds: string[], requestId: number) => {
+    const performCurrentDirectorySearch = useCallback((tagIds: string[], requestId: number, nameQuery: string | null) => {
         try {
             if (requestId !== filterRequestRef.current) return;
 
             isProcessing.current = true;
             setIsFiltering(true);
 
-            console.log('🔍 当前目录搜索:', { tagIds, fileCount: files.length });
+            console.log('🔍 当前目录搜索:', { tagIds, fileCount: files.length, nameQuery });
 
             // Filter files in current directory only
             let result = filterByTags(files, tagIds, true);
 
             // Apply filename filter if exists
-            if (filterState.nameFilterQuery) {
-                result = filterByFilename(result, filterState.nameFilterQuery);
+            if (nameQuery) {
+                result = filterByFilename(result, nameQuery);
             }
 
             // Sort and update
@@ -263,7 +269,7 @@ export const useFileFilter = (
         } finally {
             isProcessing.current = false;
         }
-    }, [files, filterState.nameFilterQuery, filterByTags, filterByFilename, sortFiles]);
+    }, [files, filterByTags, filterByFilename, sortFiles]);
 
     /**
      * Perform global filename search (recursive)
@@ -365,10 +371,13 @@ export const useFileFilter = (
     const handleTagFilter = useCallback((filter: TagFilter) => {
         console.log('🏷️ 标签筛选:', filter);
 
-        // 更新筛选状态
+        // 获取当前的搜索关键词（保留搜索框文字）
+        const currentNameQuery = filterState.nameFilterQuery;
+
+        // 更新筛选状态（保留 nameFilterQuery）
         setFilterState(prev => ({
             tagFilter: filter,
-            nameFilterQuery: null,
+            nameFilterQuery: prev.nameFilterQuery,  // 保留搜索框文字
             isRecursive: prev.isRecursive,
         }));
 
@@ -382,13 +391,13 @@ export const useFileFilter = (
         const requestId = Date.now();
         filterRequestRef.current = requestId;
 
-        // 根据 isRecursive 执行搜索（使用当前目录作为根目录）
+        // 根据 isRecursive 执行搜索（使用当前目录作为根目录，保留文件名筛选）
         if (filterState.isRecursive) {
-            performRecursiveSearch(filter.tagIds, currentPath, requestId);
+            performRecursiveSearch(filter.tagIds, currentPath, requestId, currentNameQuery);
         } else {
-            performCurrentDirectorySearch(filter.tagIds, requestId);
+            performCurrentDirectorySearch(filter.tagIds, requestId, currentNameQuery);
         }
-    }, [currentPath, filterState.isRecursive, performRecursiveSearch, performCurrentDirectorySearch]);
+    }, [currentPath, filterState.isRecursive, filterState.nameFilterQuery, performRecursiveSearch, performCurrentDirectorySearch]);
 
     /**
      * 单标签筛选
@@ -453,9 +462,9 @@ export const useFileFilter = (
             // If there's an active tag filter, re-apply it with new search query
             if (filterState.tagFilter) {
                 if (filterState.isRecursive) {
-                    performRecursiveSearch(filterState.tagFilter.tagIds, currentPath, requestId);
+                    performRecursiveSearch(filterState.tagFilter.tagIds, currentPath, requestId, query);
                 } else {
-                    performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId);
+                    performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId, query);
                 }
             } else if (filterState.isRecursive) {
                 // Recursive filename search
@@ -486,9 +495,9 @@ export const useFileFilter = (
 
         if (filterState.tagFilter) {
             if (isRecursive) {
-                performRecursiveSearch(filterState.tagFilter.tagIds, currentPath, requestId);
+                performRecursiveSearch(filterState.tagFilter.tagIds, currentPath, requestId, filterState.nameFilterQuery);
             } else {
-                performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId);
+                performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId, filterState.nameFilterQuery);
             }
         } else if (filterState.nameFilterQuery) {
             if (isRecursive) {
@@ -546,6 +555,47 @@ export const useFileFilter = (
     }, [files, currentPath]);
 
     /**
+     * Clear only tag filter, keeping the search query
+     */
+    const clearTagFilter = useCallback(() => {
+        console.log('🧹 清除标签筛选（保留搜索）');
+
+        // Invalidate any pending requests
+        const requestId = Date.now();
+        filterRequestRef.current = requestId;
+
+        // Get current search query before clearing tag filter
+        const currentNameQuery = filterState.nameFilterQuery;
+
+        // Update state - clear tag but keep name query
+        setFilterState(prev => ({
+            tagFilter: null,
+            nameFilterQuery: prev.nameFilterQuery,
+            isRecursive: prev.isRecursive,
+        }));
+
+        // Clear localStorage for tag filter
+        localStorage.removeItem('tagAnything_filter');
+
+        // If there's still a name query, re-execute filename search
+        if (currentNameQuery) {
+            if (filterState.isRecursive) {
+                performGlobalFilenameSearch(currentNameQuery, requestId);
+            } else {
+                setIsFiltering(true);
+                const result = filterByFilename(files, currentNameQuery);
+                const sorted = sortFiles(result);
+                setFilterResultFiles(sorted);
+            }
+        } else {
+            // No filters left
+            setIsFiltering(false);
+            setIsSearching(false);
+            setFilterResultFiles([]);
+        }
+    }, [files, filterState.nameFilterQuery, filterState.isRecursive, filterByFilename, sortFiles, performGlobalFilenameSearch]);
+
+    /**
      * Restore filter state from a history entry.
      * Used when navigating back/forward in history.
      */
@@ -571,9 +621,9 @@ export const useFileFilter = (
         if (state.tagFilter) {
             setIsFiltering(true);
             if (state.isRecursive) {
-                performRecursiveSearch(state.tagFilter.tagIds, currentPath, requestId);
+                performRecursiveSearch(state.tagFilter.tagIds, currentPath, requestId, state.nameFilterQuery);
             } else {
-                performCurrentDirectorySearch(state.tagFilter.tagIds, requestId);
+                performCurrentDirectorySearch(state.tagFilter.tagIds, requestId, state.nameFilterQuery);
             }
 
             // Dispatch event for AppBar sync
@@ -681,9 +731,9 @@ export const useFileFilter = (
 
         if (filterState.tagFilter) {
             if (filterState.isRecursive) {
-                await performRecursiveSearch(filterState.tagFilter.tagIds, currentPath, requestId);
+                await performRecursiveSearch(filterState.tagFilter.tagIds, currentPath, requestId, filterState.nameFilterQuery);
             } else {
-                performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId);
+                performCurrentDirectorySearch(filterState.tagFilter.tagIds, requestId, filterState.nameFilterQuery);
             }
         } else if (filterState.nameFilterQuery && filterState.isRecursive) {
             await performGlobalFilenameSearch(filterState.nameFilterQuery, requestId);
@@ -752,6 +802,7 @@ export const useFileFilter = (
         handleMultiTagFilter,
         handleFilenameSearch,
         clearFilter,
+        clearTagFilter,
         restoreFilterState,
         sortType,
         setSortType,

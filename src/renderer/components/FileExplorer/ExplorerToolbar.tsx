@@ -61,6 +61,7 @@ interface ExplorerToolbarProps {
     handleMultiTagFilter: (filter: { tagIds: string[], tagNames?: string[] }) => void;
     handleFilenameSearch: (query: string) => void;
     clearFilter: (opts?: { notify?: boolean }) => void;
+    clearTagFilter: () => void;
     tagGroups: TagGroup[];
     setRecursiveMode: (isRecursive: boolean) => void;
 }
@@ -94,6 +95,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
     handleMultiTagFilter,
     handleFilenameSearch,
     clearFilter,
+    clearTagFilter,
     tagGroups,
     setRecursiveMode,
 }) => {
@@ -226,7 +228,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                     />
 
                     {/* Recursive Search Toggle */}
-                    <Tooltip title={filterState.isRecursive ? "递归搜索（包含子目录）" : "当前目录搜索（点击切换为递归）"}>
+                    <Tooltip title={filterState.isRecursive ? "包含子目录" : "仅当前目录"}>
                         <IconButton
                             size="small"
                             onClick={() => setRecursiveMode(!filterState.isRecursive)}
@@ -388,7 +390,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                                                             tagNames: newSelectedNames,
                                                         });
                                                     } else {
-                                                        clearFilter();
+                                                        clearTagFilter();
                                                     }
                                                 }}
                                                 sx={{
