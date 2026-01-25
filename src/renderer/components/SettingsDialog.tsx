@@ -23,6 +23,9 @@ import {
     TextField,
     Slider,
     Divider,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
 } from '@mui/material';
 import {
     Download as DownloadIcon,
@@ -39,6 +42,8 @@ import {
     DeleteSweep as DeleteSweepIcon,
     Autorenew as AutorenewIcon,
     Refresh as RefreshIcon,
+    ExpandMore as ExpandMoreIcon,
+    Tune as TuneIcon,
 } from '@mui/icons-material';
 
 interface UpdateState {
@@ -356,148 +361,173 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                 )}
 
                                 {currentTheme === 'neon-glass' && (
-                                    <Box sx={{ mt: 3 }}>
-                                        <Divider sx={{ mb: 2 }} />
-                                        <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                                            主题自定义
-                                        </Typography>
-
-                                        {/* Hue Control */}
-                                        <Box sx={{ mb: 3 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                                                <Typography variant="body2">
-                                                    色调
-                                                </Typography>
-                                                <Box
+                                    <Accordion
+                                        sx={{
+                                            mt: 2,
+                                            bgcolor: 'action.hover',
+                                            '&:before': { display: 'none' },
+                                            borderRadius: 2,
+                                            overflow: 'hidden',
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                        }}
+                                        defaultExpanded={false}
+                                    >
+                                        <AccordionSummary
+                                            expandIcon={<ExpandMoreIcon />}
+                                            sx={{
+                                                '& .MuiAccordionSummary-content': {
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                }
+                                            }}
+                                        >
+                                            <TuneIcon fontSize="small" color="secondary" />
+                                            <Typography variant="body2" fontWeight={600}>
+                                                主题自定义
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                                点击展开高级设置
+                                            </Typography>
+                                        </AccordionSummary>
+                                        <AccordionDetails sx={{ pt: 0 }}>
+                                            {/* Hue Control */}
+                                            <Box sx={{ mb: 3 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                                                    <Typography variant="body2">
+                                                        色调
+                                                    </Typography>
+                                                    <Box
+                                                        sx={{
+                                                            width: 24,
+                                                            height: 24,
+                                                            borderRadius: '50%',
+                                                            backgroundColor: `hsl(${neonGlassSettings.hue}, 100%, 50%)`,
+                                                            border: '2px solid rgba(255,255,255,0.3)',
+                                                            boxShadow: `0 0 8px hsla(${neonGlassSettings.hue}, 100%, 50%, 0.5)`,
+                                                        }}
+                                                    />
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {neonGlassSettings.hue}°
+                                                    </Typography>
+                                                </Box>
+                                                <Slider
+                                                    value={neonGlassSettings.hue}
+                                                    onChange={(_, value) => updateNeonGlassSetting('hue', value as number)}
+                                                    min={0}
+                                                    max={360}
                                                     sx={{
-                                                        width: 24,
-                                                        height: 24,
-                                                        borderRadius: '50%',
-                                                        backgroundColor: `hsl(${neonGlassSettings.hue}, 100%, 50%)`,
-                                                        border: '2px solid rgba(255,255,255,0.3)',
-                                                        boxShadow: `0 0 8px hsla(${neonGlassSettings.hue}, 100%, 50%, 0.5)`,
+                                                        '& .MuiSlider-track': {
+                                                            background: 'linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)',
+                                                        },
+                                                        '& .MuiSlider-rail': {
+                                                            background: 'linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)',
+                                                            opacity: 0.5,
+                                                        },
                                                     }}
                                                 />
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {neonGlassSettings.hue}°
-                                                </Typography>
                                             </Box>
-                                            <Slider
-                                                value={neonGlassSettings.hue}
-                                                onChange={(_, value) => updateNeonGlassSetting('hue', value as number)}
-                                                min={0}
-                                                max={360}
-                                                sx={{
-                                                    '& .MuiSlider-track': {
-                                                        background: 'linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)',
-                                                    },
-                                                    '& .MuiSlider-rail': {
-                                                        background: 'linear-gradient(to right, red, yellow, lime, aqua, blue, magenta, red)',
-                                                        opacity: 0.5,
-                                                    },
-                                                }}
-                                            />
-                                        </Box>
 
-                                        {/* Top Bar Settings */}
-                                        <Box sx={{ mb: 3 }}>
-                                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-                                                顶栏
-                                            </Typography>
-                                            <Grid container spacing={2}>
-                                                <Grid item xs={6}>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        不透明度: {neonGlassSettings.topBar.opacity}%
-                                                    </Typography>
-                                                    <Slider
-                                                        size="small"
-                                                        value={neonGlassSettings.topBar.opacity}
-                                                        onChange={(_, value) => updateNeonGlassSetting('topBar', { ...neonGlassSettings.topBar, opacity: value as number })}
-                                                        min={0}
-                                                        max={100}
-                                                    />
+                                            {/* Top Bar Settings */}
+                                            <Box sx={{ mb: 3 }}>
+                                                <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    顶栏
+                                                </Typography>
+                                                <Grid container spacing={2}>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            不透明度: {neonGlassSettings.topBar.opacity}%
+                                                        </Typography>
+                                                        <Slider
+                                                            size="small"
+                                                            value={neonGlassSettings.topBar.opacity}
+                                                            onChange={(_, value) => updateNeonGlassSetting('topBar', { ...neonGlassSettings.topBar, opacity: value as number })}
+                                                            min={0}
+                                                            max={100}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            模糊度: {neonGlassSettings.topBar.blur}px
+                                                        </Typography>
+                                                        <Slider
+                                                            size="small"
+                                                            value={neonGlassSettings.topBar.blur}
+                                                            onChange={(_, value) => updateNeonGlassSetting('topBar', { ...neonGlassSettings.topBar, blur: value as number })}
+                                                            min={0}
+                                                            max={50}
+                                                        />
+                                                    </Grid>
                                                 </Grid>
-                                                <Grid item xs={6}>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        模糊度: {neonGlassSettings.topBar.blur}px
-                                                    </Typography>
-                                                    <Slider
-                                                        size="small"
-                                                        value={neonGlassSettings.topBar.blur}
-                                                        onChange={(_, value) => updateNeonGlassSetting('topBar', { ...neonGlassSettings.topBar, blur: value as number })}
-                                                        min={0}
-                                                        max={50}
-                                                    />
-                                                </Grid>
-                                            </Grid>
-                                        </Box>
+                                            </Box>
 
-                                        {/* Sidebar Settings */}
-                                        <Box sx={{ mb: 3 }}>
-                                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-                                                侧栏
-                                            </Typography>
-                                            <Grid container spacing={2}>
-                                                <Grid item xs={6}>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        不透明度: {neonGlassSettings.sideBar.opacity}%
-                                                    </Typography>
-                                                    <Slider
-                                                        size="small"
-                                                        value={neonGlassSettings.sideBar.opacity}
-                                                        onChange={(_, value) => updateNeonGlassSetting('sideBar', { ...neonGlassSettings.sideBar, opacity: value as number })}
-                                                        min={0}
-                                                        max={100}
-                                                    />
+                                            {/* Sidebar Settings */}
+                                            <Box sx={{ mb: 3 }}>
+                                                <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    侧栏
+                                                </Typography>
+                                                <Grid container spacing={2}>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            不透明度: {neonGlassSettings.sideBar.opacity}%
+                                                        </Typography>
+                                                        <Slider
+                                                            size="small"
+                                                            value={neonGlassSettings.sideBar.opacity}
+                                                            onChange={(_, value) => updateNeonGlassSetting('sideBar', { ...neonGlassSettings.sideBar, opacity: value as number })}
+                                                            min={0}
+                                                            max={100}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            模糊度: {neonGlassSettings.sideBar.blur}px
+                                                        </Typography>
+                                                        <Slider
+                                                            size="small"
+                                                            value={neonGlassSettings.sideBar.blur}
+                                                            onChange={(_, value) => updateNeonGlassSetting('sideBar', { ...neonGlassSettings.sideBar, blur: value as number })}
+                                                            min={0}
+                                                            max={50}
+                                                        />
+                                                    </Grid>
                                                 </Grid>
-                                                <Grid item xs={6}>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        模糊度: {neonGlassSettings.sideBar.blur}px
-                                                    </Typography>
-                                                    <Slider
-                                                        size="small"
-                                                        value={neonGlassSettings.sideBar.blur}
-                                                        onChange={(_, value) => updateNeonGlassSetting('sideBar', { ...neonGlassSettings.sideBar, blur: value as number })}
-                                                        min={0}
-                                                        max={50}
-                                                    />
-                                                </Grid>
-                                            </Grid>
-                                        </Box>
+                                            </Box>
 
-                                        {/* File Explorer Settings */}
-                                        <Box>
-                                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-                                                文件浏览器背景
-                                            </Typography>
-                                            <Grid container spacing={2}>
-                                                <Grid item xs={6}>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        不透明度: {neonGlassSettings.fileExplorer.opacity}%
-                                                    </Typography>
-                                                    <Slider
-                                                        size="small"
-                                                        value={neonGlassSettings.fileExplorer.opacity}
-                                                        onChange={(_, value) => updateNeonGlassSetting('fileExplorer', { ...neonGlassSettings.fileExplorer, opacity: value as number })}
-                                                        min={0}
-                                                        max={100}
-                                                    />
+                                            {/* File Explorer Settings */}
+                                            <Box>
+                                                <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    文件浏览器背景
+                                                </Typography>
+                                                <Grid container spacing={2}>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            不透明度: {neonGlassSettings.fileExplorer.opacity}%
+                                                        </Typography>
+                                                        <Slider
+                                                            size="small"
+                                                            value={neonGlassSettings.fileExplorer.opacity}
+                                                            onChange={(_, value) => updateNeonGlassSetting('fileExplorer', { ...neonGlassSettings.fileExplorer, opacity: value as number })}
+                                                            min={0}
+                                                            max={100}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            模糊度: {neonGlassSettings.fileExplorer.blur}px
+                                                        </Typography>
+                                                        <Slider
+                                                            size="small"
+                                                            value={neonGlassSettings.fileExplorer.blur}
+                                                            onChange={(_, value) => updateNeonGlassSetting('fileExplorer', { ...neonGlassSettings.fileExplorer, blur: value as number })}
+                                                            min={0}
+                                                            max={50}
+                                                        />
+                                                    </Grid>
                                                 </Grid>
-                                                <Grid item xs={6}>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        模糊度: {neonGlassSettings.fileExplorer.blur}px
-                                                    </Typography>
-                                                    <Slider
-                                                        size="small"
-                                                        value={neonGlassSettings.fileExplorer.blur}
-                                                        onChange={(_, value) => updateNeonGlassSetting('fileExplorer', { ...neonGlassSettings.fileExplorer, blur: value as number })}
-                                                        min={0}
-                                                        max={50}
-                                                    />
-                                                </Grid>
-                                            </Grid>
-                                        </Box>
-                                    </Box>
+                                            </Box>
+                                        </AccordionDetails>
+                                    </Accordion>
                                 )}
                             </Box>
                         </Grid>
