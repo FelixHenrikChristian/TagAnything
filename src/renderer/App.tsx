@@ -440,7 +440,7 @@ const AppContent: React.FC = () => {
             <IconButton
               color="inherit"
               onClick={handleTagDisplayStyleToggle}
-              title={`标签样式: ${tagDisplayStyle === 'original' ? '原始' : '标签库'}`}
+              title={`标签样式: ${tagDisplayStyle === 'original' ? '镂空' : '填充'}`}
             >
               <StyleIcon />
             </IconButton>
