@@ -35,6 +35,10 @@ import {
     VisibilityOff as VisibilityOffIcon,
     LocalOffer as LocalOfferIcon,
     GitHub as GitHubIcon,
+    AspectRatio as AspectRatioIcon,
+    DeleteSweep as DeleteSweepIcon,
+    Autorenew as AutorenewIcon,
+    Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
 interface UpdateState {
@@ -224,24 +228,57 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                     alignItems: 'center',
                                     gap: 1
                                 }}>
-                                    🪟 窗口设置
+                                    <AspectRatioIcon /> 窗口设置
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                    默认窗口大小: 1280 × 960 像素
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    窗口大小会自动保存，下次启动时恢复
-                                </Typography>
-                                <Button
-                                    variant="outlined"
-                                    color="primary"
-                                    onClick={handleResetWindowSize}
-                                    sx={{ textTransform: 'none' }}
-                                >
-                                    重置窗口大小
-                                </Button>
+                                <Box sx={{
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: 'action.hover',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    transition: 'all 0.2s ease-in-out',
+                                    '&:hover': {
+                                        bgcolor: 'action.selected',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    }
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{
+                                            p: 1,
+                                            borderRadius: 1.5,
+                                            bgcolor: 'primary.main',
+                                            color: 'primary.contrastText',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}>
+                                            <RefreshIcon fontSize="small" />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                重置窗口
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                将窗口大小重置为默认值 (1280 × 960)，同时重置缩放等级
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Button
+                                        variant="outlined"
+                                        color="primary"
+                                        size="small"
+                                        onClick={handleResetWindowSize}
+                                        sx={{ textTransform: 'none', borderRadius: 2, px: 2, flexShrink: 0 }}
+                                    >
+                                        重置
+                                    </Button>
+                                </Box>
                             </Box>
                         </Grid>
+
 
                         {/* Theme Settings */}
                         <Grid item xs={12}>
@@ -685,21 +722,59 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                     alignItems: 'center',
                                     gap: 1
                                 }}>
-                                    🗂️ 缓存管理
+                                    <DeleteSweepIcon /> 缓存管理
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    清除所有应用缓存数据，包括视频缩略图、浏览器缓存、应用设置等
-                                </Typography>
-                                <Button
-                                    variant="outlined"
-                                    color="warning"
-                                    onClick={() => setClearCacheConfirmOpen(true)}
-                                    sx={{ textTransform: 'none' }}
-                                >
-                                    清除所有缓存
-                                </Button>
+                                <Box sx={{
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: 'action.hover',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    transition: 'all 0.2s ease-in-out',
+                                    '&:hover': {
+                                        bgcolor: 'action.selected',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    }
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{
+                                            p: 1,
+                                            borderRadius: 1.5,
+                                            bgcolor: 'warning.main',
+                                            color: 'warning.contrastText',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}>
+                                            <DeleteSweepIcon fontSize="small" />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                清除缓存
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                清除视频缩略图、浏览器缓存、位置信息和应用设置等数据
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Button
+                                        variant="outlined"
+                                        color="warning"
+                                        size="small"
+                                        onClick={() => setClearCacheConfirmOpen(true)}
+                                        sx={{ textTransform: 'none', borderRadius: 2, px: 2, flexShrink: 0 }}
+                                    >
+                                        清除
+                                    </Button>
+                                </Box>
                             </Box>
                         </Grid>
+
+
+
 
                         {/* Auto Update Settings */}
                         <Grid item xs={12}>
@@ -719,31 +794,62 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                     alignItems: 'center',
                                     gap: 1
                                 }}>
-                                    🔄 自动更新
+                                    <AutorenewIcon /> 自动更新
                                 </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Box>
-                                        <Typography variant="body2" color="text.primary">
-                                            启动时自动检查更新
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                            应用启动时自动检查是否有新版本可用
-                                        </Typography>
+
+                                {/* Auto check toggle card */}
+                                <Box sx={{
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: 'action.hover',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    mb: 2,
+                                    transition: 'all 0.2s ease-in-out',
+                                    '&:hover': {
+                                        bgcolor: 'action.selected',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    }
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Box sx={{
+                                                p: 1,
+                                                borderRadius: 1.5,
+                                                bgcolor: 'success.main',
+                                                color: 'success.contrastText',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}>
+                                                <AutorenewIcon fontSize="small" />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                    自动检查
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                    应用启动时自动检查是否有新版本可用
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Switch
+                                            checked={autoUpdateEnabled}
+                                            onChange={(e) => handleAutoUpdateToggle(e.target.checked)}
+                                            color="primary"
+                                        />
                                     </Box>
-                                    <Switch
-                                        checked={autoUpdateEnabled}
-                                        onChange={(e) => handleAutoUpdateToggle(e.target.checked)}
-                                        color="primary"
-                                    />
                                 </Box>
 
-                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                {/* Update action buttons */}
+                                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                                     <Button
                                         variant="outlined"
                                         color="primary"
+                                        size="small"
                                         onClick={handleCheckForUpdates}
                                         disabled={checkingForUpdates}
-                                        sx={{ textTransform: 'none' }}
+                                        sx={{ textTransform: 'none', borderRadius: 2, px: 2 }}
                                     >
                                         {checkingForUpdates ? '检查中...' : '手动检查更新'}
                                     </Button>
@@ -752,10 +858,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                         <Button
                                             variant="contained"
                                             color="primary"
+                                            size="small"
                                             onClick={handleDownloadUpdate}
                                             disabled={updateDownloading}
-                                            startIcon={updateDownloading ? <CircularProgress size={16} /> : <DownloadIcon />}
-                                            sx={{ textTransform: 'none' }}
+                                            startIcon={updateDownloading ? <CircularProgress size={14} /> : <DownloadIcon />}
+                                            sx={{ textTransform: 'none', borderRadius: 2, px: 2 }}
                                         >
                                             {updateDownloading ? `下载中 ${Math.round(updateProgress)}%` : '下载更新'}
                                         </Button>
@@ -765,9 +872,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                         <Button
                                             variant="contained"
                                             color="success"
+                                            size="small"
                                             onClick={handleInstallUpdate}
                                             startIcon={<UpdateIcon />}
-                                            sx={{ textTransform: 'none' }}
+                                            sx={{ textTransform: 'none', borderRadius: 2, px: 2 }}
                                         >
                                             安装并重启
                                         </Button>
@@ -776,20 +884,25 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
                                 {updateDownloading && (
                                     <Box sx={{ mt: 2 }}>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                                             下载进度: {Math.round(updateProgress)}%
                                         </Typography>
-                                        <LinearProgress variant="determinate" value={updateProgress} />
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={updateProgress}
+                                            sx={{ borderRadius: 1, height: 6 }}
+                                        />
                                     </Box>
                                 )}
 
                                 {updateError && (
-                                    <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                                    <Typography variant="caption" color="error" sx={{ mt: 1.5, display: 'block' }}>
                                         {updateError}
                                     </Typography>
                                 )}
                             </Box>
                         </Grid>
+
 
                         {/* About */}
                         <Grid item xs={12}>
