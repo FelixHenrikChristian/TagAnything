@@ -198,7 +198,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
                 {/* Left Side: Search and Active Filters */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Search Input with recursive mode toggle in search icon */}
+                    {/* Unified Search/Filter Input */}
                     <TextField
                         size="small"
                         placeholder="搜索文件..."
@@ -209,17 +209,22 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                             setIsComposing(false);
                             handleFilenameSearch((e.target as HTMLInputElement).value);
                         }}
-                        sx={{ width: 300 }}
+                        sx={{
+                            width: 350,
+                            '& .MuiOutlinedInput-root': {
+                                paddingLeft: 0.5,
+                            }
+                        }}
                         InputProps={{
                             startAdornment: (
-                                <InputAdornment position="start">
+                                <InputAdornment position="start" sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                                    {/* Recursive Mode Toggle (Search Icon) */}
                                     <Tooltip title={filterState.isRecursive ? "递归查询（包含子目录）" : "普通查询（仅当前目录）"}>
                                         <IconButton
                                             size="small"
                                             onClick={() => setRecursiveMode(!filterState.isRecursive)}
                                             sx={{
                                                 p: 0.5,
-                                                ml: -0.5,
                                                 transition: 'all 0.2s',
                                                 '&:hover': {
                                                     bgcolor: 'action.hover',
@@ -229,48 +234,73 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                                             {filterState.isRecursive ? <TravelExploreIcon fontSize="small" /> : <SearchIcon fontSize="small" />}
                                         </IconButton>
                                     </Tooltip>
+
+                                    {/* Vertical Divider */}
+                                    <Box sx={{
+                                        width: '1px',
+                                        height: 24,
+                                        bgcolor: 'text.disabled',
+                                        mx: 0.75,
+                                        opacity: 0.6,
+                                    }} />
+
+                                    {/* Filter Button */}
+                                    <Tooltip title="标签筛选">
+                                        <IconButton
+                                            size="small"
+                                            onClick={handleOpenFilterPopover}
+                                            color={filterState.tagFilter ? 'primary' : 'default'}
+                                            sx={{
+                                                p: 0.5,
+                                                transition: 'all 0.2s',
+                                                '&:hover': {
+                                                    bgcolor: 'action.hover',
+                                                },
+                                            }}
+                                        >
+                                            <FilterListIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+
+                                    {/* Selected Tags Display (when filtering) */}
+                                    {filterState.tagFilter && filterState.tagFilter.tagIds.length > 0 && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.5 }}>
+                                            {filterState.tagFilter.tagIds.length === 1 ? (
+                                                <Chip
+                                                    label={filterState.tagFilter.tagNames?.[0] || filterState.tagFilter.tagIds[0]}
+                                                    onDelete={() => clearTagFilter()}
+                                                    size="small"
+                                                    sx={{
+                                                        height: 22,
+                                                        '& .MuiChip-label': { px: 1, fontSize: '0.75rem' },
+                                                        '& .MuiChip-deleteIcon': { fontSize: '1rem' },
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Chip
+                                                    label={`${filterState.tagFilter.tagIds.length}个标签`}
+                                                    onDelete={() => clearTagFilter()}
+                                                    size="small"
+                                                    sx={{
+                                                        height: 22,
+                                                        '& .MuiChip-label': { px: 1, fontSize: '0.75rem' },
+                                                        '& .MuiChip-deleteIcon': { fontSize: '1rem' },
+                                                    }}
+                                                />
+                                            )}
+                                        </Box>
+                                    )}
                                 </InputAdornment>
                             ),
-                            endAdornment: searchQuery && (
+                            endAdornment: (searchQuery || filterState.tagFilter) && (
                                 <InputAdornment position="end">
-                                    <IconButton size="small" onClick={handleClearSearch}>
+                                    <IconButton size="small" onClick={handleClearAllFilters}>
                                         <ClearIcon fontSize="small" />
                                     </IconButton>
                                 </InputAdornment>
                             ),
                         }}
                     />
-
-                    {/* Multi-Tag Filter Button */}
-                    <Tooltip title="多标签筛选">
-                        <IconButton
-                            size="small"
-                            onClick={handleOpenFilterPopover}
-                            color={(filterState.tagFilter && filterState.tagFilter.tagIds.length > 1) ? 'primary' : 'default'}
-                        >
-                            <FilterListIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-
-                    {/* Active Filter Chips */}
-                    {filterState.tagFilter && filterState.tagFilter.tagIds.length === 1 && (
-                        <Chip
-                            label={`标签: ${filterState.tagFilter.tagNames?.[0] || filterState.tagFilter.tagIds[0]}`}
-                            onDelete={handleClearAllFilters}
-                            color="primary"
-                            size="small"
-                            icon={<FilterListIcon />}
-                        />
-                    )}
-                    {filterState.tagFilter && filterState.tagFilter.tagIds.length > 1 && (
-                        <Chip
-                            label={`多标签 (${filterState.tagFilter.tagIds.length})`}
-                            onDelete={handleClearAllFilters}
-                            color="primary"
-                            size="small"
-                            icon={<FilterListIcon />}
-                        />
-                    )}
                 </Box>
 
                 {/* Right Side: View Controls */}
