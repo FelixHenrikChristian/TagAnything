@@ -29,6 +29,12 @@ import {
     SystemUpdate as UpdateIcon,
     FolderOpen as FolderOpenIcon,
     Palette as PaletteIcon,
+    Folder as FolderIcon,
+    Translate as TranslateIcon,
+    DriveFileMove as DriveFolderMoveIcon,
+    VisibilityOff as VisibilityOffIcon,
+    LocalOffer as LocalOfferIcon,
+    GitHub as GitHubIcon,
 } from '@mui/icons-material';
 
 interface UpdateState {
@@ -477,70 +483,189 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                     alignItems: 'center',
                                     gap: 1
                                 }}>
-                                    📁 显示设置
+                                    <FolderIcon /> 显示设置
                                 </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <Box>
-                                        <Typography variant="body2" color="text.primary">
-                                            在文件夹图标内显示名称
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                            启用后，文件夹图标内会叠加显示文件夹名称
-                                        </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                    {/* Card 1: Show folder name in icon */}
+                                    <Box sx={{
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: 'action.hover',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            bgcolor: 'action.selected',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        }
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                                                <Box sx={{
+                                                    p: 1,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: 'primary.main',
+                                                    color: 'primary.contrastText',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <FolderIcon fontSize="small" />
+                                                </Box>
+                                                <Box sx={{ minWidth: 0 }}>
+                                                    <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                        文件夹名称叠加
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                        在文件夹图标内叠加显示文件夹名称，便于快速识别
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            <Switch
+                                                checked={displaySettings.showFolderNameInIcon}
+                                                onChange={(e) => updateDisplaySetting('showFolderNameInIcon', e.target.checked)}
+                                                color="primary"
+                                            />
+                                        </Box>
                                     </Box>
-                                    <Switch
-                                        checked={displaySettings.showFolderNameInIcon}
-                                        onChange={(e) => updateDisplaySetting('showFolderNameInIcon', e.target.checked)}
-                                        color="primary"
-                                    />
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
-                                    <Box>
-                                        <Typography variant="body2" color="text.primary">
-                                            搜索时简繁共通
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                            搜索简体字可匹配繁体字，反之亦然
-                                        </Typography>
+
+                                    {/* Card 2: Simplified/Traditional Chinese search */}
+                                    <Box sx={{
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: 'action.hover',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            bgcolor: 'action.selected',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        }
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                                                <Box sx={{
+                                                    p: 1,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: 'secondary.main',
+                                                    color: 'secondary.contrastText',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <TranslateIcon fontSize="small" />
+                                                </Box>
+                                                <Box sx={{ minWidth: 0 }}>
+                                                    <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                        简繁共通搜索
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                        搜索时简体字可匹配繁体字，繁体字也可匹配简体字
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            <Switch
+                                                checked={displaySettings.enableSimplifiedTraditionalSearch}
+                                                onChange={(e) => updateDisplaySetting('enableSimplifiedTraditionalSearch', e.target.checked)}
+                                                color="primary"
+                                            />
+                                        </Box>
                                     </Box>
-                                    <Switch
-                                        checked={displaySettings.enableSimplifiedTraditionalSearch}
-                                        onChange={(e) => updateDisplaySetting('enableSimplifiedTraditionalSearch', e.target.checked)}
-                                        color="primary"
-                                    />
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
-                                    <Box>
-                                        <Typography variant="body2" color="text.primary">
-                                            操作后导航到目标目录
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                            移动/复制文件后自动导航到目标目录并选中文件
-                                        </Typography>
+
+                                    {/* Card 3: Navigate to target after operation */}
+                                    <Box sx={{
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: 'action.hover',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            bgcolor: 'action.selected',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        }
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                                                <Box sx={{
+                                                    p: 1,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: 'success.main',
+                                                    color: 'success.contrastText',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <DriveFolderMoveIcon fontSize="small" />
+                                                </Box>
+                                                <Box sx={{ minWidth: 0 }}>
+                                                    <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                        自动跳转
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                        移动或复制文件后，自动导航到目标目录并选中文件
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            <Switch
+                                                checked={displaySettings.navigateToTargetAfterOperation}
+                                                onChange={(e) => updateDisplaySetting('navigateToTargetAfterOperation', e.target.checked)}
+                                                color="primary"
+                                            />
+                                        </Box>
                                     </Box>
-                                    <Switch
-                                        checked={displaySettings.navigateToTargetAfterOperation}
-                                        onChange={(e) => updateDisplaySetting('navigateToTargetAfterOperation', e.target.checked)}
-                                        color="primary"
-                                    />
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
-                                    <Box>
-                                        <Typography variant="body2" color="text.primary">
-                                            隐藏文件后缀名
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                            开启后，文件卡片仅显示名称，重命名时也仅修改前缀
-                                        </Typography>
+
+                                    {/* Card 4: Hide file extension */}
+                                    <Box sx={{
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: 'action.hover',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            bgcolor: 'action.selected',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        }
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                                                <Box sx={{
+                                                    p: 1,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: 'warning.main',
+                                                    color: 'warning.contrastText',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <VisibilityOffIcon fontSize="small" />
+                                                </Box>
+                                                <Box sx={{ minWidth: 0 }}>
+                                                    <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                        隐藏后缀名
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                        文件卡片仅显示文件名，重命名时也仅修改名称部分
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            <Switch
+                                                checked={displaySettings.hideFileExtension === true}
+                                                onChange={(e) => updateDisplaySetting('hideFileExtension', e.target.checked)}
+                                                color="primary"
+                                            />
+                                        </Box>
                                     </Box>
-                                    <Switch
-                                        checked={displaySettings.hideFileExtension === true}
-                                        onChange={(e) => updateDisplaySetting('hideFileExtension', e.target.checked)}
-                                        color="primary"
-                                    />
                                 </Box>
                             </Box>
                         </Grid>
+
+
 
                         {/* Cache Management */}
                         <Grid item xs={12}>
@@ -669,36 +794,85 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                         {/* About */}
                         <Grid item xs={12}>
                             <Box sx={{
-                                p: 3,
+                                p: 4,
                                 border: '1px solid',
                                 borderColor: 'divider',
                                 borderRadius: 2,
-                                bgcolor: 'background.paper',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(156, 39, 176, 0.05) 100%)',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                textAlign: 'center',
                             }}>
-                                <Typography variant="h6" sx={{
-                                    mb: 2,
-                                    color: 'info.main',
-                                    fontWeight: 600,
+                                {/* Logo */}
+                                <Box sx={{
                                     display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 1
+                                    justifyContent: 'center',
+                                    mb: 2
                                 }}>
-                                    ℹ️ 关于
-                                </Typography>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                    <Typography variant="body2" color="text.primary">
-                                        <strong>TagAnything</strong>
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        版本: {appVersion}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        一个功能强大的标签管理工具
-                                    </Typography>
+                                    <Box sx={{
+                                        p: 2,
+                                        borderRadius: 3,
+                                        background: 'linear-gradient(135deg, #1976d2 0%, #9c27b0 100%)',
+                                        color: 'white',
+                                        boxShadow: '0 4px 20px rgba(25, 118, 210, 0.4)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}>
+                                        <LocalOfferIcon sx={{ fontSize: 40 }} />
+                                    </Box>
                                 </Box>
+
+                                {/* App Name */}
+                                <Typography variant="h5" sx={{
+                                    fontWeight: 700,
+                                    background: 'linear-gradient(135deg, #1976d2 0%, #9c27b0 100%)',
+                                    backgroundClip: 'text',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    mb: 1,
+                                }}>
+                                    TagAnything
+                                </Typography>
+
+                                {/* Version */}
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                    版本 {appVersion}
+                                </Typography>
+
+                                {/* Description */}
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 280, mx: 'auto' }}>
+                                    一个功能强大的文件标签管理工具，让您轻松组织和查找文件
+                                </Typography>
+
+                                {/* GitHub Button */}
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<GitHubIcon />}
+                                    onClick={() => window.electron.openExternal('https://github.com/FelixChristian011226/TagAnything')}
+                                    sx={{
+                                        textTransform: 'none',
+                                        borderRadius: 2,
+                                        px: 2,
+                                        borderColor: 'divider',
+                                        color: 'text.secondary',
+                                        '&:hover': {
+                                            borderColor: 'primary.main',
+                                            color: 'primary.main',
+                                            bgcolor: 'action.hover',
+                                        }
+                                    }}
+                                >
+                                    GitHub
+                                </Button>
+
+                                {/* Copyright */}
+                                <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 2 }}>
+                                    © 2024-2025 FelixChristian
+                                </Typography>
                             </Box>
                         </Grid>
+
                     </Grid>
                 </DialogContent>
                 <DialogActions>
