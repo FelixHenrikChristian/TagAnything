@@ -24,12 +24,11 @@ import {
     ViewList as ListViewIcon,
     FilterList as FilterListIcon,
     Search as SearchIcon,
+    TravelExplore as TravelExploreIcon,
     Clear as ClearIcon,
     ArrowBack as ArrowBackIcon,
     ArrowForward as ArrowForwardIcon,
     ArrowUpward as ArrowUpwardIcon,
-    Public as PublicIcon,
-    Folder as FolderIcon,
 } from '@mui/icons-material';
 import { Location, TagGroup } from '../../types';
 import { SortType, SortDirection, FilterState, TagFilter } from './types';
@@ -199,7 +198,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
                 {/* Left Side: Search and Active Filters */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Search Input */}
+                    {/* Search Input with recursive mode toggle in search icon */}
                     <TextField
                         size="small"
                         placeholder="搜索文件..."
@@ -214,7 +213,22 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <SearchIcon fontSize="small" />
+                                    <Tooltip title={filterState.isRecursive ? "递归查询（包含子目录）" : "普通查询（仅当前目录）"}>
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => setRecursiveMode(!filterState.isRecursive)}
+                                            sx={{
+                                                p: 0.5,
+                                                ml: -0.5,
+                                                transition: 'all 0.2s',
+                                                '&:hover': {
+                                                    bgcolor: 'action.hover',
+                                                },
+                                            }}
+                                        >
+                                            {filterState.isRecursive ? <TravelExploreIcon fontSize="small" /> : <SearchIcon fontSize="small" />}
+                                        </IconButton>
+                                    </Tooltip>
                                 </InputAdornment>
                             ),
                             endAdornment: searchQuery && (
@@ -226,23 +240,6 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
                             ),
                         }}
                     />
-
-                    {/* Recursive Search Toggle */}
-                    <Tooltip title={filterState.isRecursive ? "包含子目录" : "仅当前目录"}>
-                        <IconButton
-                            size="small"
-                            onClick={() => setRecursiveMode(!filterState.isRecursive)}
-                            color={filterState.isRecursive ? 'primary' : 'default'}
-                            sx={{
-                                transition: 'all 0.2s',
-                                '&:hover': {
-                                    bgcolor: filterState.isRecursive ? 'primary.light' : 'action.hover',
-                                },
-                            }}
-                        >
-                            {filterState.isRecursive ? <PublicIcon fontSize="small" /> : <FolderIcon fontSize="small" />}
-                        </IconButton>
-                    </Tooltip>
 
                     {/* Multi-Tag Filter Button */}
                     <Tooltip title="多标签筛选">
