@@ -320,47 +320,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                 </FormControl>
 
                                 {currentTheme === 'neon-glass' && (
-                                    <Box sx={{ mt: 2 }}>
-                                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                            背景图片
-                                        </Typography>
-                                        <Grid container spacing={2} alignItems="center">
-                                            <Grid item xs={9}>
-                                                <TextField
-                                                    fullWidth
-                                                    size="small"
-                                                    value={backgroundImage || ''}
-                                                    placeholder="请选择背景图片..."
-                                                    InputProps={{
-                                                        readOnly: true,
-                                                        endAdornment: backgroundImage ? (
-                                                            <InputAdornment position="end">
-                                                                <IconButton size="small" onClick={handleClearBackgroundImage}>
-                                                                    ❌
-                                                                </IconButton>
-                                                            </InputAdornment>
-                                                        ) : null
-                                                    }}
-                                                />
-                                            </Grid>
-                                            <Grid item xs={3}>
-                                                <Button
-                                                    variant="outlined"
-                                                    startIcon={<FolderOpenIcon />}
-                                                    onClick={handleSelectBackgroundImage}
-                                                    fullWidth
-                                                >
-                                                    选择
-                                                </Button>
-                                            </Grid>
-                                        </Grid>
-                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                            提示：选择一张本地图片作为毛玻璃效果的背景底图。
-                                        </Typography>
-                                    </Box>
-                                )}
-
-                                {currentTheme === 'neon-glass' && (
                                     <Accordion
                                         sx={{
                                             mt: 2,
@@ -384,13 +343,54 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                         >
                                             <TuneIcon fontSize="small" color="secondary" />
                                             <Typography variant="body2" fontWeight={600}>
-                                                主题自定义
+                                                主题配置
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
                                                 点击展开高级设置
                                             </Typography>
                                         </AccordionSummary>
                                         <AccordionDetails sx={{ pt: 0 }}>
+                                            {/* Background Image */}
+                                            <Box sx={{ mb: 3 }}>
+                                                <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    背景图片
+                                                </Typography>
+                                                <Grid container spacing={2} alignItems="center">
+                                                    <Grid item xs={9}>
+                                                        <TextField
+                                                            fullWidth
+                                                            size="small"
+                                                            value={backgroundImage || ''}
+                                                            placeholder="请选择背景图片..."
+                                                            InputProps={{
+                                                                readOnly: true,
+                                                                endAdornment: backgroundImage ? (
+                                                                    <InputAdornment position="end">
+                                                                        <IconButton size="small" onClick={handleClearBackgroundImage}>
+                                                                            ❌
+                                                                        </IconButton>
+                                                                    </InputAdornment>
+                                                                ) : null
+                                                            }}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={3}>
+                                                        <Button
+                                                            variant="outlined"
+                                                            startIcon={<FolderOpenIcon />}
+                                                            onClick={handleSelectBackgroundImage}
+                                                            fullWidth
+                                                            size="small"
+                                                        >
+                                                            选择
+                                                        </Button>
+                                                    </Grid>
+                                                </Grid>
+                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                                    提示：选择一张本地图片作为毛玻璃效果的背景底图。
+                                                </Typography>
+                                            </Box>
+
                                             {/* Hue Control */}
                                             <Box sx={{ mb: 3 }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
