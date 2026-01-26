@@ -44,6 +44,7 @@ import {
     Refresh as RefreshIcon,
     ExpandMore as ExpandMoreIcon,
     Tune as TuneIcon,
+    AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 
 interface UpdateState {
@@ -724,6 +725,50 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
                                             <Switch
                                                 checked={displaySettings.hideFileExtension === true}
                                                 onChange={(e) => updateDisplaySetting('hideFileExtension', e.target.checked)}
+                                                color="primary"
+                                            />
+                                        </Box>
+                                    </Box>
+
+                                    {/* Card 5: Show parent folder in recursive search */}
+                                    <Box sx={{
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: 'action.hover',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        transition: 'all 0.2s ease-in-out',
+                                        '&:hover': {
+                                            bgcolor: 'action.selected',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        }
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                                                <Box sx={{
+                                                    p: 1,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: 'info.main',
+                                                    color: 'info.contrastText',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <AccountTreeIcon fontSize="small" />
+                                                </Box>
+                                                <Box sx={{ minWidth: 0 }}>
+                                                    <Typography variant="body2" color="text.primary" fontWeight={600}>
+                                                        递归搜索显示路径
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                                        递归搜索或标签筛选时，显示文件所在的父文件夹路径
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            <Switch
+                                                checked={displaySettings.showParentFolderInRecursiveSearch !== false}
+                                                onChange={(e) => updateDisplaySetting('showParentFolderInRecursiveSearch', e.target.checked)}
                                                 color="primary"
                                             />
                                         </Box>

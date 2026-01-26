@@ -37,6 +37,8 @@ interface FileGridProps {
     reorderTagWithinFile: (file: FileItem, oldIndex: number, newIndex: number) => void;
     selectedPaths?: Set<string>;
     onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
+    isRecursiveMode?: boolean;
+    currentPath?: string;
 }
 
 const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
@@ -132,6 +134,9 @@ const FileCard = ({
     showFolderNameInIcon,
     showFileExtension,
     currentTheme,
+    isRecursiveMode,
+    currentPath,
+    showParentFolder,
 }: {
     file: FileItem;
     handleNavigate: (path: string) => void;
@@ -152,6 +157,9 @@ const FileCard = ({
     showFolderNameInIcon?: boolean;
     showFileExtension?: boolean;
     currentTheme?: string;
+    isRecursiveMode?: boolean;
+    currentPath?: string;
+    showParentFolder?: boolean;
 }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: file.path,
@@ -377,6 +385,55 @@ const FileCard = ({
                         );
                     }
                 })()}
+
+                {/* Parent folder path overlay in recursive mode - bottom left */}
+                {isRecursiveMode && showParentFolder && !file.isDirectory && (() => {
+                    const fileDirPath = file.path.replace(/[/\\][^/\\]+$/, '');
+                    const relativePath = currentPath && fileDirPath.startsWith(currentPath) 
+                        ? fileDirPath.substring(currentPath.length).replace(/^[/\\]/, '')
+                        : fileDirPath.split(/[/\\]/).slice(-2, -1).join('') || fileDirPath.split(/[/\\]/).pop() || '';
+                    
+                    return relativePath ? (
+                        <Box
+                            sx={{
+                                position: 'absolute',
+                                bottom: 4,
+                                left: 4,
+                                maxWidth: 'calc(100% - 8px)',
+                                zIndex: 2,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.25,
+                                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                                borderRadius: '4px',
+                                px: 0.5,
+                                py: 0.25,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                    backgroundColor: 'rgba(33, 150, 243, 0.7)',
+                                }
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleNavigate(fileDirPath);
+                            }}
+                        >
+                            <FolderIcon sx={{ fontSize: '0.65rem', color: '#ffa726', flexShrink: 0 }} />
+                            <Typography
+                                sx={{
+                                    color: '#fff',
+                                    fontSize: '0.6rem',
+                                    lineHeight: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {relativePath}
+                            </Typography>
+                        </Box>
+                    ) : null;
+                })()}
             </Box>
 
             {/* File Info */}
@@ -465,6 +522,8 @@ export const FileGrid: React.FC<FileGridProps> = ({
     reorderTagWithinFile,
     selectedPaths,
     onFileClick,
+    isRecursiveMode,
+    currentPath,
 }) => {
     const { displaySettings, currentTheme } = useAppTheme();
 
@@ -526,6 +585,9 @@ export const FileGrid: React.FC<FileGridProps> = ({
                     showFolderNameInIcon={displaySettings.showFolderNameInIcon}
                     showFileExtension={!displaySettings.hideFileExtension}
                     currentTheme={currentTheme}
+                    isRecursiveMode={isRecursiveMode}
+                    currentPath={currentPath}
+                    showParentFolder={displaySettings.showParentFolderInRecursiveSearch !== false}
                 />
             ))}
         </Box>

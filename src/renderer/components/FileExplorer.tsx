@@ -613,6 +613,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             tagDisplayStyle={tagDisplayStyle}
             selectedPaths={selectedPaths}
             onFileClick={handleFileClick}
+            isRecursiveMode={filterState.isRecursive && isFiltering}
+            currentPath={currentPath}
           />
         ) : (
           <FileGrid
@@ -629,6 +631,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             reorderTagWithinFile={reorderTagWithinFile}
             selectedPaths={selectedPaths}
             onFileClick={handleFileClick}
+            isRecursiveMode={filterState.isRecursive && isFiltering}
+            currentPath={currentPath}
           />
         )}
       </Box>

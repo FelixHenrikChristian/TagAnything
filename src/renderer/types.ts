@@ -53,6 +53,8 @@ export interface DisplaySettings {
     navigateToTargetAfterOperation: boolean;
     // 隐藏文件后缀名
     hideFileExtension: boolean;
+    // 递归搜索时显示父文件夹路径
+    showParentFolderInRecursiveSearch: boolean;
 }
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
@@ -60,6 +62,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     enableSimplifiedTraditionalSearch: false,
     navigateToTargetAfterOperation: false,
     hideFileExtension: false,
+    showParentFolderInRecursiveSearch: true,
 };
 
 export interface Tag {

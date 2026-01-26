@@ -28,6 +28,8 @@ interface FileListProps {
     tagDisplayStyle: 'original' | 'library';
     selectedPaths?: Set<string>;
     onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
+    isRecursiveMode?: boolean;
+    currentPath?: string;
 }
 
 export const FileList: React.FC<FileListProps> = ({
@@ -41,9 +43,21 @@ export const FileList: React.FC<FileListProps> = ({
     tagDisplayStyle,
     selectedPaths,
     onFileClick,
+    isRecursiveMode,
+    currentPath,
 }) => {
     const { displaySettings, currentTheme } = useAppTheme();
     const toFileUrl = (p: string) => 'file:///' + p.replace(/\\/g, '/');
+    
+    // Helper to get relative parent folder path
+    const getRelativeParentPath = (filePath: string): { relativePath: string; fullPath: string } | null => {
+        const fileDirPath = filePath.replace(/[/\\][^/\\]+$/, '');
+        const relativePath = currentPath && fileDirPath.startsWith(currentPath)
+            ? fileDirPath.substring(currentPath.length).replace(/^[/\\]/, '')
+            : fileDirPath.split(/[/\\]/).slice(-2, -1).join('') || fileDirPath.split(/[/\\]/).pop() || '';
+        
+        return relativePath ? { relativePath, fullPath: fileDirPath } : null;
+    };
 
     const getTagStyle = (tag: Tag) => {
         if (tag.groupId === 'temporary') {
@@ -220,6 +234,37 @@ export const FileList: React.FC<FileListProps> = ({
                                     {file.isDirectory ? file.name : (displaySettings.hideFileExtension ? getDisplayNameWithoutExtension(file.name) : getDisplayName(file.name))}
                                 </Typography>
                             </Tooltip>
+
+                            {/* 父文件夹路径（递归模式） */}
+                            {isRecursiveMode && displaySettings.showParentFolderInRecursiveSearch !== false && !file.isDirectory && (() => {
+                                const parentInfo = getRelativeParentPath(file.path);
+                                return parentInfo ? (
+                                    <Tooltip title={parentInfo.fullPath} placement="top" arrow>
+                                        <Typography
+                                            sx={{
+                                                fontSize: '0.75rem',
+                                                color: 'text.secondary',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                cursor: 'pointer',
+                                                lineHeight: 1.2,
+                                                opacity: 0.8,
+                                                '&:hover': {
+                                                    color: 'primary.main',
+                                                    opacity: 1,
+                                                }
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleNavigate(parentInfo.fullPath);
+                                            }}
+                                        >
+                                            📁 {parentInfo.relativePath}
+                                        </Typography>
+                                    </Tooltip>
+                                ) : null;
+                            })()}
 
                             {/* 元信息行：扩展名、大小、修改时间 */}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
