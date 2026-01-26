@@ -449,7 +449,7 @@ const FileCard = ({
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0, width: '100%', mt: file.isDirectory ? 'auto' : 0 }}>
 
-                    <Tooltip title={file.name} placement="top" arrow>
+                    <Tooltip title={file.name} placement="bottom" arrow>
                         <Typography
                             variant="body2"
                             sx={{
