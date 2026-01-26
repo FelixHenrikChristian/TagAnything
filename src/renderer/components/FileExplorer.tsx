@@ -122,7 +122,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     const state = goBack();
     if (state) {
       await navigateTo(state.path);
-      restoreFilterState(state.filterState);
+      // Pass targetPath to restoreFilterState to handle async state updates correctly
+      restoreFilterState(state.filterState, state.path);
       finishNavigation();
     }
   }, [goBack, navigateTo, restoreFilterState, finishNavigation]);
@@ -132,7 +133,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     const state = goForward();
     if (state) {
       await navigateTo(state.path);
-      restoreFilterState(state.filterState);
+      // Pass targetPath to restoreFilterState to handle async state updates correctly
+      restoreFilterState(state.filterState, state.path);
       finishNavigation();
     }
   }, [goForward, navigateTo, restoreFilterState, finishNavigation]);

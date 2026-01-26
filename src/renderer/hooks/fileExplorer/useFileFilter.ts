@@ -61,6 +61,9 @@ export const useFileFilter = (
     // Ref to track if we're currently processing
     const isProcessing = useRef(false);
 
+    // Ref to store pending filter restore for delayed execution (non-recursive search)
+    const pendingRestoreRef = useRef<{ filterState: FilterState; targetPath: string } | null>(null);
+
     /**
      * Extract filename without tags for sorting
      * Example: "[A B] name.png" -> "name.png"
@@ -273,8 +276,12 @@ export const useFileFilter = (
 
     /**
      * Perform global filename search (recursive)
+     * @param query - Search query string
+     * @param requestId - Request ID for race condition prevention
+     * @param rootPath - Optional root path to search from (defaults to currentPath)
      */
-    const performGlobalFilenameSearch = useCallback(async (query: string, requestId: number) => {
+    const performGlobalFilenameSearch = useCallback(async (query: string, requestId: number, rootPath?: string) => {
+        const searchPath = rootPath || currentPath;
         try {
             if (requestId !== filterRequestRef.current) return;
             if (!query || query.trim() === '') {
@@ -287,11 +294,11 @@ export const useFileFilter = (
             setIsFiltering(true);
             setIsSearching(true);
 
-            console.log('🌐 开始递归文件名搜索 (IPC):', { query, currentPath, requestId });
+            console.log('🌐 开始递归文件名搜索 (IPC):', { query, searchPath, requestId });
 
-            // Perform IPC search from current directory
+            // Perform IPC search from specified path
             const { files: resultFiles, fileTags: resultTags } = await window.electron.searchFiles({
-                rootPath: currentPath,
+                rootPath: searchPath,
                 tagGroups: getEffectiveTagGroups(),
                 query: query,
                 enableSimplifiedTraditionalSearch: displaySettings.enableSimplifiedTraditionalSearch
@@ -586,9 +593,12 @@ export const useFileFilter = (
     /**
      * Restore filter state from a history entry.
      * Used when navigating back/forward in history.
+     * @param state - The filter state to restore
+     * @param targetPath - Optional target path (used when navigating, as currentPath may not be updated yet)
      */
-    const restoreFilterState = useCallback((state: FilterState) => {
-        console.log('🔄 恢复筛选状态:', state);
+    const restoreFilterState = useCallback((state: FilterState, targetPath?: string) => {
+        const pathToUse = targetPath || currentPath;
+        console.log('🔄 恢复筛选状态:', state, '目标路径:', pathToUse, '当前路径:', currentPath);
 
         // Clear timers first
         if (searchDebounceTimer.current) {
@@ -609,9 +619,18 @@ export const useFileFilter = (
         if (state.tagFilter) {
             setIsFiltering(true);
             if (state.isRecursive) {
-                performRecursiveSearch(state.tagFilter.tagIds, currentPath, requestId, state.nameFilterQuery);
+                // Recursive search: use targetPath directly (doesn't depend on current files)
+                performRecursiveSearch(state.tagFilter.tagIds, pathToUse, requestId, state.nameFilterQuery);
             } else {
-                performCurrentDirectorySearch(state.tagFilter.tagIds, requestId, state.nameFilterQuery);
+                // Non-recursive search: depends on files which may not be loaded yet
+                // If currentPath doesn't match targetPath, we need to wait for files to load
+                if (targetPath && currentPath !== targetPath) {
+                    console.log('⏳ 延迟非递归搜索恢复，等待文件加载...');
+                    pendingRestoreRef.current = { filterState: state, targetPath };
+                    // The useEffect below will handle the actual search once files are loaded
+                } else {
+                    performCurrentDirectorySearch(state.tagFilter.tagIds, requestId, state.nameFilterQuery);
+                }
             }
 
             // Dispatch event for AppBar sync
@@ -620,12 +639,19 @@ export const useFileFilter = (
         } else if (state.nameFilterQuery) {
             if (state.isRecursive) {
                 setIsFiltering(true);
-                performGlobalFilenameSearch(state.nameFilterQuery, requestId);
+                // Recursive search: use targetPath directly
+                performGlobalFilenameSearch(state.nameFilterQuery, requestId, pathToUse);
             } else {
-                setIsFiltering(true);
-                const result = filterByFilename(files, state.nameFilterQuery);
-                const sorted = sortFiles(result);
-                setFilterResultFiles(sorted);
+                // Non-recursive search: depends on files
+                if (targetPath && currentPath !== targetPath) {
+                    console.log('⏳ 延迟非递归文件名搜索恢复，等待文件加载...');
+                    pendingRestoreRef.current = { filterState: state, targetPath };
+                } else {
+                    setIsFiltering(true);
+                    const result = filterByFilename(files, state.nameFilterQuery);
+                    const sorted = sortFiles(result);
+                    setFilterResultFiles(sorted);
+                }
             }
 
             // Dispatch event for AppBar sync
@@ -633,7 +659,7 @@ export const useFileFilter = (
                 type: 'filename',
                 query: state.nameFilterQuery,
                 timestamp: Date.now(),
-                currentPath,
+                currentPath: pathToUse,
             };
             window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
 
@@ -643,17 +669,52 @@ export const useFileFilter = (
             setIsSearching(false);
             setFilterResultFiles([]);
 
+            // Clear any pending restore
+            pendingRestoreRef.current = null;
+
             // Dispatch clear event
             const detail: FilenameSearchFilter = {
                 type: 'filename',
                 query: '',
                 timestamp: Date.now(),
-                currentPath,
+                currentPath: pathToUse,
                 clearAll: true,
             };
             window.dispatchEvent(new CustomEvent('filenameSearch', { detail }));
         }
     }, [currentPath, files, filterByFilename, sortFiles, performRecursiveSearch, performCurrentDirectorySearch, performGlobalFilenameSearch]);
+
+    /**
+     * Handle pending filter restore when files are loaded.
+     * This is needed for non-recursive search when navigating back/forward.
+     */
+    useEffect(() => {
+        const pending = pendingRestoreRef.current;
+        if (!pending) return;
+
+        // Check if currentPath matches the targetPath (files should be loaded for this path)
+        if (currentPath === pending.targetPath) {
+            console.log('✅ 执行延迟的筛选恢复:', pending.filterState);
+            
+            // Clear pending restore first to prevent re-execution
+            pendingRestoreRef.current = null;
+
+            const requestId = Date.now();
+            filterRequestRef.current = requestId;
+
+            const state = pending.filterState;
+
+            if (state.tagFilter) {
+                setIsFiltering(true);
+                performCurrentDirectorySearch(state.tagFilter.tagIds, requestId, state.nameFilterQuery);
+            } else if (state.nameFilterQuery) {
+                setIsFiltering(true);
+                const result = filterByFilename(files, state.nameFilterQuery);
+                const sorted = sortFiles(result);
+                setFilterResultFiles(sorted);
+            }
+        }
+    }, [currentPath, files, filterByFilename, sortFiles, performCurrentDirectorySearch]);
 
     /**
      * Listen to external filter events (from TagManager, AppBar)
