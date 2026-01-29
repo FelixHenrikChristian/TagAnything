@@ -768,6 +768,12 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                         label="新名称"
                         value={renameDialog.inputName}
                         onChange={(e) => setRenameDialog(prev => ({ ...prev, inputName: e.target.value }))}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                confirmRename();
+                            }
+                        }}
                     />
                 </DialogContent>
                 <DialogActions>

@@ -850,6 +850,12 @@ const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void
             onChange={(e) => setGroupName(e.target.value)}
             placeholder="输入标签组名称"
             sx={{ mt: 2, mb: 2 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && groupName.trim()) {
+                e.preventDefault();
+                editingGroup ? handleSaveGroupEdit() : handleAddGroup();
+              }
+            }}
           />
 
           <TextField
@@ -1054,6 +1060,12 @@ const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void
             onChange={(e) => setTagName(e.target.value)}
             placeholder="输入标签名称"
             sx={{ mt: 2, mb: 3 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && tagName.trim() && selectedGroupId) {
+                e.preventDefault();
+                editingTag ? handleSaveTagEdit() : handleAddTag();
+              }
+            }}
           />
 
           <FormControl fullWidth sx={{ mb: 3 }}>
