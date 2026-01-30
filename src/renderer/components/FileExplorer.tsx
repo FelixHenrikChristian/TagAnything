@@ -633,6 +633,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             onFileClick={handleFileClick}
             isRecursiveMode={filterState.isRecursive && isFiltering}
             currentPath={currentPath}
+            scrollContainerRef={containerRef}
           />
         )}
       </Box>

@@ -1,4 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
     Box,
     Card,
@@ -39,6 +40,7 @@ interface FileGridProps {
     onFileClick?: (event: React.MouseEvent, file: FileItem, index: number) => void;
     isRecursiveMode?: boolean;
     currentPath?: string;
+    scrollContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
@@ -389,10 +391,10 @@ const FileCard = ({
                 {/* Parent folder path overlay in recursive mode - bottom left */}
                 {isRecursiveMode && showParentFolder && !file.isDirectory && (() => {
                     const fileDirPath = file.path.replace(/[/\\][^/\\]+$/, '');
-                    const relativePath = currentPath && fileDirPath.startsWith(currentPath) 
+                    const relativePath = currentPath && fileDirPath.startsWith(currentPath)
                         ? fileDirPath.substring(currentPath.length).replace(/^[/\\]/, '')
                         : fileDirPath.split(/[/\\]/).slice(-2, -1).join('') || fileDirPath.split(/[/\\]/).pop() || '';
-                    
+
                     return relativePath ? (
                         <Box
                             sx={{
@@ -524,72 +526,228 @@ export const FileGrid: React.FC<FileGridProps> = ({
     onFileClick,
     isRecursiveMode,
     currentPath,
+    scrollContainerRef,
 }) => {
     const { displaySettings, currentTheme } = useAppTheme();
+    const internalScrollRef = useRef<HTMLDivElement>(null);
+    const scrollElementRef = scrollContainerRef || internalScrollRef;
 
     // Grid Layout Calculations
     const GRID_CONFIG = {
         MAX_GRID_SIZE: 17,
         MIN_WIDTH: 80,
         MAX_WIDTH: 260,
+        GAP: 8, // MUI gap: 1 = 8px
     };
 
-    const getGridItemSize = () => {
+    const getGridItemSize = useCallback(() => {
         const { MAX_GRID_SIZE, MIN_WIDTH, MAX_WIDTH } = GRID_CONFIG;
         const step = (MAX_WIDTH - MIN_WIDTH) / (MAX_GRID_SIZE - 1);
-        // Allow float gridSize
         const clamped = Math.min(MAX_GRID_SIZE, Math.max(1, gridSize));
         return Math.round(MAX_WIDTH - (clamped - 1) * step);
-    };
+    }, [gridSize]);
 
-    const getIconSize = () => {
+    const getIconSize = useCallback(() => {
         const width = getGridItemSize();
         return Math.round(Math.max(48, Math.min(120, width * 0.6)));
-    };
+    }, [getGridItemSize]);
 
     const gridItemWidth = getGridItemSize();
     const iconSize = getIconSize();
     const thumbnailHeight = Math.floor(gridItemWidth * 0.6);
     const fileInfoHeight = 40;
     const tagOverlayHeight = `${thumbnailHeight - 8}px`;
+    const cardHeight = thumbnailHeight + fileInfoHeight;
+    const rowHeight = cardHeight + GRID_CONFIG.GAP;
 
+    // Track container width for column calculation
+    const [containerWidth, setContainerWidth] = useState(0);
+
+    useEffect(() => {
+        const scrollEl = scrollElementRef.current;
+        if (!scrollEl) return;
+
+        const updateWidth = () => {
+            setContainerWidth(scrollEl.clientWidth);
+        };
+
+        updateWidth();
+
+        const resizeObserver = new ResizeObserver(updateWidth);
+        resizeObserver.observe(scrollEl);
+
+        return () => resizeObserver.disconnect();
+    }, [scrollElementRef]);
+
+    // Calculate columns per row based on container width
+    const columnsPerRow = useMemo(() => {
+        if (containerWidth === 0) return 1;
+        // Account for padding (p: 1 = 8px on each side)
+        const availableWidth = containerWidth - 16;
+        // Calculate how many items fit with gap
+        const cols = Math.floor((availableWidth + GRID_CONFIG.GAP) / (gridItemWidth + GRID_CONFIG.GAP));
+        return Math.max(1, cols);
+    }, [containerWidth, gridItemWidth]);
+
+    // Calculate total rows
+    const totalRows = useMemo(() => {
+        return Math.ceil(files.length / columnsPerRow);
+    }, [files.length, columnsPerRow]);
+
+    // Virtualizer for rows
+    const rowVirtualizer = useVirtualizer({
+        count: totalRows,
+        getScrollElement: () => scrollElementRef.current,
+        estimateSize: useCallback(() => rowHeight, [rowHeight]),
+        overscan: 2, // Pre-render 2 extra rows above and below
+        getItemKey: useCallback((index: number) => index, []),
+    });
+
+    // Force re-measure when rowHeight changes (e.g., when zooming)
+    useEffect(() => {
+        rowVirtualizer.measure();
+    }, [rowHeight, rowVirtualizer]);
+
+    // Get files for a specific row
+    const getFilesForRow = useCallback((rowIndex: number) => {
+        const startIndex = rowIndex * columnsPerRow;
+        const endIndex = Math.min(startIndex + columnsPerRow, files.length);
+        return files.slice(startIndex, endIndex).map((file, i) => ({
+            file,
+            globalIndex: startIndex + i,
+        }));
+    }, [files, columnsPerRow]);
+
+    // If using external scroll container, render without internal scroll wrapper
+    if (scrollContainerRef) {
+        return (
+            <Box
+                sx={{
+                    width: '100%',
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    position: 'relative',
+                    p: 1,
+                }}
+            >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const rowFiles = getFilesForRow(virtualRow.index);
+                    return (
+                        <Box
+                            key={virtualRow.key}
+                            sx={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: `${virtualRow.size}px`,
+                                transform: `translateY(${virtualRow.start}px)`,
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${columnsPerRow}, 1fr)`,
+                                gap: 1,
+                                px: 0,
+                            }}
+                        >
+                            {rowFiles.map(({ file, globalIndex }) => (
+                                <FileCard
+                                    key={file.path}
+                                    file={file}
+                                    handleNavigate={handleNavigate}
+                                    handleFileOpen={handleFileOpen}
+                                    handleContextMenu={(e, f) => handleContextMenu(e, f, globalIndex)}
+                                    handleTagContextMenu={handleTagContextMenu}
+                                    videoThumbnails={videoThumbnails}
+                                    fileTags={getFileTags(file)}
+                                    tagDisplayStyle={tagDisplayStyle}
+                                    gridItemWidth={gridItemWidth}
+                                    thumbnailHeight={thumbnailHeight}
+                                    fileInfoHeight={fileInfoHeight}
+                                    tagOverlayHeight={tagOverlayHeight}
+                                    iconSize={iconSize}
+                                    isSelected={selectedPaths?.has(file.path)}
+                                    index={globalIndex}
+                                    onFileClick={onFileClick}
+                                    showFolderNameInIcon={displaySettings.showFolderNameInIcon}
+                                    showFileExtension={!displaySettings.hideFileExtension}
+                                    currentTheme={currentTheme}
+                                    isRecursiveMode={isRecursiveMode}
+                                    currentPath={currentPath}
+                                    showParentFolder={displaySettings.showParentFolderInRecursiveSearch !== false}
+                                />
+                            ))}
+                        </Box>
+                    );
+                })}
+            </Box>
+        );
+    }
+
+    // Fallback: internal scroll container (for standalone usage)
     return (
         <Box
+            ref={internalScrollRef}
             sx={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(auto-fill, minmax(${gridItemWidth}px, 1fr))`,
-                gap: 1,
                 width: '100%',
-                p: 1,
+                height: '100%',
+                overflow: 'auto',
             }}
         >
-            {files.map((file, index) => (
-                <FileCard
-                    key={file.path}
-                    file={file}
-                    handleNavigate={handleNavigate}
-                    handleFileOpen={handleFileOpen}
-                    handleContextMenu={(e, f) => handleContextMenu(e, f, index)}
-                    handleTagContextMenu={handleTagContextMenu}
-                    videoThumbnails={videoThumbnails}
-                    fileTags={getFileTags(file)}
-                    tagDisplayStyle={tagDisplayStyle}
-                    gridItemWidth={gridItemWidth}
-                    thumbnailHeight={thumbnailHeight}
-                    fileInfoHeight={fileInfoHeight}
-                    tagOverlayHeight={tagOverlayHeight}
-                    iconSize={iconSize}
-                    isSelected={selectedPaths?.has(file.path)}
-                    index={index}
-                    onFileClick={onFileClick}
-                    showFolderNameInIcon={displaySettings.showFolderNameInIcon}
-                    showFileExtension={!displaySettings.hideFileExtension}
-                    currentTheme={currentTheme}
-                    isRecursiveMode={isRecursiveMode}
-                    currentPath={currentPath}
-                    showParentFolder={displaySettings.showParentFolderInRecursiveSearch !== false}
-                />
-            ))}
+            <Box
+                sx={{
+                    width: '100%',
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    position: 'relative',
+                    p: 1,
+                }}
+            >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const rowFiles = getFilesForRow(virtualRow.index);
+                    return (
+                        <Box
+                            key={virtualRow.key}
+                            sx={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: `${virtualRow.size}px`,
+                                transform: `translateY(${virtualRow.start}px)`,
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${columnsPerRow}, 1fr)`,
+                                gap: 1,
+                                px: 0,
+                            }}
+                        >
+                            {rowFiles.map(({ file, globalIndex }) => (
+                                <FileCard
+                                    key={file.path}
+                                    file={file}
+                                    handleNavigate={handleNavigate}
+                                    handleFileOpen={handleFileOpen}
+                                    handleContextMenu={(e, f) => handleContextMenu(e, f, globalIndex)}
+                                    handleTagContextMenu={handleTagContextMenu}
+                                    videoThumbnails={videoThumbnails}
+                                    fileTags={getFileTags(file)}
+                                    tagDisplayStyle={tagDisplayStyle}
+                                    gridItemWidth={gridItemWidth}
+                                    thumbnailHeight={thumbnailHeight}
+                                    fileInfoHeight={fileInfoHeight}
+                                    tagOverlayHeight={tagOverlayHeight}
+                                    iconSize={iconSize}
+                                    isSelected={selectedPaths?.has(file.path)}
+                                    index={globalIndex}
+                                    onFileClick={onFileClick}
+                                    showFolderNameInIcon={displaySettings.showFolderNameInIcon}
+                                    showFileExtension={!displaySettings.hideFileExtension}
+                                    currentTheme={currentTheme}
+                                    isRecursiveMode={isRecursiveMode}
+                                    currentPath={currentPath}
+                                    showParentFolder={displaySettings.showParentFolderInRecursiveSearch !== false}
+                                />
+                            ))}
+                        </Box>
+                    );
+                })}
+            </Box>
         </Box>
     );
 };
