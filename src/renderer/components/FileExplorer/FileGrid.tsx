@@ -316,7 +316,50 @@ const FileCard = ({
             >
                 {file.isDirectory ? (
                     <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
+                        {/* Folder Icon with enhanced neon-glass styling */}
+                        {currentTheme === 'neon-glass' ? (
+                            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                                {/* Glow effect layer */}
+                                <Box
+                                    sx={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        filter: 'blur(8px)',
+                                        opacity: 0.6,
+                                    }}
+                                >
+                                    <FolderIcon sx={{
+                                        fontSize: iconSize,
+                                        color: '#ffc107',
+                                    }} />
+                                </Box>
+                                {/* Main folder icon with gradient */}
+                                <FolderIcon
+                                    sx={{
+                                        fontSize: iconSize,
+                                        background: 'linear-gradient(145deg, #ffd54f 0%, #ffb300 50%, #ff8f00 100%)',
+                                        backgroundClip: 'text',
+                                        WebkitBackgroundClip: 'text',
+                                        color: 'transparent',
+                                        WebkitTextFillColor: 'transparent',
+                                        filter: 'drop-shadow(0 2px 4px rgba(255, 179, 0, 0.4))',
+                                        position: 'relative',
+                                    }}
+                                />
+                                {/* Solid color fallback layer (behind gradient) */}
+                                <FolderIcon
+                                    sx={{
+                                        fontSize: iconSize,
+                                        color: '#ffb300',
+                                        position: 'absolute',
+                                        inset: 0,
+                                        zIndex: -1,
+                                    }}
+                                />
+                            </Box>
+                        ) : (
+                            <FolderIcon sx={{ fontSize: iconSize, color: '#ffa726' }} />
+                        )}
                         {showFolderNameInIcon && (
                             <Typography
                                 sx={{
@@ -325,7 +368,7 @@ const FileCard = ({
                                     left: '50%',
                                     transform: 'translate(-50%, -35%)',
                                     fontSize: Math.max(10, iconSize * 0.18),
-                                    fontWeight: 600,
+                                    fontWeight: 700,
                                     maxWidth: iconSize * 0.7,
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
@@ -333,9 +376,11 @@ const FileCard = ({
                                     textAlign: 'center',
                                     pointerEvents: 'none',
                                     userSelect: 'none',
+                                    letterSpacing: '-0.02em',
                                     ...(currentTheme === 'neon-glass' ? {
-                                        color: '#fff',
-                                        textShadow: '0 0 8px rgba(255, 166, 38, 0.8), 0 0 4px rgba(255, 166, 38, 0.5)',
+                                        // Dark brown text for better contrast on yellow/orange folder
+                                        color: 'rgba(80, 45, 0, 0.95)',
+                                        textShadow: '0 1px 0 rgba(255, 215, 0, 0.3)',
                                     } : {
                                         color: 'rgba(120, 70, 0, 0.9)',
                                     }),
