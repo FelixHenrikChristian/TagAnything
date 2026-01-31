@@ -321,7 +321,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
       });
 
       if (indices.size > 0) {
-        setSelectedIndices(indices);
+        // Enable scroll for file operation completion (move/copy)
+        setSelectedIndices(indices, { scrollToSelection: true });
         setPendingSelection(null);
       }
     }

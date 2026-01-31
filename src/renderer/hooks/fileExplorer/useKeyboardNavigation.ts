@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FileItem } from '../../types';
 
 // Clipboard state for cut/copy operations
@@ -27,7 +27,7 @@ interface UseKeyboardNavigationOptions {
 interface UseKeyboardNavigationResult {
     selectedIndices: Set<number>;
     selectedFiles: FileItem[];
-    setSelectedIndices: (indices: Set<number>) => void;
+    setSelectedIndices: (indices: Set<number>, options?: { scrollToSelection?: boolean }) => void;
     clearSelection: () => void;
     clipboardState: ClipboardState | null;
     hasClipboard: boolean;
@@ -60,6 +60,9 @@ export const useKeyboardNavigation = ({
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
     const [clipboardState, setClipboardState] = useState<ClipboardState | null>(null);
 
+    // Flag to track if scroll should happen (only for keyboard navigation)
+    const shouldScrollRef = React.useRef(false);
+
     // Calculate the selected files based on indices
     const selectedFiles = useMemo(() => {
         const result: FileItem[] = [];
@@ -75,6 +78,8 @@ export const useKeyboardNavigation = ({
     useEffect(() => {
         setSelectedIndices(new Set());
         setFocusedIndex(null);
+        // Reset scroll flag when entering a new directory
+        shouldScrollRef.current = false;
     }, [files]);
 
     const clearSelection = useCallback(() => {
@@ -82,9 +87,13 @@ export const useKeyboardNavigation = ({
         setFocusedIndex(null);
     }, []);
 
-    // Auto-scroll to keep focused item visible
+    // Auto-scroll to keep focused item visible (only when triggered by keyboard navigation)
     useEffect(() => {
         if (focusedIndex === null || focusedIndex < 0 || focusedIndex >= files.length) return;
+
+        // Only scroll if triggered by keyboard navigation
+        if (!shouldScrollRef.current) return;
+        shouldScrollRef.current = false; // Reset after scrolling
 
         // If scrollToIndex callback is provided (for virtualized lists), use it
         if (scrollToIndex) {
@@ -256,6 +265,7 @@ export const useKeyboardNavigation = ({
                     if (newIndex >= files.length) newIndex = focusedIndex ?? 0;
 
                     // Update focus and single selection (mimic standard navigation without Shift)
+                    shouldScrollRef.current = true; // Enable scroll for keyboard navigation
                     setFocusedIndex(newIndex);
                     setSelectedIndices(new Set([newIndex]));
                     break;
@@ -315,7 +325,7 @@ export const useKeyboardNavigation = ({
     return {
         selectedIndices,
         selectedFiles,
-        setSelectedIndices: (indices) => {
+        setSelectedIndices: (indices, options) => {
             setSelectedIndices(indices);
             // If explicit selection set, move focus to the first item (arbitrary choice)
             if (indices.size > 0) {
@@ -323,6 +333,10 @@ export const useKeyboardNavigation = ({
                 if (focusedIndex === null || !indices.has(focusedIndex)) {
                     const nextVal = indices.values().next().value;
                     setFocusedIndex(nextVal !== undefined ? nextVal : null);
+                    // Enable scroll if requested (e.g., after file operations)
+                    if (options?.scrollToSelection) {
+                        shouldScrollRef.current = true;
+                    }
                 }
             } else {
                 setFocusedIndex(null);
