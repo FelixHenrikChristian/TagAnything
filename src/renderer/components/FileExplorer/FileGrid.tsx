@@ -47,6 +47,7 @@ interface FileGridProps {
 export interface FileGridHandle {
     scrollToFile: (filePath: string) => void;
     scrollToIndex: (index: number) => void;
+    getColumnsCount: () => number;
 }
 
 const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
@@ -684,6 +685,7 @@ export const FileGrid = forwardRef<FileGridHandle, FileGridProps>(({
                 rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'smooth' });
             }
         },
+        getColumnsCount: () => columnsPerRow,
     }), [files, columnsPerRow, rowVirtualizer]);
 
     // If using external scroll container, render without internal scroll wrapper

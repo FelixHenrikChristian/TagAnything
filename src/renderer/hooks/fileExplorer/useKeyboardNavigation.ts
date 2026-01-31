@@ -20,6 +20,8 @@ interface UseKeyboardNavigationOptions {
     enabled?: boolean;
     // Callback to scroll to a specific index (for virtualized lists)
     scrollToIndex?: (index: number) => void;
+    // Callback to get the number of columns in the grid (for virtualized lists)
+    getColumnsCount?: () => number;
 }
 
 interface UseKeyboardNavigationResult {
@@ -52,6 +54,7 @@ export const useKeyboardNavigation = ({
     showNotification,
     enabled = true,
     scrollToIndex,
+    getColumnsCount: getColumnsCountExternal,
 }: UseKeyboardNavigationOptions): UseKeyboardNavigationResult => {
     const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -120,6 +123,12 @@ export const useKeyboardNavigation = ({
 
     // Calculate number of columns in the grid
     const getColumnsCount = useCallback((): number => {
+        // If external callback is provided (for virtualized lists), use it
+        if (getColumnsCountExternal) {
+            return getColumnsCountExternal();
+        }
+
+        // Fallback: DOM-based calculation for non-virtualized lists
         const container = gridContainerRef.current;
         if (!container) return 1;
 
@@ -137,7 +146,7 @@ export const useKeyboardNavigation = ({
         }
 
         return 1;
-    }, [gridContainerRef]);
+    }, [gridContainerRef, getColumnsCountExternal]);
 
     // Handle keyboard events
     useEffect(() => {

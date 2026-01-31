@@ -294,6 +294,10 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     scrollToIndex: viewMode === 'grid' ? (index: number) => {
       fileGridRef.current?.scrollToIndex(index);
     } : undefined,
+    // Pass getColumnsCount callback for virtualized grid column count
+    getColumnsCount: viewMode === 'grid' ? () => {
+      return fileGridRef.current?.getColumnsCount() ?? 1;
+    } : undefined,
   });
 
   // Calculate selected paths for rendering
