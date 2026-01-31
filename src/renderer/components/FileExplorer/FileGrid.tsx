@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
     Box,
@@ -41,6 +41,12 @@ interface FileGridProps {
     isRecursiveMode?: boolean;
     currentPath?: string;
     scrollContainerRef?: React.RefObject<HTMLDivElement>;
+}
+
+// Handle for exposing scrollToFile method to parent
+export interface FileGridHandle {
+    scrollToFile: (filePath: string) => void;
+    scrollToIndex: (index: number) => void;
 }
 
 const SortableTag = ({ tag, file, tagDisplayStyle, onContextMenu, index }: { tag: Tag, file: FileItem, tagDisplayStyle: 'original' | 'library', onContextMenu: (event: React.MouseEvent, tag: Tag, file: FileItem) => void, index: number }) => {
@@ -555,7 +561,7 @@ const FileCard = ({
     );
 };
 
-export const FileGrid: React.FC<FileGridProps> = ({
+export const FileGrid = forwardRef<FileGridHandle, FileGridProps>(({
     files,
     handleNavigate,
     handleFileOpen,
@@ -572,7 +578,7 @@ export const FileGrid: React.FC<FileGridProps> = ({
     isRecursiveMode,
     currentPath,
     scrollContainerRef,
-}) => {
+}, ref) => {
     const { displaySettings, currentTheme } = useAppTheme();
     const internalScrollRef = useRef<HTMLDivElement>(null);
     const scrollElementRef = scrollContainerRef || internalScrollRef;
@@ -662,6 +668,23 @@ export const FileGrid: React.FC<FileGridProps> = ({
             globalIndex: startIndex + i,
         }));
     }, [files, columnsPerRow]);
+
+    // Expose scroll methods to parent via ref
+    useImperativeHandle(ref, () => ({
+        scrollToFile: (filePath: string) => {
+            const fileIndex = files.findIndex(f => f.path === filePath);
+            if (fileIndex !== -1) {
+                const rowIndex = Math.floor(fileIndex / columnsPerRow);
+                rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'smooth' });
+            }
+        },
+        scrollToIndex: (index: number) => {
+            if (index >= 0 && index < files.length) {
+                const rowIndex = Math.floor(index / columnsPerRow);
+                rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'smooth' });
+            }
+        },
+    }), [files, columnsPerRow, rowVirtualizer]);
 
     // If using external scroll container, render without internal scroll wrapper
     if (scrollContainerRef) {
@@ -795,4 +818,4 @@ export const FileGrid: React.FC<FileGridProps> = ({
             </Box>
         </Box>
     );
-};
+});

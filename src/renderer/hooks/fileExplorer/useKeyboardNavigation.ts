@@ -18,6 +18,8 @@ interface UseKeyboardNavigationOptions {
     onDelete?: (files: FileItem[]) => void;
     showNotification?: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
     enabled?: boolean;
+    // Callback to scroll to a specific index (for virtualized lists)
+    scrollToIndex?: (index: number) => void;
 }
 
 interface UseKeyboardNavigationResult {
@@ -49,6 +51,7 @@ export const useKeyboardNavigation = ({
     onDelete,
     showNotification,
     enabled = true,
+    scrollToIndex,
 }: UseKeyboardNavigationOptions): UseKeyboardNavigationResult => {
     const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -78,7 +81,16 @@ export const useKeyboardNavigation = ({
 
     // Auto-scroll to keep focused item visible
     useEffect(() => {
-        if (focusedIndex === null || focusedIndex < 0 || focusedIndex >= files.length || !gridContainerRef.current) return;
+        if (focusedIndex === null || focusedIndex < 0 || focusedIndex >= files.length) return;
+
+        // If scrollToIndex callback is provided (for virtualized lists), use it
+        if (scrollToIndex) {
+            scrollToIndex(focusedIndex);
+            return;
+        }
+
+        // Fallback: DOM-based scrolling for non-virtualized lists
+        if (!gridContainerRef.current) return;
 
         const focusedFile = files[focusedIndex];
         // Find the selected card element by file path
@@ -104,7 +116,7 @@ export const useKeyboardNavigation = ({
                 break;
             }
         }
-    }, [focusedIndex, files, gridContainerRef]);
+    }, [focusedIndex, files, gridContainerRef, scrollToIndex]);
 
     // Calculate number of columns in the grid
     const getColumnsCount = useCallback((): number => {

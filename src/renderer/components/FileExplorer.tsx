@@ -13,7 +13,7 @@ import { useNavigationHistory, createEmptyFilterState } from '../hooks/fileExplo
 import { ExplorerToolbar } from './FileExplorer/ExplorerToolbar';
 import { ExplorerStatusBar } from './FileExplorer/ExplorerStatusBar';
 import { FileList } from './FileExplorer/FileList';
-import { FileGrid } from './FileExplorer/FileGrid';
+import { FileGrid, FileGridHandle } from './FileExplorer/FileGrid';
 import { ExplorerDialogs } from './FileExplorer/ExplorerDialogs';
 import { ExplorerContextMenus } from './FileExplorer/ExplorerContextMenus';
 import { FileItem, Tag, TagGroup } from '../types';
@@ -259,12 +259,12 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
   };
 
 
-
   // 5. Drag State
   const { dragState, setDragState } = useFileDrag();
 
   // 6. Layout Refs
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileGridRef = useRef<FileGridHandle>(null);
 
   // 7. Keyboard Navigation
   const { selectedFiles, clearSelection, setSelectedIndices } = useKeyboardNavigation({
@@ -290,6 +290,10 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     },
     showNotification,
     enabled: !!currentLocation,
+    // Pass scrollToIndex callback for virtualized grid scrolling
+    scrollToIndex: viewMode === 'grid' ? (index: number) => {
+      fileGridRef.current?.scrollToIndex(index);
+    } : undefined,
   });
 
   // Calculate selected paths for rendering
@@ -618,6 +622,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
           />
         ) : (
           <FileGrid
+            ref={fileGridRef}
             files={filteredFiles}
             handleNavigate={onNavigate}
             handleFileOpen={handleFileOpen}
