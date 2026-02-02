@@ -676,13 +676,13 @@ export const FileGrid = forwardRef<FileGridHandle, FileGridProps>(({
             const fileIndex = files.findIndex(f => f.path === filePath);
             if (fileIndex !== -1) {
                 const rowIndex = Math.floor(fileIndex / columnsPerRow);
-                rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'smooth' });
+                rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'auto' });
             }
         },
         scrollToIndex: (index: number) => {
             if (index >= 0 && index < files.length) {
                 const rowIndex = Math.floor(index / columnsPerRow);
-                rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'smooth' });
+                rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'auto' });
             }
         },
         getColumnsCount: () => columnsPerRow,
