@@ -46,7 +46,7 @@ interface FileGridProps {
 // Handle for exposing scrollToFile method to parent
 export interface FileGridHandle {
     scrollToFile: (filePath: string) => void;
-    scrollToIndex: (index: number) => void;
+    scrollToIndex: (index: number, direction?: 'up' | 'down') => void;
     getColumnsCount: () => number;
 }
 
@@ -679,14 +679,54 @@ export const FileGrid = forwardRef<FileGridHandle, FileGridProps>(({
                 rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'auto' });
             }
         },
-        scrollToIndex: (index: number) => {
+        scrollToIndex: (index: number, direction?: 'up' | 'down') => {
             if (index >= 0 && index < files.length) {
                 const rowIndex = Math.floor(index / columnsPerRow);
-                rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'auto' });
+                const scrollElement = scrollElementRef.current;
+                if (!scrollElement) {
+                    rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'auto' });
+                    return;
+                }
+
+                // Get viewport and row dimensions
+                const viewportHeight = scrollElement.clientHeight;
+                const scrollTop = scrollElement.scrollTop;
+                const rowStart = rowIndex * rowHeight;
+                const rowEnd = rowStart + rowHeight;
+
+                // Check if the row is already fully visible
+                const isFullyVisible = rowStart >= scrollTop && rowEnd <= scrollTop + viewportHeight;
+
+                if (isFullyVisible) {
+                    // Row is already fully visible, no scroll needed
+                    return;
+                }
+
+                // Windows 11 style scrolling:
+                // - Navigate down: align target row to bottom of viewport
+                // - Navigate up: align target row to top of viewport
+                let newScrollTop: number;
+                if (direction === 'down') {
+                    // Align row to bottom of viewport
+                    newScrollTop = rowEnd - viewportHeight;
+                } else if (direction === 'up') {
+                    // Align row to top of viewport
+                    newScrollTop = rowStart;
+                } else {
+                    // No direction specified, use center alignment as fallback
+                    rowVirtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'auto' });
+                    return;
+                }
+
+                // Clamp to valid scroll range
+                const maxScroll = scrollElement.scrollHeight - viewportHeight;
+                newScrollTop = Math.max(0, Math.min(newScrollTop, maxScroll));
+
+                scrollElement.scrollTop = newScrollTop;
             }
         },
         getColumnsCount: () => columnsPerRow,
-    }), [files, columnsPerRow, rowVirtualizer]);
+    }), [files, columnsPerRow, rowVirtualizer, rowHeight, scrollElementRef]);
 
     // If using external scroll container, render without internal scroll wrapper
     if (scrollContainerRef) {

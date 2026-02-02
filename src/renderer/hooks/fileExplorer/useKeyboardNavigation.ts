@@ -18,8 +18,8 @@ interface UseKeyboardNavigationOptions {
     onDelete?: (files: FileItem[]) => void;
     showNotification?: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
     enabled?: boolean;
-    // Callback to scroll to a specific index (for virtualized lists)
-    scrollToIndex?: (index: number) => void;
+    // Callback to scroll to a specific index (for virtualized lists), with optional direction hint
+    scrollToIndex?: (index: number, direction?: 'up' | 'down') => void;
     // Callback to get the number of columns in the grid (for virtualized lists)
     getColumnsCount?: () => number;
 }
@@ -62,6 +62,8 @@ export const useKeyboardNavigation = ({
 
     // Flag to track if scroll should happen (only for keyboard navigation)
     const shouldScrollRef = React.useRef(false);
+    // Track the scroll direction for Windows 11-style scrolling
+    const scrollDirectionRef = React.useRef<'up' | 'down' | null>(null);
 
     // Calculate the selected files based on indices
     const selectedFiles = useMemo(() => {
@@ -97,7 +99,8 @@ export const useKeyboardNavigation = ({
 
         // If scrollToIndex callback is provided (for virtualized lists), use it
         if (scrollToIndex) {
-            scrollToIndex(focusedIndex);
+            scrollToIndex(focusedIndex, scrollDirectionRef.current ?? undefined);
+            scrollDirectionRef.current = null; // Reset after use
             return;
         }
 
@@ -247,15 +250,21 @@ export const useKeyboardNavigation = ({
                         switch (event.key) {
                             case 'ArrowUp':
                                 newIndex = focusedIndex - columnsCount;
+                                scrollDirectionRef.current = 'up';
                                 break;
                             case 'ArrowDown':
                                 newIndex = focusedIndex + columnsCount;
+                                scrollDirectionRef.current = 'down';
                                 break;
                             case 'ArrowLeft':
                                 newIndex = focusedIndex - 1;
+                                // Left: may scroll up if moving to previous row
+                                scrollDirectionRef.current = 'up';
                                 break;
                             case 'ArrowRight':
                                 newIndex = focusedIndex + 1;
+                                // Right: may scroll down if moving to next row
+                                scrollDirectionRef.current = 'down';
                                 break;
                         }
                     }

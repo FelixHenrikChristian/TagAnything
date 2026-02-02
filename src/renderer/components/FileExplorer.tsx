@@ -291,8 +291,8 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     showNotification,
     enabled: !!currentLocation,
     // Pass scrollToIndex callback for virtualized grid scrolling
-    scrollToIndex: viewMode === 'grid' ? (index: number) => {
-      fileGridRef.current?.scrollToIndex(index);
+    scrollToIndex: viewMode === 'grid' ? (index: number, direction?: 'up' | 'down') => {
+      fileGridRef.current?.scrollToIndex(index, direction);
     } : undefined,
     // Pass getColumnsCount callback for virtualized grid column count
     getColumnsCount: viewMode === 'grid' ? () => {
