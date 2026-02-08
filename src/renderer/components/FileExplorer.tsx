@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { FolderOpen as FolderOpenIcon } from '@mui/icons-material';
+import { FolderOpen as FolderOpenIcon, SearchOff as SearchOffIcon } from '@mui/icons-material';
 import { DragEndEvent } from '@dnd-kit/core';
 import { useFileExplorerState } from '../hooks/fileExplorer/useFileExplorerState';
 import { useFileFilter } from '../hooks/fileExplorer/useFileFilter';
@@ -608,6 +608,25 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 400 }}>
               请先在位置管理中选择一个位置，或添加新的位置来开始管理文件
+            </Typography>
+          </Box>
+        ) : filteredFiles.length === 0 ? (
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            py: 8
+          }}>
+            <SearchOffIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 3, opacity: 0.5 }} />
+            <Typography variant="h5" color="text.secondary" gutterBottom sx={{ fontWeight: 500 }}>
+              {isFiltering ? '没有找到匹配的文件' : '此文件夹为空'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 400 }}>
+              {isFiltering
+                ? '尝试更改搜索关键词或筛选条件'
+                : '此文件夹中没有任何文件或子文件夹'}
             </Typography>
           </Box>
         ) : viewMode === 'list' ? (
