@@ -44,6 +44,8 @@ import {
   Sort as SortIcon,
   DragIndicator as DragIndicatorIcon,
   SwapHoriz as SwapHorizIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
 } from '@mui/icons-material';
 import { Tag, TagGroup } from '../types';
 import { useDraggable, DragEndEvent, DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
@@ -98,9 +100,11 @@ function TabPanel(props: TabPanelProps) {
 const SortableTagGroup = ({
   group,
   children,
+  disabled = false,
 }: {
   group: TagGroup;
   children: React.ReactNode;
+  disabled?: boolean;
 }) => {
   const {
     attributes,
@@ -115,6 +119,7 @@ const SortableTagGroup = ({
       type: 'TAG_GROUP',
       group,
     },
+    disabled,
   });
 
   const style = {
@@ -126,7 +131,7 @@ const SortableTagGroup = ({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes} {...(disabled ? {} : listeners)}>
       {children}
     </div>
   );
@@ -295,6 +300,12 @@ const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void
   const [menuType, setMenuType] = React.useState<'group' | 'tag' | 'main'>('group');
   const [mainMenuAnchorEl, setMainMenuAnchorEl] = React.useState<null | HTMLElement>(null);
 
+  // 标签组排序锁定状态
+  const [isGroupSortLocked, setIsGroupSortLocked] = React.useState<boolean>(() => {
+    const saved = localStorage.getItem('tagAnything_groupSortLocked');
+    return saved ? JSON.parse(saved) : false;
+  });
+
   // Local state to control menu visibility without clearing menu data immediately
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -302,6 +313,11 @@ const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void
   React.useEffect(() => {
     setMenuOpen(anchorEl !== null);
   }, [anchorEl]);
+
+  // 保存排序锁定状态到localStorage
+  React.useEffect(() => {
+    localStorage.setItem('tagAnything_groupSortLocked', JSON.stringify(isGroupSortLocked));
+  }, [isGroupSortLocked]);
 
   // 加载保存的数据
   useEffect(() => {
@@ -689,15 +705,29 @@ const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void
               </IconButton>
             </Tooltip>
           </Box>
-          <IconButton
-            onClick={(e) => setMainMenuAnchorEl(e.currentTarget)}
-            sx={{
-              bgcolor: 'transparent',
-              '&:hover': { bgcolor: 'transparent' }
-            }}
-          >
-            <MoreVertIcon sx={{ fontSize: 26 }} />
-          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title={isGroupSortLocked ? '解锁标签组排序' : '锁定标签组排序'}>
+              <IconButton
+                size="small"
+                onClick={() => setIsGroupSortLocked(!isGroupSortLocked)}
+                sx={{
+                  opacity: 0.6,
+                  '&:hover': { opacity: 1, bgcolor: 'action.hover' }
+                }}
+              >
+                {isGroupSortLocked ? <LockIcon fontSize="small" /> : <LockOpenIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <IconButton
+              onClick={(e) => setMainMenuAnchorEl(e.currentTarget)}
+              sx={{
+                bgcolor: 'transparent',
+                '&:hover': { bgcolor: 'transparent' }
+              }}
+            >
+              <MoreVertIcon sx={{ fontSize: 26 }} />
+            </IconButton>
+          </Box>
         </Box>
         <Divider />
       </Box>
@@ -750,7 +780,7 @@ const TagManager = React.forwardRef<TagManagerHandle, { onSwitchView: () => void
               strategy={verticalListSortingStrategy}
             >
               {filteredGroups.map((group) => (
-                <SortableTagGroup key={group.id} group={group}>
+                <SortableTagGroup key={group.id} group={group} disabled={isGroupSortLocked}>
                   <Accordion defaultExpanded sx={{
                     '&:before': { display: 'none' },
                     boxShadow: 'none',
