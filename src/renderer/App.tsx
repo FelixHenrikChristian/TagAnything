@@ -92,7 +92,10 @@ const AppContent: React.FC = () => {
 
 
 
-  const [sidebarView, setSidebarView] = useState<'locations' | 'tags'>('locations');
+  const [sidebarView, setSidebarView] = useState<'locations' | 'tags'>(() => {
+    const saved = localStorage.getItem('tagAnything_sidebarView');
+    return (saved === 'locations' || saved === 'tags') ? saved : 'locations';
+  });
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -377,7 +380,11 @@ const AppContent: React.FC = () => {
 
 
   const handleSwitchView = () => {
-    setSidebarView(prev => prev === 'locations' ? 'tags' : 'locations');
+    setSidebarView(prev => {
+      const newView = prev === 'locations' ? 'tags' : 'locations';
+      localStorage.setItem('tagAnything_sidebarView', newView);
+      return newView;
+    });
   };
 
   const renderSidebarContent = () => {
