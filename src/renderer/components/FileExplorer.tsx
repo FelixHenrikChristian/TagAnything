@@ -566,7 +566,7 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
           overflowY: 'auto',
           px: 2,
           pb: 2,
-          pt: 0,
+          pt: 1,
           backgroundColor: 'transparent',
           position: 'relative', // For absolute positioning of overlays if needed
           border: isDraggingOver ? '2px dashed #2196f3' : '2px solid transparent',
