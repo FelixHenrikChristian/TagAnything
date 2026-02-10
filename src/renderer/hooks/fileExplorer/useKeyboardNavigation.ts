@@ -254,6 +254,17 @@ export const useKeyboardNavigation = ({
                                 break;
                             case 'ArrowDown':
                                 newIndex = focusedIndex + columnsCount;
+                                // If going down exceeds the list, check if we are in the second to last row
+                                // logic: if we are not in the last row, but going down would exceed the list,
+                                // it means we are in a "gap" above the end of the list.
+                                // In this case, jump to the very last item.
+                                if (newIndex >= files.length) {
+                                    const lastRowStartIndex = Math.floor((files.length - 1) / columnsCount) * columnsCount;
+                                    // If we are not already in the last row
+                                    if (focusedIndex < lastRowStartIndex) {
+                                        newIndex = files.length - 1;
+                                    }
+                                }
                                 scrollDirectionRef.current = 'down';
                                 break;
                             case 'ArrowLeft':
