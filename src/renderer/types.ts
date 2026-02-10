@@ -10,6 +10,8 @@ export type ColorMode = 'light' | 'dark';
 export interface NeonGlassSettings {
     // 统一色调 (0-360 HSL角度)
     hue: number;
+    // 饱和度增强 (100-200%)
+    saturation: number;
     // 顶栏设置
     topBar: {
         opacity: number; // 0-100
@@ -29,6 +31,7 @@ export interface NeonGlassSettings {
 
 export const DEFAULT_NEON_GLASS_SETTINGS: NeonGlassSettings = {
     hue: 180, // Cyan default
+    saturation: 120, // Default saturation boost
     topBar: {
         opacity: 50,
         blur: 20,
@@ -38,8 +41,8 @@ export const DEFAULT_NEON_GLASS_SETTINGS: NeonGlassSettings = {
         blur: 25,
     },
     fileExplorer: {
-        opacity: 20,
-        blur: 20,
+        opacity: 30, // Slightly more opaque for better readability
+        blur: 30,
     },
 };
 

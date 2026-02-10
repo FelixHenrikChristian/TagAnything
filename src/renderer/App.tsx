@@ -760,7 +760,7 @@ const InnerApp: React.FC = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: '#000',
+            background: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)', // Rich Deep Sea Gradient
             zIndex: -1,
           }}
         />
