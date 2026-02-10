@@ -494,6 +494,8 @@ const AppContent: React.FC = () => {
           component="main"
           sx={{
             flexGrow: 1,
+            minWidth: 0,
+            overflow: 'hidden',
             transition: theme.transitions.create('margin', {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.leavingScreen,
@@ -502,7 +504,7 @@ const AppContent: React.FC = () => {
           }}
         >
           <Toolbar />
-          <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
+          <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
             <Paper
               elevation={1}
               sx={{
