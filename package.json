@@ -106,12 +106,6 @@
         "to": "icon.ico"
       }
     ],
-    "extraFiles": [
-      {
-        "from": "node_modules/electron/dist/ffmpeg.dll",
-        "to": "ffmpeg.dll"
-      }
-    ],
     "asar": true,
     "asarUnpack": [
       "**/node_modules/@ffmpeg-installer/**",
