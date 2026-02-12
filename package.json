@@ -140,7 +140,7 @@
     },
     "linux": {
       "target": "AppImage",
-      "icon": "build/icon.ico",
+      "icon": "build/icon.png",
       "category": "Utility"
     }
   }
