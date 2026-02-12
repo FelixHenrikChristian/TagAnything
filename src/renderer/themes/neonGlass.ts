@@ -24,7 +24,7 @@ export const createNeonGlassTheme = (settings: NeonGlassSettings = DEFAULT_NEON_
     const secondaryMain = hslColor(secondaryHue, 100, 60);
 
     // Glass effect helpers
-    const glassBorder = `1px solid ${hslColor(hue, 80, 70, 0.3)}`;
+    const glassBorder = `1px solid rgba(255, 255, 255, 0.15)`; // Neutral border
     const glassShadow = `0 8px 32px 0 rgba(0, 0, 0, 0.3)`;
     const textGlow = `0 0 10px ${hslColor(hue, 100, 50, 0.5)}`;
 
@@ -136,12 +136,11 @@ export const createNeonGlassTheme = (settings: NeonGlassSettings = DEFAULT_NEON_
                     paper: {
                         backgroundColor: 'rgba(30, 30, 40, 0.75)',
                         backdropFilter: `blur(40px) saturate(${saturation}%)`,
-                        border: `1px solid ${hslColor(hue, 100, 70, 0.4)}`, // Brighter border for dialogs
+                        border: `1px solid rgba(255, 255, 255, 0.2)`, // Neutral border for dialogs
                         boxShadow: `0 20px 60px rgba(0,0,0,0.6), 0 0 20px ${hslColor(hue, 100, 50, 0.1)}`,
                     },
                 },
-            },
-            MuiCard: {
+            }, MuiCard: {
                 styleOverrides: {
                     root: {
                         backdropFilter: 'none', // Performance optimization retained
