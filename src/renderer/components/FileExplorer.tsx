@@ -176,6 +176,9 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
     navigatePickerTo,
     navigatePickerUp,
     newFolderDialog,
+    startInlineNewFolder,
+    cancelInlineNewFolder,
+    confirmInlineNewFolder,
     setNewFolderDialog,
     handleCreateFolder,
     closeNewFolderDialog,
@@ -699,6 +702,9 @@ const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(({ tagDis
         confirmDirectOperation={confirmDirectOperation}
         navigatePickerUp={navigatePickerUp}
         navigatePickerTo={navigatePickerTo}
+        startInlineNewFolder={startInlineNewFolder}
+        cancelInlineNewFolder={cancelInlineNewFolder}
+        confirmInlineNewFolder={confirmInlineNewFolder}
         closeDeleteConfirmDialog={closeDeleteConfirmDialog}
         doDeleteFiles={doDeleteFiles}
         closeRenameDialog={closeRenameDialog}

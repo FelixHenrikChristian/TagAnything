@@ -109,6 +109,8 @@ export interface DirectOperationDialogState {
     browsePath: string; // 当前浏览目录
     viewMode?: 'list' | 'grid'; // 视图模式
     searchQuery?: string;  // 目录搜索关键词
+    inlineNewFolder?: boolean;      // 是否正在内联新建文件夹
+    inlineNewFolderName?: string;   // 内联新建文件夹名称
 }
 
 export interface DeleteConfirmDialogState {

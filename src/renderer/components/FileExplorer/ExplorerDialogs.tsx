@@ -42,6 +42,7 @@ import {
     ChevronRight as ChevronRightIcon,
     Search as SearchIcon,
     Clear as ClearIcon,
+    CreateNewFolder as CreateNewFolderIcon,
 } from '@mui/icons-material';
 import { useAppTheme } from '../../context/ThemeContext';
 import { FileItem, Tag, TagGroup, DraggedFile } from '../../types';
@@ -90,6 +91,9 @@ interface ExplorerDialogsProps {
     confirmDirectOperation: () => void;
     navigatePickerUp: () => void;
     navigatePickerTo: (path: string) => void;
+    startInlineNewFolder: () => void;
+    cancelInlineNewFolder: () => void;
+    confirmInlineNewFolder: () => void;
     closeDeleteConfirmDialog: () => void;
     doDeleteFiles: (mode: 'trash' | 'permanent') => void;
     closeRenameDialog: () => void;
@@ -151,6 +155,9 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
     confirmDirectOperation,
     navigatePickerUp,
     navigatePickerTo,
+    startInlineNewFolder,
+    cancelInlineNewFolder,
+    confirmInlineNewFolder,
     closeDeleteConfirmDialog,
     doDeleteFiles,
     closeRenameDialog,
@@ -564,6 +571,15 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                 <ViewModuleIcon />
                             </IconButton>
                         </Tooltip>
+                        <Tooltip title="新建文件夹">
+                            <IconButton
+                                size="small"
+                                onClick={startInlineNewFolder}
+                                disabled={!!directOperationDialog.inlineNewFolder}
+                            >
+                                <CreateNewFolderIcon />
+                            </IconButton>
+                        </Tooltip>
                     </Box>
                     {/* 搜索框 */}
                     <TextField
@@ -612,43 +628,77 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                             borderColor: 'divider',
                             borderRadius: 1,
                         }}>
-                            {filteredPickerDirectories.length === 0 ? (
+                            {filteredPickerDirectories.length === 0 && !directOperationDialog.inlineNewFolder ? (
                                 <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4, color: 'text.secondary' }}>
                                     <Typography variant="body2">此目录下没有子文件夹</Typography>
                                     <Typography variant="caption">你可以选择当前目录作为目标</Typography>
                                 </Box>
                             ) : (
-                                filteredPickerDirectories.map(dir => (
-                                    <Card
-                                        key={dir.path}
-                                        variant="outlined"
-                                        sx={{
-                                            transition: 'all 0.2s',
-                                            '&:hover': {
+                                <>
+                                    {directOperationDialog.inlineNewFolder && (
+                                        <Card
+                                            variant="outlined"
+                                            sx={{
                                                 borderColor: 'primary.main',
-                                                transform: 'translateY(-2px)',
-                                                boxShadow: 2,
-                                            }
-                                        }}
-                                    >
-                                        <CardActionArea
-                                            onClick={() => navigatePickerTo(dir.path)}
-                                            sx={{ p: 1.5, textAlign: 'center' }}
+                                                borderStyle: 'dashed',
+                                                borderWidth: 2,
+                                            }}
                                         >
-                                            <FolderIcon sx={{ fontSize: 40, color: 'warning.main', mb: 0.5 }} />
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                }}
+                                            <Box sx={{ p: 1.5, textAlign: 'center' }}>
+                                                <FolderIcon sx={{ fontSize: 40, color: 'primary.main', mb: 0.5 }} />
+                                                <TextField
+                                                    autoFocus
+                                                    size="small"
+                                                    fullWidth
+                                                    value={directOperationDialog.inlineNewFolderName || ''}
+                                                    onChange={(e) => setDirectOperationDialog(prev => ({ ...prev, inlineNewFolderName: e.target.value }))}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') { e.preventDefault(); confirmInlineNewFolder(); }
+                                                        if (e.key === 'Escape') { e.preventDefault(); cancelInlineNewFolder(); }
+                                                    }}
+                                                    onBlur={() => {
+                                                        // Delay to allow click events to fire first
+                                                        setTimeout(() => confirmInlineNewFolder(), 150);
+                                                    }}
+                                                    onFocus={(e) => e.target.select()}
+                                                    inputProps={{ style: { textAlign: 'center', fontSize: '0.875rem' } }}
+                                                    sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'primary.main' } } }}
+                                                />
+                                            </Box>
+                                        </Card>
+                                    )}
+                                    {filteredPickerDirectories.map(dir => (
+                                        <Card
+                                            key={dir.path}
+                                            variant="outlined"
+                                            sx={{
+                                                transition: 'all 0.2s',
+                                                '&:hover': {
+                                                    borderColor: 'primary.main',
+                                                    transform: 'translateY(-2px)',
+                                                    boxShadow: 2,
+                                                }
+                                            }}
+                                        >
+                                            <CardActionArea
+                                                onClick={() => navigatePickerTo(dir.path)}
+                                                sx={{ p: 1.5, textAlign: 'center' }}
                                             >
-                                                {dir.name}
-                                            </Typography>
-                                        </CardActionArea>
-                                    </Card>
-                                ))
+                                                <FolderIcon sx={{ fontSize: 40, color: 'warning.main', mb: 0.5 }} />
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {dir.name}
+                                                </Typography>
+                                            </CardActionArea>
+                                        </Card>
+                                    ))}
+                                </>
                             )}
                         </Box>
                     ) : (
@@ -662,7 +712,7 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                             borderRadius: 1,
                         }}>
                             <List dense disablePadding>
-                                {filteredPickerDirectories.length === 0 ? (
+                                {filteredPickerDirectories.length === 0 && !directOperationDialog.inlineNewFolder ? (
                                     <ListItem>
                                         <ListItemText
                                             primary="此目录下没有子文件夹"
@@ -670,24 +720,56 @@ export const ExplorerDialogs: React.FC<ExplorerDialogsProps> = ({
                                         />
                                     </ListItem>
                                 ) : (
-                                    filteredPickerDirectories.map(dir => (
-                                        <ListItem
-                                            key={dir.path}
-                                            button
-                                            onClick={() => navigatePickerTo(dir.path)}
-                                            sx={{
-                                                '&:hover': {
-                                                    backgroundColor: 'action.hover',
-                                                },
-                                            }}
-                                        >
-                                            <ListItemIcon sx={{ minWidth: 40 }}>
-                                                <FolderIcon sx={{ color: 'warning.main' }} />
-                                            </ListItemIcon>
-                                            <ListItemText primary={dir.name} />
-                                            <ChevronRightIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                        </ListItem>
-                                    ))
+                                    <>
+                                        {directOperationDialog.inlineNewFolder && (
+                                            <ListItem
+                                                sx={{
+                                                    borderBottom: 1,
+                                                    borderColor: 'divider',
+                                                    backgroundColor: 'action.selected',
+                                                }}
+                                            >
+                                                <ListItemIcon sx={{ minWidth: 40 }}>
+                                                    <FolderIcon sx={{ color: 'primary.main' }} />
+                                                </ListItemIcon>
+                                                <TextField
+                                                    autoFocus
+                                                    size="small"
+                                                    fullWidth
+                                                    variant="standard"
+                                                    value={directOperationDialog.inlineNewFolderName || ''}
+                                                    onChange={(e) => setDirectOperationDialog(prev => ({ ...prev, inlineNewFolderName: e.target.value }))}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') { e.preventDefault(); confirmInlineNewFolder(); }
+                                                        if (e.key === 'Escape') { e.preventDefault(); cancelInlineNewFolder(); }
+                                                    }}
+                                                    onBlur={() => {
+                                                        setTimeout(() => confirmInlineNewFolder(), 150);
+                                                    }}
+                                                    onFocus={(e) => e.target.select()}
+                                                    sx={{ '& .MuiInput-underline:before': { borderColor: 'primary.main' } }}
+                                                />
+                                            </ListItem>
+                                        )}
+                                        {filteredPickerDirectories.map(dir => (
+                                            <ListItem
+                                                key={dir.path}
+                                                button
+                                                onClick={() => navigatePickerTo(dir.path)}
+                                                sx={{
+                                                    '&:hover': {
+                                                        backgroundColor: 'action.hover',
+                                                    },
+                                                }}
+                                            >
+                                                <ListItemIcon sx={{ minWidth: 40 }}>
+                                                    <FolderIcon sx={{ color: 'warning.main' }} />
+                                                </ListItemIcon>
+                                                <ListItemText primary={dir.name} />
+                                                <ChevronRightIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                            </ListItem>
+                                        ))}
+                                    </>
                                 )}
                             </List>
                         </Box>

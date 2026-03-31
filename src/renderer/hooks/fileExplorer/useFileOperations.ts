@@ -504,6 +504,43 @@ export const useFileOperations = (
         closeDirectOperationDialog();
     }, [directOperationDialog, handleFileOperation, closeDirectOperationDialog]);
 
+    // Inline New Folder in DirectOperationDialog picker
+    const startInlineNewFolder = useCallback(() => {
+        setDirectOperationDialog(prev => ({ ...prev, inlineNewFolder: true, inlineNewFolderName: '新建文件夹' }));
+    }, []);
+
+    const cancelInlineNewFolder = useCallback(() => {
+        setDirectOperationDialog(prev => ({ ...prev, inlineNewFolder: false, inlineNewFolderName: '' }));
+    }, []);
+
+    const confirmInlineNewFolder = useCallback(async () => {
+        const browsePath = directOperationDialog.browsePath;
+        let name = (directOperationDialog.inlineNewFolderName || '').trim();
+        if (!name) name = '新建文件夹';
+        if (/[<>:"\/\\|?*]/.test(name)) {
+            showNotification('文件夹名称无效，不能包含特殊字符：<>:"/\\|?*', 'error');
+            return;
+        }
+        try {
+            const res = await window.electron.createFolder(browsePath, name);
+            if (!res.success) {
+                showNotification(`创建文件夹失败：${res.error || '未知错误'}`, 'error');
+            } else {
+                showNotification(`已创建：${name}`, 'success');
+                // Stay in current directory, just refresh the list
+                setDirectOperationDialog(prev => ({
+                    ...prev,
+                    inlineNewFolder: false,
+                    inlineNewFolderName: '',
+                }));
+                // Reload picker to show the new folder
+                loadPickerDirs(browsePath);
+            }
+        } catch (e) {
+            showNotification(`创建文件夹失败：${e instanceof Error ? e.message : String(e)}`, 'error');
+        }
+    }, [directOperationDialog.browsePath, directOperationDialog.inlineNewFolderName, showNotification, loadPickerDirs]);
+
     // Tag Operations
     const updateFileWithTags = useCallback(async (file: FileItem, newTags: Tag[]) => {
         try {
@@ -730,6 +767,9 @@ export const useFileOperations = (
         navigatePickerTo,
         navigatePickerUp,
         newFolderDialog,
+        startInlineNewFolder,
+        cancelInlineNewFolder,
+        confirmInlineNewFolder,
         setNewFolderDialog,
         handleCreateFolder,
         closeNewFolderDialog,
